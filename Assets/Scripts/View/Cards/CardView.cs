@@ -193,7 +193,9 @@ namespace CardWar.Gameplay.Cards
 
         public async UniTask MoveToPosition(Vector3 target)
         {
-            await transform.DOMove(target, 0.5f).SetEase(Ease.OutQuad);
+            await transform.DOMove(target, 0.5f)
+                .SetEase(Ease.OutQuad)
+                .AsyncWaitForCompletion();
         }
 
         public void ShowWinPile(int cardCount)
