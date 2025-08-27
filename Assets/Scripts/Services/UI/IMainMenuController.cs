@@ -1,10 +1,13 @@
 using UnityEngine;
 using Zenject;
 
-public interface IMainMenuController
+namespace CardWar.Services.UI
 {
-    RectTransform GetRectTransform();
-    void Initialize(SignalBus signalBus);
-    void Show();
-    void Hide();
+    public interface IMainMenuController
+    {
+        RectTransform GetRectTransform();
+        void Initialize(SignalBus signalBus);
+        void Show();
+        void Hide();
+    }
 }

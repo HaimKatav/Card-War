@@ -3,7 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-namespace Assets.Scripts.Services.AssetManagement
+namespace CardWar.Services.Assets
 {
     /// <summary>
     /// Concrete implementation of asset loading request with cancellation support

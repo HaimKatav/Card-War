@@ -2,17 +2,16 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Zenject;
 using CardWar.Core.Events;
-using CardWar.Services.Game;
+using CardWar.Core.GameLogic;
 using CardWar.Services.Network;
 using CardWar.Services.UI;
 
-namespace CardWar.Controllers.Game
+namespace CardWar.Core.GameLogic
 {
     public class GameManager : MonoBehaviour, IInitializable
     {
         // Injected services (non-MonoBehaviour)
         private IGameService _gameService;
-        private IAnimationService _animationService;
         private IFakeServerService _serverService;
 
         // Injected managers (MonoBehaviour scene objects)
@@ -24,13 +23,11 @@ namespace CardWar.Controllers.Game
         [Inject]
         public void Construct(
             IGameService gameService,
-            IAnimationService animationService,
             IFakeServerService serverService,
             UIManager uiManager,
             SignalBus signalBus)
         {
             _gameService = gameService;
-            _animationService = animationService;
             _serverService = serverService;
             _uiManager = uiManager;
             _signalBus = signalBus;

@@ -6,7 +6,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Zenject;
 
-namespace Assets.Scripts.Services.AssetManagement
+namespace CardWar.Services.Assets
 {
     /// <summary>
     /// Main asset management service - handles all asset loading, caching, and instantiation

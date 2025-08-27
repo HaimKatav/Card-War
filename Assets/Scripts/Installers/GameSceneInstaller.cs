@@ -1,20 +1,17 @@
-using Assets.Scripts.Player;
-using Assets.Scripts.Services;
+using CardWar.Gameplay.Players;
 using UnityEngine;
 using Zenject;
-using Assets.Scripts.Services.AssetManagement;
+using CardWar.Services.Assets;
 using CardWar.Core.Events;
-using CardWar.Services.Game;
+using CardWar.Core.GameLogic;
 using CardWar.Services.Network;
-using CardWar.View.Cards;
+using CardWar.Gameplay.Cards;
+using CardWar.Services.UI;
 
 namespace CardWar.Installers
 {
     public class GameSceneInstaller : MonoInstaller
     {
-        [Header("Settings")]
-        [SerializeField] private float _defaultAnimationDuration = 0.5f;
-
         [Header("Asset Paths")]
         [SerializeField] private string _cardPrefabPath = "Prefabs/Cards/CardView";
         
@@ -30,13 +27,9 @@ namespace CardWar.Installers
             DeclareSignals();
 
             BindAssetManagement();
-
             BindSceneManagers();
-
             BindServices();
-
             BindFactories();
-
             BindGameManager();
 
             Debug.Log("GameSceneInstaller: Installation completed successfully!");
@@ -59,11 +52,14 @@ namespace CardWar.Installers
 
         private void BindAssetManagement()
         {
-            // Bind AssetManager as singleton service
             Container.Bind<IAssetManager>()
                 .To<AssetManager>()
                 .AsSingle()
-                .NonLazy(); // Create immediately for preloading
+                .NonLazy();
+
+            Container.Bind<IAssetService>()
+                .To<AssetService>()
+                .AsSingle();
 
             Debug.Log("Asset management bound successfully");
         }
@@ -100,50 +96,31 @@ namespace CardWar.Installers
         private void BindServices()
         {
             Container.Bind<IGameService>()
-                .To<CardWar.Services.Game.GameService>()
+                .To<CardWar.Core.GameLogic.GameService>()
                 .AsSingle()
                 .NonLazy();
-
-            // Animation is now a controller, not a service - created per use case
-            Container.Bind<IAnimationService>()
-                .To<AnimationService>()
-                .AsSingle()
-                .WithArguments(_defaultAnimationDuration);
 
             Container.Bind<IFakeServerService>()
                 .To<CardWar.Services.Network.FakeWarServer>()
                 .AsSingle()
                 .NonLazy();
                 
-            // Bind WarResolver as service
-            Container.Bind<CardWar.Services.Network.WarResolver>()
+            Container.Bind<CardWar.Core.GameLogic.WarResolver>()
                 .AsSingle()
                 .NonLazy();
                 
-            // Bind WarAnimationController as service
-            Container.Bind<WarAnimationController>()
-                .AsSingle()
-                .NonLazy();
-
             Debug.Log("Services bound successfully");
         }
 
         private void BindFactories()
         {
-            // Bind async card factory
-            Container.Bind<AsyncCardViewFactory>()
-                .AsSingle()
-                .WithArguments(_cardPrefabPath);
-
-            // Bind player controller factory
-            Container.Bind<Assets.Scripts.Player.PlayerControllerFactory>()
+            Container.Bind<PlayerControllerFactory>()
                 .AsSingle();
-            
-            // Bind card pool
+
             Container.BindMemoryPool<CardView, CardView.Pool>()
                 .WithInitialSize(16) // Minimum pool size
                 .ExpandByDoubling()  // Double size when expanding
-                .To<CardWar.View.Cards.CardView>()
+                .To<CardWar.Gameplay.Cards.CardView>()
                 .FromComponentInNewPrefab(GetCardPrefab())
                 .UnderTransformGroup("CardPool");
 
@@ -160,7 +137,7 @@ namespace CardWar.Installers
                 Debug.LogError($"Card prefab not found at path: {_cardPrefabPath}");
                             // Create a simple fallback prefab
             prefab = new GameObject("CardView");
-            prefab.AddComponent<CardWar.View.Cards.CardView>();
+            prefab.AddComponent<CardWar.Gameplay.Cards.CardView>();
             }
             return prefab;
         }
@@ -168,14 +145,14 @@ namespace CardWar.Installers
         private void BindGameManager()
         {
             // Create GameManager and bind as both concrete type and interfaces
-            Container.Bind<CardWar.Controllers.Game.GameManager>()
+            Container.Bind<CardWar.Core.GameLogic.GameManager>()
                 .FromNewComponentOnNewGameObject()
                 .AsSingle()
                 .NonLazy();
 
             // Bind GameManager interfaces
             Container.Bind<IInitializable>()
-                .To<CardWar.Controllers.Game.GameManager>()
+                .To<CardWar.Core.GameLogic.GameManager>()
                 .FromResolve();
 
             Debug.Log("GameManager bound successfully");

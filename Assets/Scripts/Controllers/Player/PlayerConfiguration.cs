@@ -1,7 +1,7 @@
 using UnityEngine;
 using CardWar.Core.Enums;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     [System.Serializable]
     public class PlayerConfiguration

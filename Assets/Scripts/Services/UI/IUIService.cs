@@ -1,11 +1,17 @@
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 
-public interface IUIService
+namespace CardWar.Services.UI
 {
-    void ShowMainMenu();
-    void ShowGameplay();
-    void ShowLoading(bool isLoading);
+    public interface IUIService
+    {
+        void ShowMainMenu();
+        void ShowGameplay();
+        void ShowLoading(bool isLoading);
     UniTask CreateGameUIControllerAsync();
     UniTask DestroyGameUIControllerAsync();
     UniTask ReturnToMainMenuAsync();
+    Transform GetPlayerArea();
+    Transform GetOpponentArea();
+}
 }
