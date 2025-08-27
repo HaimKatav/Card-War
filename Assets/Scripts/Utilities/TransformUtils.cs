@@ -1,22 +1,20 @@
 using UnityEngine;
 
-public static class ProjectExtensions
+namespace CardWar.Utilities
 {
-    /// <summary>
-    /// Resets a transform to identity values (zero position, identity rotation, unit scale)
-    /// </summary>
-    /// <param name="transform">The transform to reset</param>
-    public static void ResetTransform(this Transform transform)
+    public static class ProjectExtensions
     {
-        if (transform == null)
+        public static void ResetTransform(this Transform transform)
         {
-            Debug.LogWarning("ProjectExtensions: Cannot reset null transform");
-            return;
+            if (transform == null)
+            {
+                Debug.LogWarning("ProjectExtensions: Cannot reset null transform");
+                return;
+            }
+
+            transform.localPosition = Vector3.zero;
+            transform.localRotation = Quaternion.identity;
+            transform.localScale = Vector3.one;
         }
-        
-        transform.localPosition = Vector3.zero;
-        transform.localRotation = Quaternion.identity;
-        transform.localScale = Vector3.one;
-    } 
-    
+    }
 }
