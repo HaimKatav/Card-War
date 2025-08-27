@@ -1,11 +1,10 @@
 using UnityEngine;
+using System.Threading.Tasks;
 
-namespace CardWar.Services.Assets
+public interface IAssetService
 {
-    public interface IAssetService
-    {
-        T Load<T>(string path) where T : Object;
-        GameObject Instantiate(string path, Transform parent = null);
-        void Release(GameObject instance);
-    }
+    Task<T> LoadAssetAsync<T>(string assetKey) where T : Object;
+    Task<GameObject> InstantiateAsync(string assetKey, Transform parent = null);
+    void ReleaseAsset(Object asset);
+    void ReleaseInstance(GameObject instance);
 }

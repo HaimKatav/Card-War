@@ -4,13 +4,13 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using Assets.Scripts.Services;
 using CardWar.Core.Data;
-using CardWar.Core.GameLogic;
 using CardWar.Core.Enums;
 
 namespace CardWar.Services.Network
 {
-    public class FakeWarServer
+    public class FakeWarServer : IFakeServerService
     {
         private GameStateData _gameStateData;
         private Queue<CardData> _playerDeck;
