@@ -4,7 +4,7 @@ using System.Linq;
 using CardWar.Core.Data;
 using UnityEngine;
 
-namespace CardWar.Core.GameLogic
+namespace CardWar.Services.Network
 {
     /// <summary>
     /// Resolves complete war scenarios by calculating the entire war to completion
