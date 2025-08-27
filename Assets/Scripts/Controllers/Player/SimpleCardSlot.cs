@@ -4,9 +4,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using CardWar.Core.Data;
-using CardWar.View.Cards;
+using CardWar.Gameplay.Cards;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Simple implementation of card placement slot

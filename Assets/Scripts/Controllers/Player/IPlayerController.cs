@@ -4,7 +4,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using CardWar.Core.Data;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Interface for all player controllers (local player and AI opponent)

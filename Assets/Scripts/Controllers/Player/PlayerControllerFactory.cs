@@ -2,10 +2,10 @@ using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Zenject;
-using Assets.Scripts.Services.AssetManagement;
+using CardWar.Services.Assets;
 using CardWar.Core.Enums;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Factory for creating player controllers

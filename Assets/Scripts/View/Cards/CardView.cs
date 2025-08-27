@@ -1,11 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using Zenject;
 using CardWar.Core.Data;
 using CardWar.Core.Enums;
 
-namespace CardWar.View.Cards
+namespace CardWar.Gameplay.Cards
 {
     public class CardView : MonoBehaviour
     {
@@ -175,6 +177,24 @@ namespace CardWar.View.Cards
                 // Cleanup if needed
                 base.OnDestroyed(item);
             }
+        }
+
+        public async UniTask FlipToFront(CardData data)
+        {
+            await transform.DORotateY(90f, 0.15f);
+            Setup(data);
+            ShowFrontFace();
+            await transform.DORotateY(0f, 0.15f);
+        }
+
+        public async UniTask MoveToPosition(Vector3 target)
+        {
+            await transform.DOMove(target, 0.5f).SetEase(Ease.OutQuad);
+        }
+
+        public void ShowWinPile(int cardCount)
+        {
+            transform.DOPunchScale(Vector3.one * 0.2f, 0.3f);
         }
     }
 }

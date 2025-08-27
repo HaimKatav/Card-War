@@ -6,10 +6,11 @@ using Zenject;
 using CardWar.Core.Data;
 using CardWar.Core.Enums;
 using CardWar.Core.Events;
-using CardWar.Services.Game;
-using CardWar.View.Cards;
+using CardWar.Core.GameLogic;
+using CardWar.Gameplay.Cards;
+using CardWar.Services.UI;
 
-namespace CardWar.Controllers.UI
+namespace CardWar.UI.Screens
 {
     public class GameUIController : MonoBehaviour, IGameUIController
     {

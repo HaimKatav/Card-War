@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using CardWar.View.Cards;
+using CardWar.Gameplay.Cards;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Interface for card deck visualization and management

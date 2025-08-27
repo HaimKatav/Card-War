@@ -4,11 +4,11 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Zenject;
-using Assets.Scripts.Services.AssetManagement;
+using CardWar.Services.Assets;
 using CardWar.Core.Data;
-using CardWar.View.Cards;
+using CardWar.Gameplay.Cards;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Base implementation of player controller with shared functionality
@@ -19,7 +19,6 @@ namespace Assets.Scripts.Player
         protected IAssetManager _assetManager;
         protected SignalBus _signalBus;
         protected CardView.Pool _cardPool;
-        protected IAnimationService _animationService;
         
         // Configuration
         protected PlayerConfiguration _config;
@@ -64,13 +63,11 @@ namespace Assets.Scripts.Player
         public virtual void Construct(
             IAssetManager assetManager,
             SignalBus signalBus,
-            CardView.Pool cardPool,
-            IAnimationService animationService)
+            CardView.Pool cardPool)
         {
             _assetManager = assetManager;
             _signalBus = signalBus;
             _cardPool = cardPool;
-            _animationService = animationService;
             _cancellationTokenSource = new CancellationTokenSource();
             _activeCards = new List<CardView>();
         }
@@ -181,7 +178,7 @@ namespace Assets.Scripts.Player
             await _cardSlot.PlaceCardAsync(cardView, animate: true);
             
             // Flip card face up
-            await _animationService.AnimateCardFlip(cardView, card);
+            await cardView.FlipToFront(card);
             
             Debug.Log($"[PlayerController] {PlayerName} showed card: {card}");
         }
@@ -363,17 +360,17 @@ namespace Assets.Scripts.Player
             // Release assets
             if (_deck?.Transform?.gameObject != null)
             {
-                _assetManager.ReleaseInstance(_deck.Transform.gameObject);
+                _assetManager.ReleaseInstance(_deck.Transform.gameObject, true);
             }
             
             if (_cardSlot?.Transform?.gameObject != null)
             {
-                _assetManager.ReleaseInstance(_cardSlot.Transform.gameObject);
+                _assetManager.ReleaseInstance(_cardSlot.Transform.gameObject, true);
             }
             
             if (_cardCountUI?.gameObject != null)
             {
-                _assetManager.ReleaseInstance(_cardCountUI.gameObject);
+                _assetManager.ReleaseInstance(_cardCountUI.gameObject, true);
             }
             
             // Clear events

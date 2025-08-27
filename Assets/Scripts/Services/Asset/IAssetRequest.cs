@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
-namespace Assets.Scripts.Services.AssetManagement
+namespace CardWar.Services.Assets
 {
     /// <summary>
     /// Base interface for all asset requests

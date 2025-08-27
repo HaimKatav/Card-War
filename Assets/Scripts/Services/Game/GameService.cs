@@ -1,6 +1,6 @@
 using System;
-using Assets.Scripts.Player;
-using Assets.Scripts.Services;
+using CardWar.Gameplay.Players;
+using CardWar.Services.UI;
 using CardWar.Core.Data;
 using CardWar.Core.Events;
 using CardWar.Services.Network;
@@ -8,14 +8,13 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Zenject;
 
-namespace CardWar.Services.Game
+namespace CardWar.Core.GameLogic
 {
     public class GameService : IGameService, IInitializable
     {
         private readonly IFakeServerService _fakeServer;
         private readonly IUIService _uiService;
         private readonly SignalBus _signalBus;
-        private readonly WarAnimationController _warAnimationController;
         private readonly PlayerControllerFactory _playerFactory;
         
         private GameStateData _currentGameStateData;
@@ -31,13 +30,11 @@ namespace CardWar.Services.Game
             IFakeServerService fakeServer, 
             IUIService uiService, 
             SignalBus signalBus,
-            WarAnimationController warAnimationController,
             PlayerControllerFactory playerFactory)
         {
             _fakeServer = fakeServer;
             _uiService = uiService;
             _signalBus = signalBus;
-            _warAnimationController = warAnimationController;
             _playerFactory = playerFactory;
         }
 
@@ -224,18 +221,9 @@ namespace CardWar.Services.Game
                 // Disable draw button during war
                 _gameUIController.SetDrawButtonInteractable(false);
                 
-                // Execute war animation sequence
-                await _warAnimationController.ExecuteWarAnimationAsync(
-                    resultData.WarData, 
-                    _localPlayer, 
-                    _aiPlayer);
-                
-                // Update UI with war result
+                // War animation simplified
                 _gameUIController.ShowRoundResult(resultData);
-                
-                // Re-enable draw button after war
                 _gameUIController.SetDrawButtonInteractable(true);
-                
                 Debug.Log("GameService: War scenario completed successfully");
             }
             catch (Exception ex)

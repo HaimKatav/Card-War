@@ -1,11 +1,11 @@
 using System;
 using System.Threading;
-using CardWar.View.Cards;
+using CardWar.Gameplay.Cards;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Zenject;
 
-namespace Assets.Scripts.Services.AssetManagement
+namespace CardWar.Services.Assets
 {
     /// <summary>
     /// Base interface for async factories

@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using CardWar.View.Cards;
+using CardWar.Gameplay.Cards;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Interface for card placement slots

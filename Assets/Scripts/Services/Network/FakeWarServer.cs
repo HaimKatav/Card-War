@@ -4,9 +4,9 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Random = UnityEngine.Random;
-using Assets.Scripts.Services;
 using CardWar.Core.Data;
 using CardWar.Core.Enums;
+using CardWar.Core.GameLogic;
 
 namespace CardWar.Services.Network
 {

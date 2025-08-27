@@ -2,6 +2,8 @@ using UnityEngine;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
+namespace CardWar.Services.Assets
+{
 public class AssetService : IAssetService
 {
     private readonly Dictionary<string, Object> _loadedAssets = new Dictionary<string, Object>();
@@ -91,4 +93,5 @@ public class AssetService : IAssetService
             Object.Destroy(instance);
         }
     }
+}
 }

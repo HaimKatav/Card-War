@@ -8,7 +8,7 @@ using Zenject;
 using CardWar.Core.Enums;
 using CardWar.Core.Events;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Controller for the local human player
@@ -135,7 +135,7 @@ namespace Assets.Scripts.Player
             await _cardSlot.PlaceCardAsync(cardView, animate: true);
             
             // Flip face up
-            await _animationService.AnimateCardFlip(cardView, fightingCard);
+            await cardView.FlipToFront(fightingCard);
             
             InvokeOnCardPlayed(fightingCard);
             

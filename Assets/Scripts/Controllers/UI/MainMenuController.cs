@@ -2,8 +2,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using Zenject;
 using CardWar.Core.Events;
+using CardWar.Services.UI;
 
-namespace CardWar.Controllers.UI
+namespace CardWar.UI.Screens
 {
     public class MainMenuController : MonoBehaviour, IMainMenuController
     {

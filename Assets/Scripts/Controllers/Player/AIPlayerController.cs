@@ -6,7 +6,7 @@ using Random = UnityEngine.Random;
 using CardWar.Core.Enums;
 using CardWar.Core.Events;
 
-namespace Assets.Scripts.Player
+namespace CardWar.Gameplay.Players
 {
     /// <summary>
     /// Controller for the AI opponent player
@@ -94,7 +94,7 @@ namespace Assets.Scripts.Player
             await UniTask.Delay(TimeSpan.FromSeconds(0.2f), 
                 cancellationToken: _cancellationTokenSource.Token);
             
-            await _animationService.AnimateCardFlip(cardView, fightingCard);
+            await cardView.FlipToFront(fightingCard);
             
             InvokeOnCardPlayed(fightingCard);
             
