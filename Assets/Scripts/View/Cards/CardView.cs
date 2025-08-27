@@ -181,10 +181,14 @@ namespace CardWar.Gameplay.Cards
 
         public async UniTask FlipToFront(CardData data)
         {
-            await transform.DORotateY(90f, 0.15f);
+            await transform
+                .DOLocalRotate(new Vector3(0f, 90f, 0f), 0.15f)
+                .AsyncWaitForCompletion();
             Setup(data);
             ShowFrontFace();
-            await transform.DORotateY(0f, 0.15f);
+            await transform
+                .DOLocalRotate(Vector3.zero, 0.15f)
+                .AsyncWaitForCompletion();
         }
 
         public async UniTask MoveToPosition(Vector3 target)
