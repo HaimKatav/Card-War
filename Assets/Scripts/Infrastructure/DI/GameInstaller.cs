@@ -1,83 +1,137 @@
 using UnityEngine;
 using Zenject;
-using CardWar.Infrastructure.Events;
+using CardWar.Services.Assets;
+using CardWar.Services.Network;
 using CardWar.Services.Game;
+using CardWar.Infrastructure.Events;
 using CardWar.Gameplay.Controllers;
+using CardWar.Configuration;
 using CardWar.Core.UI;
-using CardWar.UI.Cards;
 
 namespace CardWar.Infrastructure.Installers
 {
     public class GameInstaller : MonoInstaller
     {
-        [Header("UI Prefabs")]
+        [Header("Scene References - Assign in Inspector")]
+        [SerializeField] private Camera _gameCamera;
+        [SerializeField] private Canvas _gameCanvas;
         [SerializeField] private GameObject _cardPrefab;
         [SerializeField] private Transform _cardPoolContainer;
         
         public override void InstallBindings()
         {
-            InstallEvents();
-            InstallGameServices();
-            InstallGameControllers();
-            InstallUI();
-            InstallPools();
+            Debug.Log("[GameInstaller] Starting binding process...");
+            
+            try
+            {
+                // Bind GameSettings (global)
+                BindGameSettings();
+                
+                // Bind global services
+                BindGlobalServices();
+                
+                // Bind scene-specific components
+                BindSceneComponents();
+                
+                // Bind prefab references
+                BindPrefabReferences();
+                
+                // Declare signals
+                DeclareSignals();
+                
+                Debug.Log("[GameInstaller] All bindings completed successfully");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[GameInstaller] Binding failed: {ex.Message}");
+                throw;
+            }
         }
         
-        private void InstallEvents()
+        private void BindGameSettings()
         {
-            SignalBusInstaller.Install(Container);
+            var gameSettings = Resources.Load<GameSettings>("GameSettings");
+            if (gameSettings == null)
+            {
+                Debug.LogError("[GameInstaller] GameSettings not found! Create it first.");
+                return;
+            }
             
+            Container.Bind<GameSettings>().FromInstance(gameSettings).AsSingle();
+            Debug.Log("[GameInstaller] GameSettings bound");
+        }
+        
+        private void BindGlobalServices()
+        {
+            Container.Bind(typeof(IAssetService), typeof(IInitializable))
+                .To<AssetService>()
+                .AsSingle()
+                .NonLazy();
+
+            Container.Bind<IFakeServerService>().To<FakeWarServer>().AsSingle();
+            
+            Container.Bind<IGameService>().To<GameService>().AsSingle();
+            
+            Debug.Log("[GameInstaller] Global services bound");
+        }
+        
+        private void BindSceneComponents()
+        {
+            // Camera and Canvas
+            if (_gameCamera != null)
+                Container.Bind<Camera>().FromInstance(_gameCamera).AsSingle();
+            
+            if (_gameCanvas != null)
+                Container.Bind<Canvas>().FromInstance(_gameCanvas).AsSingle();
+            
+            // Find and bind scene managers
+            var canvasManager = FindObjectOfType<CanvasManager>();
+            if (canvasManager != null)
+            {
+                Container.BindInterfacesAndSelfTo<CanvasManager>()
+                    .FromInstance(canvasManager)
+                    .AsSingle();
+            }
+            
+            var uiManager = FindObjectOfType<UIManager>();
+            if (uiManager != null)
+            {
+                Container.BindInterfacesAndSelfTo<UIManager>()
+                    .FromInstance(uiManager)
+                    .AsSingle();
+            }
+            
+            var cardAnimationController = FindObjectOfType<CardAnimationController>();
+            if (cardAnimationController != null)
+            {
+                Container.Bind<CardAnimationController>()
+                    .FromInstance(cardAnimationController)
+                    .AsSingle();
+            }
+            
+            Debug.Log("[GameInstaller] Scene components bound");
+        }
+        
+        private void BindPrefabReferences()
+        {
+            if (_cardPrefab != null)
+                Container.Bind<GameObject>().WithId("CardPrefab").FromInstance(_cardPrefab);
+            
+            if (_cardPoolContainer != null)
+                Container.Bind<Transform>().WithId("CardPoolContainer").FromInstance(_cardPoolContainer);
+            
+            Debug.Log("[GameInstaller] Prefab references bound");
+        }
+        
+        private void DeclareSignals()
+        {
             Container.DeclareSignal<GameStartEvent>();
-            Container.DeclareSignal<GameEndEvent>();
-            Container.DeclareSignal<RoundStartEvent>();
             Container.DeclareSignal<RoundCompleteEvent>();
+            Container.DeclareSignal<GameEndEvent>();
             Container.DeclareSignal<WarStartEvent>();
             Container.DeclareSignal<GameStateChangedEvent>();
-            Container.DeclareSignal<PlayerActionEvent>();
-        }
-        
-        private void InstallGameServices()
-        {
-            Container.Bind<IGameService>()
-                .To<GameService>()
-                .AsSingle()
-                .NonLazy();
-        }
-        
-        private void InstallGameControllers()
-        {
-            Container.BindInterfacesAndSelfTo<GameController>()
-                .AsSingle()
-                .NonLazy();
-        }
-        
-        private void InstallUI()
-        {
-            // UIManager should be attached to a GameObject in the scene
-            Container.BindInterfacesAndSelfTo<UIManager>()
-                .FromComponentInHierarchy()
-                .AsSingle();
             
-            // CardAnimationController handles all card animations
-            Container.BindInterfacesAndSelfTo<CardAnimationController>()
-                .FromComponentInHierarchy()
-                .AsSingle();
-        }
-        
-        private void InstallPools()
-        {
-            // Card pool for efficient card spawning
-            if (_cardPrefab != null)
-            {
-                Container.BindMemoryPool<CardViewController, CardViewController.Pool>()
-                    .WithInitialSize(10)
-                    .FromComponentInNewPrefab(_cardPrefab)
-                    .UnderTransform(_cardPoolContainer);
-            }
-            else
-            {
-                Debug.LogWarning("[GameInstaller] Card prefab not assigned. Card pool will not be created.");
-            }
+            Debug.Log("[GameInstaller] Signals declared");
         }
     }
 }

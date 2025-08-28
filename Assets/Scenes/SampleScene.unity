@@ -590,6 +590,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d3df6d1f35f2413d9760547932b6a8e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _gameSettings: {fileID: 11400000, guid: cfd21a68f491944faaeb694bd9a1273a, type: 2}
 --- !u!114 &388103653
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -603,7 +604,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _scriptableObjectInstallers: []
-  _monoInstallers: []
+  _monoInstallers:
+  - {fileID: 388103652}
   _installerPrefabs: []
   _parentNewObjectsUnderContext: 1
   _editorReflectionBakingCoverageMode: 0
@@ -2739,6 +2741,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8aa436a997a4037adddc02cc5f48520, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _gameCamera: {fileID: 519420031}
+  _gameCanvas: {fileID: 344644462}
   _cardPrefab: {fileID: 4303328162288877190, guid: 335611e7b17ab45f18d395805d19ba20, type: 3}
   _cardPoolContainer: {fileID: 1057774456}
 --- !u!114 &2101976913
@@ -2754,7 +2758,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _scriptableObjectInstallers: []
-  _monoInstallers: []
+  _monoInstallers:
+  - {fileID: 2101976912}
   _installerPrefabs: []
   _autoRun: 1
   OnPreInstall:

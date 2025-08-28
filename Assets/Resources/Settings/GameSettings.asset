@@ -30,14 +30,14 @@ MonoBehaviour:
   cardAnimationDuration: 0.5
   warAnimationDuration: 2
   cardPoolInitialSize: 20
-  playerCardPosition: {x: 0, y: -400, z: 0}
-  opponentCardPosition: {x: 0, y: 400, z: 0}
-  deckPosition: {x: -400, y: 0, z: 0}
-  warPilePosition: {x: 0, y: 0, z: 0}
+  playerCardPosition: {x: 0, y: -300, z: 0}
+  opponentCardPosition: {x: 0, y: 300, z: 0}
+  deckPosition: {x: -200, y: 0, z: 0}
+  warPilePosition: {x: 200, y: 0, z: 0}
   playerColor: {r: 0.2, g: 0.6, b: 1, a: 1}
-  opponentColor: {r: 1, g: 0.3, b: 0.2, a: 1}
+  opponentColor: {r: 1, g: 0.4, b: 0.2, a: 1}
   warColor: {r: 1, g: 0.8, b: 0.1, a: 1}
-  backgroundColor: {r: 0.1, g: 0.5, b: 0.3, a: 1}
+  backgroundColor: {r: 0.1, g: 0.5, b: 0.1, a: 1}
   enableDebugLogs: 1
   enableAssetValidation: 1
   autoCreateMissingFolders: 1
