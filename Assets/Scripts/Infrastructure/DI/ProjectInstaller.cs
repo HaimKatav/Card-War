@@ -10,39 +10,36 @@ namespace CardWar.Infrastructure.Installers
 {
     public class ProjectInstaller : MonoInstaller
     {
-        [SerializeField] private GameSettings _gameSettings;
-        
+        private GameSettings _gameSettings;
+
         public override void InstallBindings()
         {
-            // Load GameSettings if not assigned
+
+            _gameSettings = Resources.Load<GameSettings>("Settings/GameSettings");
             if (_gameSettings == null)
             {
-                _gameSettings = Resources.Load<GameSettings>("GameSettings");
-                if (_gameSettings == null)
-                {
-                    Debug.LogError("[ProjectInstaller] GameSettings not found in Resources!");
-                    return;
-                }
+                Debug.LogError("[ProjectInstaller] GameSettings not found in Resources!");
+                return;
             }
-            
+
             // Global Services
             Container.Bind<GameSettings>().FromInstance(_gameSettings).AsSingle();
-            
+
             Container.Bind(typeof(IAssetService), typeof(IInitializable))
                 .To<AssetService>()
                 .AsSingle()
                 .NonLazy();
-            
+
             Container.Bind<IFakeServerService>().To<FakeWarServer>().AsSingle();
             Container.Bind<IGameService>().To<GameService>().AsSingle();
-            
+
             // Event System
             Container.DeclareSignal<GameStartEvent>();
             Container.DeclareSignal<RoundCompleteEvent>();
             Container.DeclareSignal<GameEndEvent>();
             Container.DeclareSignal<WarStartEvent>();
             Container.DeclareSignal<GameStateChangedEvent>();
-            
+
             Debug.Log("[ProjectInstaller] Global services bound successfully");
         }
     }

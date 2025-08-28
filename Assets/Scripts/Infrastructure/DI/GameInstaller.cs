@@ -1,12 +1,8 @@
 using UnityEngine;
 using Zenject;
-using CardWar.Services.Assets;
-using CardWar.Services.Network;
-using CardWar.Services.Game;
-using CardWar.Infrastructure.Events;
 using CardWar.Gameplay.Controllers;
-using CardWar.Configuration;
 using CardWar.Core.UI;
+using CardWar.Core;
 
 namespace CardWar.Infrastructure.Installers
 {
@@ -24,19 +20,8 @@ namespace CardWar.Infrastructure.Installers
             
             try
             {
-                // Bind GameSettings (global)
-                BindGameSettings();
-                
-                // Bind global services
-                BindGlobalServices();
-                
-                // Bind scene-specific components
                 BindSceneComponents();
-                
-                // Bind prefab references
                 BindPrefabReferences();
-                
-                // Declare signals
                 DeclareSignals();
                 
                 Debug.Log("[GameInstaller] All bindings completed successfully");
@@ -48,49 +33,24 @@ namespace CardWar.Infrastructure.Installers
             }
         }
         
-        private void BindGameSettings()
-        {
-            var gameSettings = Resources.Load<GameSettings>("GameSettings");
-            if (gameSettings == null)
-            {
-                Debug.LogError("[GameInstaller] GameSettings not found! Create it first.");
-                return;
-            }
-            
-            Container.Bind<GameSettings>().FromInstance(gameSettings).AsSingle();
-            Debug.Log("[GameInstaller] GameSettings bound");
-        }
-        
-        private void BindGlobalServices()
-        {
-            Container.Bind(typeof(IAssetService), typeof(IInitializable))
-                .To<AssetService>()
-                .AsSingle()
-                .NonLazy();
-
-            Container.Bind<IFakeServerService>().To<FakeWarServer>().AsSingle();
-            
-            Container.Bind<IGameService>().To<GameService>().AsSingle();
-            
-            Debug.Log("[GameInstaller] Global services bound");
-        }
-        
         private void BindSceneComponents()
         {
-            // Camera and Canvas
             if (_gameCamera != null)
                 Container.Bind<Camera>().FromInstance(_gameCamera).AsSingle();
             
             if (_gameCanvas != null)
                 Container.Bind<Canvas>().FromInstance(_gameCanvas).AsSingle();
             
-            // Find and bind scene managers
             var canvasManager = FindObjectOfType<CanvasManager>();
             if (canvasManager != null)
             {
                 Container.BindInterfacesAndSelfTo<CanvasManager>()
                     .FromInstance(canvasManager)
                     .AsSingle();
+            }
+            else
+            {
+                Debug.LogError("[GameInstaller] CanvasManager not found in scene!");
             }
             
             var uiManager = FindObjectOfType<UIManager>();
@@ -100,13 +60,33 @@ namespace CardWar.Infrastructure.Installers
                     .FromInstance(uiManager)
                     .AsSingle();
             }
+            else
+            {
+                Debug.LogError("[GameInstaller] UIManager not found in scene!");
+            }
             
             var cardAnimationController = FindObjectOfType<CardAnimationController>();
             if (cardAnimationController != null)
             {
-                Container.Bind<CardAnimationController>()
+                Container.BindInterfacesAndSelfTo<CardAnimationController>()
                     .FromInstance(cardAnimationController)
                     .AsSingle();
+            }
+            else
+            {
+                Debug.LogError("[GameInstaller] CardAnimationController not found in scene!");
+            }
+            
+            var gameInteractionController = FindObjectOfType<GameInteractionController>();
+            if (gameInteractionController != null)
+            {
+                Container.BindInterfacesAndSelfTo<GameInteractionController>()
+                    .FromInstance(gameInteractionController)
+                    .AsSingle();
+            }
+            else
+            {
+                Debug.LogError("[GameInstaller] GameInteractionController not found in scene!");
             }
             
             Debug.Log("[GameInstaller] Scene components bound");
@@ -125,13 +105,7 @@ namespace CardWar.Infrastructure.Installers
         
         private void DeclareSignals()
         {
-            Container.DeclareSignal<GameStartEvent>();
-            Container.DeclareSignal<RoundCompleteEvent>();
-            Container.DeclareSignal<GameEndEvent>();
-            Container.DeclareSignal<WarStartEvent>();
-            Container.DeclareSignal<GameStateChangedEvent>();
-            
-            Debug.Log("[GameInstaller] Signals declared");
+            Debug.Log("[GameInstaller] Signals declared (already handled by ProjectContext)");
         }
     }
 }

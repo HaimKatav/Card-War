@@ -294,26 +294,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fbf5351e25fb4f4189dc0d00c431b924, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _playerScorePanel: {fileID: 682091140}
-  _opponentScorePanel: {fileID: 1877097492}
-  _centerGamePanel: {fileID: 1571481077}
-  _gameStatePanel: {fileID: 1487465524}
   _playerScoreText: {fileID: 573062779}
   _opponentScoreText: {fileID: 1890887548}
-  _roundText: {fileID: 1392754843}
+  _roundCounterText: {fileID: 0}
   _gameStateText: {fileID: 1487465526}
   _warIndicator: {fileID: 0}
-  _warText: {fileID: 0}
   _gameOverScreen: {fileID: 870823956}
-  _gameOverText: {fileID: 1155133233}
   _winnerText: {fileID: 1155133233}
-  _backgroundImage: {fileID: 1614394199}
-  _playerScoreBackground: {fileID: 682091142}
-  _opponentScoreBackground: {fileID: 1877097494}
-  _centerPanelBackground: {fileID: 1571481079}
-  _scoreUpdateDuration: 0.5
-  _popupFadeDuration: 0.3
-  _warDisplayDuration: 2
+  _restartButton: {fileID: 0}
+  _quitButton: {fileID: 0}
 --- !u!4 &170105858
 Transform:
   m_ObjectHideFlags: 0
@@ -560,81 +549,6 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
---- !u!1 &388103651
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 388103654}
-  - component: {fileID: 388103653}
-  - component: {fileID: 388103652}
-  m_Layer: 0
-  m_Name: ProjectContext
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &388103652
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 388103651}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3df6d1f35f2413d9760547932b6a8e6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _gameSettings: {fileID: 11400000, guid: cfd21a68f491944faaeb694bd9a1273a, type: 2}
---- !u!114 &388103653
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 388103651}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4e6589720da476459dc6dd71624b071, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _scriptableObjectInstallers: []
-  _monoInstallers:
-  - {fileID: 388103652}
-  _installerPrefabs: []
-  _parentNewObjectsUnderContext: 1
-  _editorReflectionBakingCoverageMode: 0
-  _buildsReflectionBakingCoverageMode: 0
-  _settings:
-    _ensureDeterministicDestructionOrderOnApplicationQuit: 0
-    _displayWarningWhenResolvingDuringInstall: 1
-    _validationRootResolveMethod: 0
-    _validationErrorResponse: 0
-    _signalSettings:
-      _defaultSyncMode: 0
-      _missingHandlerDefaultResponse: 2
-      _requireStrictUnsubscribe: 0
-      _defaultAsyncTickPriority: 1
---- !u!4 &388103654
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 388103651}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -2851,7 +2765,6 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 519420032}
-  - {fileID: 388103654}
   - {fileID: 344644458}
   - {fileID: 170105858}
   - {fileID: 2101976914}

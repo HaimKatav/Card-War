@@ -5,7 +5,7 @@ using Zenject;
 
 namespace CardWar.Core.UI
 {
-    public class CanvasManager : MonoBehaviour
+    public class CanvasManager : MonoBehaviour, IInitializable
     {
         [Header("Canvas References")]
         [SerializeField] private Canvas _mainCanvas;
@@ -26,14 +26,18 @@ namespace CardWar.Core.UI
             _gameSettings = gameSettings;
         }
         
-        private void Start()
+        public void Initialize()
         {
             SetupCanvasForScreens();
         }
         
         private void SetupCanvasForScreens()
         {
-            if (_canvasScaler == null) return;
+            if (_canvasScaler == null || _gameSettings == null) 
+            {
+                Debug.LogError("[CanvasManager] Missing references - CanvasScaler or GameSettings is null");
+                return;
+            }
             
             _canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             _canvasScaler.referenceResolution = _gameSettings.canvasReferenceResolution;

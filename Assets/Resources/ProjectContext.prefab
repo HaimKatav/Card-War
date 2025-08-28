@@ -74,5 +74,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d3df6d1f35f2413d9760547932b6a8e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _networkErrorConfig: {fileID: 11400000, guid: 562b2b3a814b14ff1b22af985ee95f08, type: 2}
-  _preloadCardAssets: 1
+  _gameSettings: {fileID: 11400000, guid: cfd21a68f491944faaeb694bd9a1273a, type: 2}

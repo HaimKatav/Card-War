@@ -4,364 +4,197 @@ using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
 using Zenject;
-using Cysharp.Threading.Tasks;
 using CardWar.Core.Enums;
 using CardWar.Infrastructure.Events;
 using CardWar.Services.Game;
-using CardWar.Services.Assets;
-using CardWar.Configuration;
 
 namespace CardWar.Core.UI
 {
     public class UIManager : MonoBehaviour, IInitializable, IDisposable
     {
-        [Header("UI Panels")]
-        [SerializeField] private GameObject _playerScorePanel;
-        [SerializeField] private GameObject _opponentScorePanel;
-        [SerializeField] private GameObject _centerGamePanel;
-        [SerializeField] private GameObject _gameStatePanel;
-        
-        [Header("Text Components")]
+        [Header("Score UI")]
         [SerializeField] private TextMeshProUGUI _playerScoreText;
         [SerializeField] private TextMeshProUGUI _opponentScoreText;
-        [SerializeField] private TextMeshProUGUI _roundText;
+        [SerializeField] private TextMeshProUGUI _roundCounterText;
+        
+        [Header("Game State UI")]
         [SerializeField] private TextMeshProUGUI _gameStateText;
-        
-        [Header("Popup Elements")]
         [SerializeField] private GameObject _warIndicator;
-        [SerializeField] private TextMeshProUGUI _warText;
         [SerializeField] private GameObject _gameOverScreen;
-        [SerializeField] private TextMeshProUGUI _gameOverText;
+        
+        [Header("Game Over UI")]
         [SerializeField] private TextMeshProUGUI _winnerText;
-        
-        [Header("Background Elements")]
-        [SerializeField] private Image _backgroundImage;
-        [SerializeField] private Image _playerScoreBackground;
-        [SerializeField] private Image _opponentScoreBackground;
-        [SerializeField] private Image _centerPanelBackground;
-        
-        [Header("Animation Settings")]
-        [SerializeField] private float _scoreUpdateDuration = 0.5f;
-        [SerializeField] private float _popupFadeDuration = 0.3f;
-        [SerializeField] private float _warDisplayDuration = 2f;
+        [SerializeField] private Button _restartButton;
+        [SerializeField] private Button _quitButton;
         
         private IGameService _gameService;
-        private SignalBus _eventBus;
-        private IAssetService _assetService;
-        private CanvasManager _canvasManager;
-        private GameSettings _gameSettings;
+        private SignalBus _signalBus;
+        private Tween _currentAnimation;
+        private bool _isInitialized = false;
         
+        private int _currentRound = 0;
         private int _displayedPlayerScore = 26;
         private int _displayedOpponentScore = 26;
-        private int _currentRound = 0;
-        private Sequence _currentAnimation;
         
         [Inject]
-        public void Construct(
-            IGameService gameService, 
-            SignalBus eventBus, 
-            IAssetService assetService,
-            CanvasManager canvasManager,
-            GameSettings gameSettings)
+        public void Construct(IGameService gameService, SignalBus signalBus)
         {
             _gameService = gameService;
-            _eventBus = eventBus;
-            _assetService = assetService;
-            _canvasManager = canvasManager;
-            _gameSettings = gameSettings;
+            _signalBus = signalBus;
         }
         
         public void Initialize()
         {
-            Debug.Log("[UIManager] Initializing with art assets...");
+            if (_isInitialized) return;
             
-            if (!ValidateUIReferences())
-            {
-                Debug.LogError("[UIManager] Critical UI references are missing! Some features may not work properly.");
-                return;
-            }
-            
-            SetupBackgroundArt();
-            SetupUIArt();
+            InitializeUI();
             SubscribeToEvents();
-            ResetUI();
-            HidePopups();
+            _isInitialized = true;
+            
+            Debug.Log("[UIManager] Initialized successfully");
         }
         
-        private bool ValidateUIReferences()
+        private void InitializeUI()
         {
-            bool isValid = true;
-            
-            if (_playerScoreText == null)
-            {
-                Debug.LogError("[UIManager] Player Score Text is not assigned!");
-                isValid = false;
-            }
-            if (_opponentScoreText == null)
-            {
-                Debug.LogError("[UIManager] Opponent Score Text is not assigned!");
-                isValid = false;
-            }
-            if (_roundText == null)
-            {
-                Debug.LogError("[UIManager] Round Text is not assigned!");
-                isValid = false;
-            }
-            if (_gameStateText == null)
-            {
-                Debug.LogError("[UIManager] Game State Text is not assigned!");
-                isValid = false;
-            }
-            
-            return isValid;
+            ResetScoreDisplay();
+            ResetRoundDisplay();
+            UpdateGameStateDisplay("Tap to Start");
+            HideAllPopups();
         }
         
-        private void SetupBackgroundArt()
-        {
-            if (_backgroundImage != null && _assetService != null)
-            {
-                var bgSprite = _assetService.GetUISprite("TableBackground");
-                if (bgSprite != null)
-                {
-                    _backgroundImage.sprite = bgSprite;
-                    Debug.Log("[UIManager] Background art loaded successfully");
-                }
-                else
-                {
-                    Debug.LogWarning("[UIManager] Background art not found, using fallback color");
-                    _backgroundImage.color = _gameSettings.backgroundColor;
-                }
-            }
-        }
-        
-        private void SetupUIArt()
-        {
-            if (_assetService == null) return;
-            
-            // Setup player score panel background
-            if (_playerScoreBackground != null)
-            {
-                var panelSprite = _assetService.GetUISprite("ScorePanelDecor");
-                if (panelSprite != null)
-                {
-                    _playerScoreBackground.sprite = panelSprite;
-                }
-                _playerScoreBackground.color = _gameSettings.playerColor;
-            }
-            
-            // Setup opponent score panel background
-            if (_opponentScoreBackground != null)
-            {
-                var panelSprite = _assetService.GetUISprite("ScorePanelDecor");
-                if (panelSprite != null)
-                {
-                    _opponentScoreBackground.sprite = panelSprite;
-                }
-                _opponentScoreBackground.color = _gameSettings.opponentColor;
-            }
-            
-            // Setup center panel background
-            if (_centerPanelBackground != null)
-            {
-                var roundPanelSprite = _assetService.GetUISprite("RoundPanel");
-                if (roundPanelSprite != null)
-                {
-                    _centerPanelBackground.sprite = roundPanelSprite;
-                }
-            }
-        }
-        
-        private void SubscribeToEvents()
-        {
-            _gameService.OnGameStateChanged += OnGameStateChanged;
-            
-            _eventBus.Subscribe<GameStartEvent>(OnGameStart);
-            _eventBus.Subscribe<GameEndEvent>(OnGameEnd);
-            _eventBus.Subscribe<RoundCompleteEvent>(OnRoundComplete);
-            _eventBus.Subscribe<WarStartEvent>(OnWarStart);
-            _eventBus.Subscribe<GameStateChangedEvent>(OnGameStateChangedEvent);
-        }
-        
-        private void UnsubscribeFromEvents()
-        {
-            if (_gameService != null)
-                _gameService.OnGameStateChanged -= OnGameStateChanged;
-            
-            _eventBus.TryUnsubscribe<GameStartEvent>(OnGameStart);
-            _eventBus.TryUnsubscribe<GameEndEvent>(OnGameEnd);
-            _eventBus.TryUnsubscribe<RoundCompleteEvent>(OnRoundComplete);
-            _eventBus.TryUnsubscribe<WarStartEvent>(OnWarStart);
-            _eventBus.TryUnsubscribe<GameStateChangedEvent>(OnGameStateChangedEvent);
-        }
-        
-        private void ResetUI()
+        private void ResetScoreDisplay()
         {
             _displayedPlayerScore = 26;
             _displayedOpponentScore = 26;
-            _currentRound = 0;
             
-            UpdateScoreDisplay();
-            UpdateRoundDisplay();
-            UpdateGameStateDisplay("Initializing...");
-        }
-        
-        private void UpdateScoreDisplay()
-        {
             if (_playerScoreText != null)
                 _playerScoreText.text = $"Player: {_displayedPlayerScore}";
-                
+            
             if (_opponentScoreText != null)
                 _opponentScoreText.text = $"Opponent: {_displayedOpponentScore}";
         }
         
-        private void UpdateRoundDisplay()
+        private void ResetRoundDisplay()
         {
-            if (_roundText != null)
-                _roundText.text = $"Round: {_currentRound}";
+            _currentRound = 0;
+            
+            if (_roundCounterText != null)
+                _roundCounterText.text = $"Round: {_currentRound}";
         }
         
-        private void UpdateGameStateDisplay(string state)
+        private void UpdateGameStateDisplay(string message)
         {
             if (_gameStateText != null)
-                _gameStateText.text = state;
+                _gameStateText.text = message;
         }
         
-        private void HidePopups()
+        private void HideAllPopups()
         {
             if (_warIndicator != null)
                 _warIndicator.SetActive(false);
-                
+            
             if (_gameOverScreen != null)
                 _gameOverScreen.SetActive(false);
         }
         
-        private void AnimateScoreUpdate(int newPlayerScore, int newOpponentScore)
+        private void SubscribeToEvents()
         {
-            KillCurrentAnimation();
-            
-            // Animate player score if changed
-            if (_playerScoreText != null && newPlayerScore != _displayedPlayerScore)
+            if (_signalBus == null) 
             {
-                int startScore = _displayedPlayerScore;
-                DOTween.To(() => startScore, x =>
-                {
-                    _displayedPlayerScore = x;
-                    _playerScoreText.text = $"Player: {x}";
-                }, newPlayerScore, _scoreUpdateDuration);
-                
-                // Punch scale for emphasis
-                _playerScoreText.transform.DOPunchScale(Vector3.one * 0.2f, _scoreUpdateDuration);
+                Debug.LogError("[UIManager] SignalBus is null, cannot subscribe to events");
+                return;
             }
             
-            // Animate opponent score if changed
-            if (_opponentScoreText != null && newOpponentScore != _displayedOpponentScore)
+            try
             {
-                int startScore = _displayedOpponentScore;
-                DOTween.To(() => startScore, x =>
-                {
-                    _displayedOpponentScore = x;
-                    _opponentScoreText.text = $"Opponent: {x}";
-                }, newOpponentScore, _scoreUpdateDuration);
+                _signalBus.Subscribe<GameStartEvent>(OnGameStart);
+                _signalBus.Subscribe<RoundCompleteEvent>(OnRoundComplete);
+                _signalBus.Subscribe<GameEndEvent>(OnGameEnd);
+                _signalBus.Subscribe<WarStartEvent>(OnWarStart);
+                _signalBus.Subscribe<GameStateChangedEvent>(OnGameStateChangedEvent);
                 
-                // Punch scale for emphasis
-                _opponentScoreText.transform.DOPunchScale(Vector3.one * 0.2f, _scoreUpdateDuration);
-            }
-        }
-        
-        private async UniTask ShowWarIndicator()
-        {
-            if (_warIndicator == null) return;
-            
-            // Load war indicator art
-            if (_assetService != null)
-            {
-                var warSprite = _assetService.GetUISprite("WarIndicator");
-                if (warSprite != null)
+                // Subscribe to game service events
+                if (_gameService != null)
                 {
-                    var warImage = _warIndicator.GetComponent<Image>();
-                    if (warImage != null)
-                    {
-                        warImage.sprite = warSprite;
-                    }
+                    _gameService.OnGameStateChanged += OnGameStateChanged;
                 }
+                
+                Debug.Log("[UIManager] Events subscribed successfully");
             }
-            
-            _warIndicator.SetActive(true);
-            _warIndicator.transform.localScale = Vector3.zero;
-            
-            // Dramatic entrance
-            await _warIndicator.transform.DOScale(1.2f, 0.3f)
-                .SetEase(Ease.OutBack)
-                .AsyncWaitForCompletion();
-            
-            // Pulsing effect
-            _warIndicator.transform.DOScale(1f, 0.5f)
-                .SetLoops(-1, LoopType.Yoyo)
-                .SetEase(Ease.InOutSine);
-            
-            // Auto-hide after duration
-            await UniTask.Delay(TimeSpan.FromSeconds(_warDisplayDuration));
-            
-            await HideWarIndicator();
-        }
-        
-        private async UniTask HideWarIndicator()
-        {
-            if (_warIndicator == null) return;
-            
-            DOTween.Kill(_warIndicator.transform);
-            
-            await _warIndicator.transform.DOScale(0, 0.2f)
-                .SetEase(Ease.InBack)
-                .AsyncWaitForCompletion();
-            
-            _warIndicator.SetActive(false);
-        }
-        
-        private void ShowGameOverScreen(int winnerPlayerNumber)
-        {
-            if (_gameOverScreen == null) return;
-            
-            _gameOverScreen.SetActive(true);
-            
-            if (_winnerText != null)
+            catch (System.Exception ex)
             {
-                string winner = winnerPlayerNumber == 1 ? "PLAYER WINS!" : "OPPONENT WINS!";
-                _winnerText.text = winner;
-                _winnerText.color = winnerPlayerNumber == 1 ? _gameSettings.playerColor : _gameSettings.opponentColor;
+                Debug.LogError($"[UIManager] Failed to subscribe to events: {ex.Message}");
             }
-            
-            // Get or add CanvasGroup for fade effect
-            CanvasGroup canvasGroup = _gameOverScreen.GetComponent<CanvasGroup>();
-            if (canvasGroup == null)
-                canvasGroup = _gameOverScreen.AddComponent<CanvasGroup>();
-            
-            canvasGroup.alpha = 0;
-            canvasGroup.DOFade(1, _popupFadeDuration);
-            
-            // Scale animation
-            _gameOverScreen.transform.localScale = Vector3.zero;
-            _gameOverScreen.transform.DOScale(1, _popupFadeDuration)
-                .SetEase(Ease.OutBack);
         }
         
-        private void HideGameOverScreen()
+        private void UnsubscribeFromEvents()
         {
-            if (_gameOverScreen == null) return;
+            if (_signalBus == null) return;
             
-            CanvasGroup canvasGroup = _gameOverScreen.GetComponent<CanvasGroup>();
-            if (canvasGroup != null)
+            try
             {
-                canvasGroup.DOFade(0, _popupFadeDuration)
-                    .OnComplete(() => _gameOverScreen.SetActive(false));
+                _signalBus.TryUnsubscribe<GameStartEvent>(OnGameStart);
+                _signalBus.TryUnsubscribe<RoundCompleteEvent>(OnRoundComplete);
+                _signalBus.TryUnsubscribe<GameEndEvent>(OnGameEnd);
+                _signalBus.TryUnsubscribe<WarStartEvent>(OnWarStart);
+                _signalBus.TryUnsubscribe<GameStateChangedEvent>(OnGameStateChangedEvent);
+                
+                // Unsubscribe from game service events
+                if (_gameService != null)
+                {
+                    _gameService.OnGameStateChanged -= OnGameStateChanged;
+                }
+                
+                Debug.Log("[UIManager] Events unsubscribed successfully");
             }
-            else
+            catch (System.Exception ex)
             {
-                _gameOverScreen.SetActive(false);
+                Debug.LogError($"[UIManager] Error unsubscribing events: {ex.Message}");
             }
         }
         
-        // Event Handlers
+        private void OnGameStart(GameStartEvent eventData)
+        {
+            Debug.Log("[UIManager] Game started");
+            
+            ResetScoreDisplay();
+            ResetRoundDisplay();
+            UpdateGameStateDisplay("Game Started!");
+            HideAllPopups();
+        }
+        
+        private void OnRoundComplete(RoundCompleteEvent eventData)
+        {
+            _currentRound++;
+            UpdateRoundDisplay();
+            
+            // Get current scores from game service (this is the source of truth)
+            int playerScore = _gameService?.PlayerCardCount ?? 0;
+            int opponentScore = _gameService?.OpponentCardCount ?? 0;
+            
+            UpdateScoreDisplay(playerScore, opponentScore);
+            DisplayRoundResult(eventData.Result.Result);
+            
+            Debug.Log($"[UIManager] Round {_currentRound} complete - Player: {playerScore}, Opponent: {opponentScore}");
+        }
+        
+        private void OnGameEnd(GameEndEvent eventData)
+        {
+            Debug.Log($"[UIManager] Game ended - Winner: Player {eventData.WinnerPlayerNumber}");
+            ShowGameOverScreen(eventData.WinnerPlayerNumber);
+        }
+        
+        private void OnWarStart(WarStartEvent eventData)
+        {
+            Debug.Log($"[UIManager] War started");
+            ShowWarIndicator();
+        }
+        
+        private void OnGameStateChangedEvent(GameStateChangedEvent eventData)
+        {
+            Debug.Log($"[UIManager] Game state changed to: {eventData.NewState}");
+        }
+        
         private void OnGameStateChanged(GameState newState)
         {
             string stateText = newState switch
@@ -379,53 +212,115 @@ namespace CardWar.Core.UI
             UpdateGameStateDisplay(stateText);
         }
         
-        private void OnGameStart()
+        private void UpdateRoundDisplay()
         {
-            Debug.Log("[UIManager] Game started");
-            ResetUI();
-            HideGameOverScreen();
-            UpdateGameStateDisplay("Tap to Draw");
+            if (_roundCounterText != null)
+                _roundCounterText.text = $"Round: {_currentRound}";
         }
         
-        private void OnGameEnd(GameEndEvent eventData)
+        private void UpdateScoreDisplay(int playerScore, int opponentScore)
         {
-            Debug.Log($"[UIManager] Game ended. Winner: Player {eventData.WinnerPlayerNumber}");
-            ShowGameOverScreen(eventData.WinnerPlayerNumber);
-        }
-        
-        private void OnRoundComplete(RoundCompleteEvent eventData)
-        {
-            _currentRound++;
-            UpdateRoundDisplay();
-            
-            // Update scores based on game service
-            AnimateScoreUpdate(_gameService.PlayerCardCount, _gameService.OpponentCardCount);
-            
-            // Show round result feedback
-            string resultText = eventData.Result.Result switch
+            // Animate score changes
+            if (_playerScoreText != null)
             {
-                GameResult.PlayerWin => "You Win!",
-                GameResult.OpponentWin => "Opponent Wins!",
+                AnimateScoreChange(_playerScoreText, _displayedPlayerScore, playerScore, "Player");
+                _displayedPlayerScore = playerScore;
+            }
+            
+            if (_opponentScoreText != null)
+            {
+                AnimateScoreChange(_opponentScoreText, _displayedOpponentScore, opponentScore, "Opponent");
+                _displayedOpponentScore = opponentScore;
+            }
+        }
+        
+        private void AnimateScoreChange(TextMeshProUGUI scoreText, int oldScore, int newScore, string label)
+        {
+            if (scoreText == null) return;
+            
+            // Update text immediately
+            scoreText.text = $"{label}: {newScore}";
+            
+            // Add punch animation if score changed
+            if (oldScore != newScore)
+            {
+                scoreText.transform.DOPunchScale(Vector3.one * 0.2f, 0.3f);
+            }
+        }
+        
+        private void DisplayRoundResult(GameResult result)
+        {
+            if (_gameStateText == null) return;
+            
+            string resultText = result switch
+            {
+                GameResult.PlayerWin => "Player Wins Round!",
+                GameResult.OpponentWin => "Opponent Wins Round!",
                 GameResult.War => "WAR!",
                 _ => ""
             };
             
-            if (_gameStateText != null && !string.IsNullOrEmpty(resultText))
+            if (!string.IsNullOrEmpty(resultText))
             {
-                _gameStateText.text = resultText;
+                UpdateGameStateDisplay(resultText);
+                
+                // Add emphasis animation
                 _gameStateText.transform.DOPunchScale(Vector3.one * 0.3f, 0.5f);
             }
         }
         
-        private void OnWarStart(WarStartEvent eventData)
+        private void ShowWarIndicator()
         {
-            Debug.Log($"[UIManager] War started with {eventData.WarData.AllWarRounds.Count} rounds");
-            ShowWarIndicator().Forget();
+            if (_warIndicator == null) return;
+            
+            _warIndicator.SetActive(true);
+            
+            // Animate war indicator
+            _warIndicator.transform.localScale = Vector3.zero;
+            _warIndicator.transform.DOScale(1f, 0.5f)
+                .SetEase(Ease.OutBounce)
+                .OnComplete(() => {
+                    // Auto-hide after 2 seconds
+                    _warIndicator.transform.DOScale(0f, 0.3f)
+                        .SetDelay(2f)
+                        .OnComplete(() => _warIndicator.SetActive(false));
+                });
         }
         
-        private void OnGameStateChangedEvent(GameStateChangedEvent eventData)
+        private void ShowGameOverScreen(int winnerPlayerNumber)
         {
-            // Additional state change handling if needed
+            if (_gameOverScreen == null) return;
+            
+            _gameOverScreen.SetActive(true);
+            
+            // Update winner text
+            if (_winnerText != null)
+            {
+                _winnerText.text = winnerPlayerNumber == 1 ? "You Win!" : "Opponent Wins!";
+            }
+            
+            // Animate game over screen
+            _gameOverScreen.transform.localScale = Vector3.zero;
+            _gameOverScreen.transform.DOScale(1f, 0.5f).SetEase(Ease.OutBounce);
+            
+            // Setup buttons if they exist
+            if (_restartButton != null)
+            {
+                _restartButton.onClick.RemoveAllListeners();
+                _restartButton.onClick.AddListener(() => {
+                    Debug.Log("[UIManager] Restart button clicked");
+                    // TODO: Implement restart logic
+                });
+            }
+            
+            if (_quitButton != null)
+            {
+                _quitButton.onClick.RemoveAllListeners();
+                _quitButton.onClick.AddListener(() => {
+                    Debug.Log("[UIManager] Quit button clicked");
+                    // TODO: Implement quit logic
+                });
+            }
         }
         
         private void KillCurrentAnimation()
@@ -439,28 +334,35 @@ namespace CardWar.Core.UI
         
         public void Dispose()
         {
+            if (!_isInitialized) return;
+            
             Debug.Log("[UIManager] Disposing");
             
             UnsubscribeFromEvents();
             KillCurrentAnimation();
             
-            DOTween.Kill(_playerScoreText?.transform);
-            DOTween.Kill(_opponentScoreText?.transform);
-            DOTween.Kill(_warIndicator?.transform);
-            DOTween.Kill(_gameOverScreen?.transform);
+            // Kill all DOTween animations on UI elements
+            if (_playerScoreText?.transform != null)
+                DOTween.Kill(_playerScoreText.transform);
+            
+            if (_opponentScoreText?.transform != null)
+                DOTween.Kill(_opponentScoreText.transform);
+            
+            if (_gameStateText?.transform != null)
+                DOTween.Kill(_gameStateText.transform);
+            
+            if (_warIndicator?.transform != null)
+                DOTween.Kill(_warIndicator.transform);
+            
+            if (_gameOverScreen?.transform != null)
+                DOTween.Kill(_gameOverScreen.transform);
+            
+            _isInitialized = false;
         }
         
         private void OnDestroy()
         {
             Dispose();
-        }
-        
-        private void OnValidate()
-        {
-            if (Application.isPlaying)
-                return;
-                
-            ValidateUIReferences();
         }
     }
 }
