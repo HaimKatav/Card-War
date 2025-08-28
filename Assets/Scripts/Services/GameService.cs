@@ -28,10 +28,7 @@ namespace CardWar.Services.Game
         public event Action<GameState> OnGameStateChanged;
         public event Action<GameRoundResultData> OnRoundComplete;
         
-        public GameService(
-            IFakeServerService server,
-            AsyncOperationManager asyncManager,
-            SignalBus signalBus)
+        public GameService(IFakeServerService server, AsyncOperationManager asyncManager, SignalBus signalBus)
         {
             _server = server;
             _asyncManager = asyncManager;
