@@ -48,4 +48,72 @@ namespace CardWar.Core.Enums
         Human,
         Computer
     }
+    
+    public enum PanelType
+    {
+        MainMenu,
+        Game, 
+        Pause,
+        Settings,
+        GameOver,
+        War,
+        Loading
+    }
+    
+    public enum ButtonType
+    {
+        Play,
+        Pause,
+        Settings,
+        Back,
+        Restart,
+        MainMenu,
+        Quit
+    }
+    
+    public enum ButtonState
+    {
+        Normal,
+        Highlighted, 
+        Pressed,
+        Disabled
+    }
+    
+    public enum StatusType
+    {
+        War,
+        Victory,
+        Defeat,
+        Draw,
+        Connecting,
+        Error
+    }
+    
+    public enum SFXType
+    {
+        CardFlip,
+        CardPlace,
+        War,
+        Victory,
+        Defeat,
+        ButtonClick,
+        Error,
+        Deal
+    }
+    
+    public enum MusicType
+    {
+        MainMenu,
+        Gameplay,
+        Victory,
+        Defeat
+    }
+    
+    public enum EffectType
+    {
+        War,
+        Victory,
+        CardDeal,
+        Sparkles
+    }
 }
