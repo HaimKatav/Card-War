@@ -1,40 +1,29 @@
 using UnityEngine;
+using System.Collections.Generic;
 using CardWar.Core.Data;
-using CardWar.Configuration;
 using Cysharp.Threading.Tasks;
-using Zenject;
 
 namespace CardWar.Services.Assets
 {
-    public interface IAssetService : IInitializable
+    public interface IAssetService
     {
         bool AreAssetsLoaded { get; }
         
-        Sprite GetCardSprite(CardData cardData);
+        Sprite GetCardSprite(CardData card);
+        Sprite GetCardSprite(string cardName);
         Sprite GetCardBackSprite();
-        
-        AudioClip GetSoundEffect(SFXType sfxType);
-        AudioClip GetBackgroundMusic(string musicName);
-        
         Sprite GetUISprite(string spriteName);
         
-        T GetAsset<T>(string assetName, string customPath = null) where T : Object;
+        GameObject LoadPrefab(string prefabName);
         
-        UniTask PreloadCardAssets();
+        AudioClip GetSoundEffect(string soundName);
+        AudioClip GetMusic(string musicName);
+        
+        T LoadAsset<T>(string assetPath) where T : Object;
+        UniTask<T> LoadAssetAsync<T>(string assetPath) where T : Object;
+        
+        void PreloadCardSprites(List<CardData> cards);
+        void UnloadAsset(string assetPath);
         void ClearCache();
-        
-        GameSettings GetGameSettings();
-    }
-    
-    public enum SFXType
-    {
-        CardFlip,
-        CardPlace,
-        War,
-        Victory,
-        Defeat,
-        ButtonClick,
-        Deal,
-        Shuffle
     }
 }

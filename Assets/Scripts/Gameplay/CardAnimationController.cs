@@ -360,7 +360,7 @@ namespace CardWar.Gameplay.Controllers
             {
                 if (_assetService != null)
                 {
-                    await _assetService.PreloadCardAssets();
+                    await _assetService.PreloadCardSprites();
                     Debug.Log("[CardAnimationController] Card assets preloaded");
                 }
             }

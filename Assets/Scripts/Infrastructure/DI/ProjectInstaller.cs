@@ -1,60 +1,43 @@
+using System;
 using UnityEngine;
 using Zenject;
-using CardWar.Services.Assets;
-using CardWar.Services.Game;
-using CardWar.Services.Network;
-using CardWar.Infrastructure.Events;
-using CardWar.UI.Cards;
 using CardWar.Configuration;
+using CardWar.Services.Assets;
+using CardWar.Services.Network;
+using CardWar.Services.Game;
 using CardWar.Core.Async;
-using System;
+using CardWar.Infrastructure.Events;
 
-namespace CardWar.Infrastructure.DI
+namespace CardWar.Infrastructure.Installers
 {
-    public class ProjectInstaller : MonoInstaller<ProjectInstaller>
+    public class ProjectInstaller : MonoInstaller
     {
+        [Header("Configuration")]
         [SerializeField] private GameSettings _gameSettings;
         [SerializeField] private NetworkErrorConfig _networkErrorConfig;
         
         public override void InstallBindings()
         {
-            Debug.Log("[ProjectInstaller] Starting global service binding...");
+            Debug.Log("[ProjectInstaller] Starting global installations...");
             
-            InstallSignals();
             InstallGameSettings();
             InstallNetworkConfiguration();
             InstallGlobalServices();
             InstallAsyncManagement();
-            InstallCardPools();
+            InstallSignals();
             
-            Debug.Log("[ProjectInstaller] Global services bound successfully");
-        }
-        
-        private void InstallSignals()
-        {
-            SignalBusInstaller.Install(Container);
-            Debug.Log("[ProjectInstaller] SignalBus installed successfully");
-            
-            Container.DeclareSignal<GameStartEvent>().OptionalSubscriber();
-            Container.DeclareSignal<GameEndEvent>().OptionalSubscriber();
-            Container.DeclareSignal<RoundStartEvent>().OptionalSubscriber();
-            Container.DeclareSignal<RoundCompleteEvent>().OptionalSubscriber();
-            Container.DeclareSignal<WarStartEvent>().OptionalSubscriber();
-            Container.DeclareSignal<GameStateChangedEvent>().OptionalSubscriber();
-            Container.DeclareSignal<PlayerActionEvent>().OptionalSubscriber();
-            
-            Debug.Log("[ProjectInstaller] All signals declared successfully");
+            Debug.Log("[ProjectInstaller] Global installations complete");
         }
         
         private void InstallGameSettings()
         {
             if (_gameSettings == null)
             {
-                _gameSettings = GameSettings.Instance;
+                _gameSettings = Resources.Load<GameSettings>("GameSettings");
                 
                 if (_gameSettings == null)
                 {
-                    Debug.LogError("[ProjectInstaller] GameSettings not found! Creating default...");
+                    Debug.LogWarning("[ProjectInstaller] GameSettings not found, creating default...");
                     _gameSettings = ScriptableObject.CreateInstance<GameSettings>();
                 }
             }
@@ -84,7 +67,6 @@ namespace CardWar.Infrastructure.DI
         {
             var config = ScriptableObject.CreateInstance<NetworkErrorConfig>();
             
-            // Set default values that match NetworkErrorConfig structure
             config.timeoutRate = 0.02f;
             config.networkErrorRate = 0.05f;
             config.serverErrorRate = 0.01f;
@@ -94,14 +76,12 @@ namespace CardWar.Infrastructure.DI
             config.timeoutDuration = 5f;
             config.retryBaseDelay = 1f;
             
-            // If GameSettings exists, use some of its values
             if (_gameSettings != null)
             {
                 config.networkErrorRate = _gameSettings.networkErrorRate;
                 config.minNetworkDelay = _gameSettings.minNetworkDelay;
                 config.maxNetworkDelay = _gameSettings.maxNetworkDelay;
                 config.timeoutDuration = _gameSettings.networkTimeoutDuration;
-                // Note: GameSettings doesn't have timeoutRate or retryBaseDelay
             }
             
             return config;
@@ -109,19 +89,15 @@ namespace CardWar.Infrastructure.DI
         
         private void InstallGlobalServices()
         {
-            // Asset Service with IInitializable
             Container.Bind(typeof(IAssetService), typeof(IInitializable))
                 .To<AssetService>()
                 .AsSingle()
                 .NonLazy();
             
-            // Network Services - Note: No INetworkSimulator interface exists
-            // Just bind the concrete FakeWarServer
             Container.Bind<IFakeServerService>()
                 .To<FakeWarServer>()
                 .AsSingle();
             
-            // Game Service
             Container.Bind<IGameService>()
                 .To<GameService>()
                 .AsSingle();
@@ -131,12 +107,10 @@ namespace CardWar.Infrastructure.DI
         
         private void InstallAsyncManagement()
         {
-            // AsyncOperationManager is just a concrete class with IDisposable
             Container.Bind<AsyncOperationManager>()
                 .AsSingle()
                 .NonLazy();
             
-            // Bind IDisposable separately
             Container.Bind<IDisposable>()
                 .To<AsyncOperationManager>()
                 .FromResolve()
@@ -145,17 +119,21 @@ namespace CardWar.Infrastructure.DI
             Debug.Log("[ProjectInstaller] AsyncOperationManager bound successfully");
         }
         
-        private void InstallCardPools()
+        private void InstallSignals()
         {
-            int poolSize = _gameSettings != null ? _gameSettings.cardPoolInitialSize : 20;
-            string prefabPath = _gameSettings != null ? _gameSettings.GetCardPrefabResourcePath() : "Prefabs/CardPrefab";
+            SignalBusInstaller.Install(Container);
             
-            Container.BindMemoryPool<CardViewController, CardViewController.Pool>()
-                .WithInitialSize(poolSize)
-                .FromComponentInNewPrefabResource(prefabPath)
-                .UnderTransformGroup("CardPool");
+            Container.DeclareSignal<GameStartEvent>();
+            Container.DeclareSignal<RoundStartEvent>();
+            Container.DeclareSignal<CardPlayedEvent>();
+            Container.DeclareSignal<RoundEndEvent>();
+            Container.DeclareSignal<GameEndEvent>();
+            Container.DeclareSignal<WarStartEvent>();
+            Container.DeclareSignal<WarEndEvent>();
+            Container.DeclareSignal<UIUpdateEvent>();
+            Container.DeclareSignal<ErrorEvent>();
             
-            Debug.Log($"[ProjectInstaller] Card pools bound with initial size: {poolSize}");
+            Debug.Log("[ProjectInstaller] Signals declared successfully");
         }
     }
 }

@@ -3,15 +3,13 @@ using Zenject;
 using CardWar.Gameplay.Controllers;
 using CardWar.Core.UI;
 using CardWar.Core;
+using CardWar.Infrastructure.Factories;
+using CardWar.UI.Cards;
 
 namespace CardWar.Infrastructure.Installers
 {
     public class GameInstaller : MonoInstaller
     {
-        [Header("Prefab References - Assign in Inspector")]
-        [SerializeField] private GameObject _cardPrefab;
-        [SerializeField] private Transform _cardPoolContainer;
-        
         public override void InstallBindings()
         {
             Debug.Log("[GameInstaller] Starting binding process...");
@@ -19,8 +17,7 @@ namespace CardWar.Infrastructure.Installers
             try
             {
                 BindSceneComponents();
-                BindPrefabReferences();
-                DeclareSignals();
+                BindCardFactory();
                 
                 Debug.Log("[GameInstaller] All bindings completed successfully");
             }
@@ -61,6 +58,7 @@ namespace CardWar.Infrastructure.Installers
                 Container.BindInterfacesAndSelfTo<CanvasManager>()
                     .FromInstance(canvasManager)
                     .AsSingle();
+                Debug.Log("[GameInstaller] CanvasManager bound successfully");
             }
             else
             {
@@ -73,6 +71,7 @@ namespace CardWar.Infrastructure.Installers
                 Container.BindInterfacesAndSelfTo<UIManager>()
                     .FromInstance(uiManager)
                     .AsSingle();
+                Debug.Log("[GameInstaller] UIManager bound successfully");
             }
             else
             {
@@ -85,6 +84,7 @@ namespace CardWar.Infrastructure.Installers
                 Container.BindInterfacesAndSelfTo<CardAnimationController>()
                     .FromInstance(cardAnimationController)
                     .AsSingle();
+                Debug.Log("[GameInstaller] CardAnimationController bound successfully");
             }
             else
             {
@@ -97,6 +97,7 @@ namespace CardWar.Infrastructure.Installers
                 Container.BindInterfacesAndSelfTo<GameInteractionController>()
                     .FromInstance(gameInteractionController)
                     .AsSingle();
+                Debug.Log("[GameInstaller] GameInteractionController bound successfully");
             }
             else
             {
@@ -106,24 +107,71 @@ namespace CardWar.Infrastructure.Installers
             Debug.Log("[GameInstaller] Scene components bound");
         }
         
-        private void BindPrefabReferences()
+        private void BindCardFactory()
         {
-            if (_cardPrefab != null)
-                Container.Bind<GameObject>().WithId("CardPrefab").FromInstance(_cardPrefab);
-            else
-                Debug.LogWarning("[GameInstaller] CardPrefab not assigned in Inspector");
+            var poolContainer = GameObject.Find("CardPoolContainer");
+            if (poolContainer == null)
+            {
+                poolContainer = new GameObject("CardPoolContainer");
+                var canvas = FindObjectOfType<Canvas>();
+                if (canvas != null)
+                {
+                    poolContainer.transform.SetParent(canvas.transform, false);
+                }
+            }
             
-            if (_cardPoolContainer != null)
-                Container.Bind<Transform>().WithId("CardPoolContainer").FromInstance(_cardPoolContainer);
-            else
-                Debug.LogWarning("[GameInstaller] CardPoolContainer not assigned in Inspector");
+            Container.Bind<Transform>()
+                .WithId("CardPoolContainer")
+                .FromInstance(poolContainer.transform)
+                .AsSingle();
             
-            Debug.Log("[GameInstaller] Prefab references bound");
+            Container.Bind(typeof(ICardViewFactory), typeof(IInitializable))
+                .To<CardViewFactory>()
+                .AsSingle()
+                .NonLazy();
+            
+            Container.Bind<CardViewController.Pool>()
+                .FromMethod(CreateCardPool)
+                .AsSingle();
+            
+            Debug.Log("[GameInstaller] Card factory and pool bound successfully");
         }
         
-        private void DeclareSignals()
+        private CardViewController.Pool CreateCardPool(InjectContext context)
         {
-            Debug.Log("[GameInstaller] Signals declared (already handled by ProjectContext)");
+            var factory = context.Container.Resolve<ICardViewFactory>();
+            return new CardViewControllerPool(factory);
+        }
+        
+        private class CardViewControllerPool : CardViewController.Pool
+        {
+            private readonly ICardViewFactory _factory;
+            
+            public CardViewControllerPool(ICardViewFactory factory)
+            {
+                _factory = factory;
+            }
+            
+            public override CardViewController Spawn()
+            {
+                var card = _factory.Create();
+                card.OnSpawned(this);
+                return card;
+            }
+            
+            public override void Despawn(CardViewController item)
+            {
+                if (item != null)
+                {
+                    item.OnDespawned();
+                    _factory.Return(item);
+                }
+            }
+            
+            public override void Clear()
+            {
+                _factory.Clear();
+            }
         }
     }
 }
