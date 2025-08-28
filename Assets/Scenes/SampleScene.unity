@@ -2877,8 +2877,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8aa436a997a4037adddc02cc5f48520, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _gameCamera: {fileID: 519420031}
-  _gameCanvas: {fileID: 990296341}
   _cardPrefab: {fileID: 4303328162288877190, guid: 335611e7b17ab45f18d395805d19ba20, type: 3}
   _cardPoolContainer: {fileID: 737137709}
 --- !u!114 &1828975046
@@ -2894,7 +2892,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _scriptableObjectInstallers: []
-  _monoInstallers: []
+  _monoInstallers:
+  - {fileID: 1828975045}
   _installerPrefabs: []
   _autoRun: 1
   OnPreInstall:
@@ -3050,9 +3049,9 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 519420032}
+  - {fileID: 1828975047}
   - {fileID: 990296337}
   - {fileID: 1741535224}
   - {fileID: 1535981315}
   - {fileID: 95433624}
   - {fileID: 1180197016}
-  - {fileID: 1828975047}
