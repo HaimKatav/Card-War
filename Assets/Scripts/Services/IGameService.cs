@@ -8,6 +8,7 @@ namespace CardWar.Services.Game
     public interface IGameService
     {
         GameState CurrentGameState { get; }
+        GameStateData GameStateData { get; }
         int PlayerCardCount { get; }
         int OpponentCardCount { get; }
         event Action<GameState> OnGameStateChanged;

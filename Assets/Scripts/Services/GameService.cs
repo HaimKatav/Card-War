@@ -15,12 +15,13 @@ namespace CardWar.Services.Game
         private readonly IFakeServerService _server;
         private readonly AsyncOperationManager _asyncManager;
         private readonly SignalBus _signalBus;
-        
+
         private GameState _currentState = GameState.Idle;
         private GameStateData _gameStateData;
         private bool _isProcessingRound;
         private int _retryAttempts = 3;
-        
+
+        public GameStateData GameStateData => _gameStateData;
         public GameState CurrentGameState => _currentState;
         public int PlayerCardCount => _gameStateData?.PlayerCardsCount ?? 0;
         public int OpponentCardCount => _gameStateData?.OpponentCardsCount ?? 0;
