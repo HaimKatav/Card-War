@@ -1,4 +1,3 @@
-using UnityEngine;
 using Zenject;
 using CardWar.Infrastructure.Events;
 using CardWar.Services.Game;
