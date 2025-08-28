@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-using DG.Tweening;
-using Cysharp.Threading.Tasks;
 using CardWar.Core.Data;
 using CardWar.Core.Enums;
+using CardWar.Infrastructure.Events;
 using CardWar.Services.Assets;
 using CardWar.Services.Game;
 using CardWar.UI.Cards;
-using CardWar.Infrastructure.Events;
+using Cysharp.Threading.Tasks;
+using DG.Tweening;
+using UnityEngine;
 using Zenject;
 
 namespace CardWar.Gameplay.Controllers
@@ -35,8 +35,8 @@ namespace CardWar.Gameplay.Controllers
         private SignalBus _signalBus;
         private CardViewController.Pool _cardPool;
 
-        private readonly List<CardViewController> _activeCards;
-        private bool _isAnimatingRound = false;
+        private List<CardViewController> _activeCards;
+        private bool _isAnimatingRound;
         
         [Inject]
         public void Construct(IAssetService assetService, IGameService gameService, SignalBus signalBus, CardViewController.Pool cardPool)
@@ -50,7 +50,9 @@ namespace CardWar.Gameplay.Controllers
         public void Initialize()
         {
             Debug.Log("[CardAnimationController] Initializing and subscribing to events");
-            
+    
+            _activeCards = new List<CardViewController>();
+    
             FindDeckPositions();
             SubscribeToEvents();
             PreloadAssetsAsync().Forget();
@@ -350,7 +352,7 @@ namespace CardWar.Gameplay.Controllers
         
         private void OnGameEnd(GameEndEvent eventData)
         {
-            Debug.Log($"[CardAnimationController] Game ended");
+            Debug.Log("[CardAnimationController] Game ended");
             ClearAllCards();
         }
         
@@ -358,15 +360,33 @@ namespace CardWar.Gameplay.Controllers
         {
             try
             {
-                if (_assetService != null)
+                Debug.Log("[CardAnimationController] Starting asset preload");
+        
+                if (_assetService == null)
                 {
-                    await _assetService.PreloadCardSprites();
-                    Debug.Log("[CardAnimationController] Card assets preloaded");
+                    Debug.LogError("[CardAnimationController] AssetService is null, cannot preload assets");
+                    return;
                 }
+        
+                var cardsToPreload = new List<CardData>();
+        
+                foreach (CardRank rank in Enum.GetValues(typeof(CardRank)))
+                {
+                    foreach (CardSuit suit in Enum.GetValues(typeof(CardSuit)))
+                    {
+                        cardsToPreload.Add(new CardData(suit, rank));
+                    }
+                }
+        
+                _assetService.PreloadCardSprites(cardsToPreload);
+        
+                await UniTask.Delay(100);
+        
+                Debug.Log($"[CardAnimationController] Preloaded {cardsToPreload.Count} card sprites");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Debug.LogError($"[CardAnimationController] Failed to preload assets: {e.Message}");
+                Debug.LogError($"[CardAnimationController] Failed to preload assets: {ex.Message}");
             }
         }
         

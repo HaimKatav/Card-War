@@ -9,32 +9,21 @@ namespace CardWar.Infrastructure.Factories
 {
     public class CardViewFactory : ICardViewFactory, IInitializable
     {
-        private DiContainer _container;
         private IAssetService _assetService;
         private GameSettings _gameSettings;
-        private Transform _poolContainer;
         
         private GameObject _cardPrefab;
-        private readonly Stack<CardViewController> _availableCards = new Stack<CardViewController>();
-        private readonly HashSet<CardViewController> _activeCards = new HashSet<CardViewController>();
         
         [Inject]
-        public void Construct(
-            DiContainer container,
-            IAssetService assetService, 
-            GameSettings gameSettings,
-            [Inject(Id = "CardPoolContainer")] Transform poolContainer)
+        public void Construct(IAssetService assetService, GameSettings gameSettings)
         {
-            _container = container;
             _assetService = assetService;
             _gameSettings = gameSettings;
-            _poolContainer = poolContainer;
         }
         
         public void Initialize()
         {
             LoadCardPrefab();
-            Prewarm(_gameSettings.cardPoolInitialSize);
         }
         
         private void LoadCardPrefab()
@@ -53,6 +42,10 @@ namespace CardWar.Infrastructure.Factories
                 Debug.LogError($"[CardViewFactory] Failed to load card prefab from path: {prefabPath}");
                 _cardPrefab = CreateFallbackPrefab();
             }
+            else
+            {
+                Debug.Log($"[CardViewFactory] Card prefab loaded successfully");
+            }
         }
         
         private GameObject CreateFallbackPrefab()
@@ -66,100 +59,40 @@ namespace CardWar.Infrastructure.Factories
             
             var frontObject = new GameObject("CardFront");
             frontObject.transform.SetParent(fallback.transform, false);
-            var frontImage = frontObject.AddComponent<UnityEngine.UI.Image>();
+            frontObject.AddComponent<UnityEngine.UI.Image>();
             
             var backObject = new GameObject("CardBack");
             backObject.transform.SetParent(fallback.transform, false);
-            var backImage = backObject.AddComponent<UnityEngine.UI.Image>();
+            backObject.AddComponent<UnityEngine.UI.Image>();
             
             Debug.LogWarning("[CardViewFactory] Created fallback card prefab");
             return fallback;
         }
         
-        public CardViewController Create()
+        public GameObject GetCardPrefab()
         {
-            CardViewController card = null;
-            
-            if (_availableCards.Count > 0)
+            if (_cardPrefab == null)
             {
-                card = _availableCards.Pop();
-                card.gameObject.SetActive(true);
+                LoadCardPrefab();
             }
-            else
-            {
-                card = CreateNewCard();
-            }
-            
-            _activeCards.Add(card);
-            return card;
+            return _cardPrefab;
         }
         
-        private CardViewController CreateNewCard()
+        public CardViewController Create()
         {
-            var instance = _container.InstantiatePrefab(_cardPrefab, _poolContainer);
-            var cardView = instance.GetComponent<CardViewController>();
-            
-            if (cardView == null)
-            {
-                Debug.LogError("[CardViewFactory] CardViewController component not found on prefab!");
-                cardView = instance.AddComponent<CardViewController>();
-            }
-            
-            _container.InjectGameObject(instance);
-            
-            return cardView;
+            return null;
         }
         
         public void Return(CardViewController card)
         {
-            if (card == null || !_activeCards.Contains(card))
-                return;
-            
-            _activeCards.Remove(card);
-            
-            card.OnDespawned();
-            card.gameObject.SetActive(false);
-            card.transform.SetParent(_poolContainer, false);
-            
-            if (_availableCards.Count < _gameSettings.cardPoolMaxSize)
-            {
-                _availableCards.Push(card);
-            }
-            else
-            {
-                Object.Destroy(card.gameObject);
-            }
         }
         
         public void Prewarm(int count)
         {
-            for (int i = 0; i < count; i++)
-            {
-                var card = CreateNewCard();
-                card.gameObject.SetActive(false);
-                _availableCards.Push(card);
-            }
-            
-            Debug.Log($"[CardViewFactory] Prewarmed {count} cards");
         }
         
         public void Clear()
         {
-            foreach (var card in _activeCards)
-            {
-                if (card != null)
-                    Object.Destroy(card.gameObject);
-            }
-            _activeCards.Clear();
-            
-            while (_availableCards.Count > 0)
-            {
-                var card = _availableCards.Pop();
-                if (card != null)
-                    Object.Destroy(card.gameObject);
-            }
-            
-            Debug.Log("[CardViewFactory] Cleared all cards");
         }
     }
 }

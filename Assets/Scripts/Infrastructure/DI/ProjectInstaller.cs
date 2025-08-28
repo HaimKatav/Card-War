@@ -125,13 +125,11 @@ namespace CardWar.Infrastructure.Installers
             
             Container.DeclareSignal<GameStartEvent>();
             Container.DeclareSignal<RoundStartEvent>();
-            Container.DeclareSignal<CardPlayedEvent>();
-            Container.DeclareSignal<RoundEndEvent>();
+            Container.DeclareSignal<RoundCompleteEvent>();
             Container.DeclareSignal<GameEndEvent>();
             Container.DeclareSignal<WarStartEvent>();
-            Container.DeclareSignal<WarEndEvent>();
-            Container.DeclareSignal<UIUpdateEvent>();
-            Container.DeclareSignal<ErrorEvent>();
+            Container.DeclareSignal<GameStateChangedEvent>();
+            Container.DeclareSignal<PlayerActionEvent>();
             
             Debug.Log("[ProjectInstaller] Signals declared successfully");
         }

@@ -5,6 +5,7 @@ using CardWar.Core.UI;
 using CardWar.Core;
 using CardWar.Infrastructure.Factories;
 using CardWar.UI.Cards;
+using CardWar.Configuration;
 
 namespace CardWar.Infrastructure.Installers
 {
@@ -17,7 +18,7 @@ namespace CardWar.Infrastructure.Installers
             try
             {
                 BindSceneComponents();
-                BindCardFactory();
+                BindCardSystem();
                 
                 Debug.Log("[GameInstaller] All bindings completed successfully");
             }
@@ -107,7 +108,7 @@ namespace CardWar.Infrastructure.Installers
             Debug.Log("[GameInstaller] Scene components bound");
         }
         
-        private void BindCardFactory()
+        private void BindCardSystem()
         {
             var poolContainer = GameObject.Find("CardPoolContainer");
             if (poolContainer == null)
@@ -130,48 +131,63 @@ namespace CardWar.Infrastructure.Installers
                 .AsSingle()
                 .NonLazy();
             
-            Container.Bind<CardViewController.Pool>()
-                .FromMethod(CreateCardPool)
-                .AsSingle();
+            var gameSettings = Container.Resolve<GameSettings>();
+            int poolSize = gameSettings != null ? gameSettings.cardPoolInitialSize : 20;
             
-            Debug.Log("[GameInstaller] Card factory and pool bound successfully");
+            Container.BindMemoryPool<CardViewController, CardViewController.Pool>()
+                .WithInitialSize(poolSize)
+                .FromComponentInNewPrefab(GetCardPrefab())
+                .UnderTransform(poolContainer.transform);
+            
+            Debug.Log($"[GameInstaller] Card system bound with pool size: {poolSize}");
         }
         
-        private CardViewController.Pool CreateCardPool(InjectContext context)
+        private GameObject GetCardPrefab()
         {
-            var factory = context.Container.Resolve<ICardViewFactory>();
-            return new CardViewControllerPool(factory);
-        }
-        
-        private class CardViewControllerPool : CardViewController.Pool
-        {
-            private readonly ICardViewFactory _factory;
-            
-            public CardViewControllerPool(ICardViewFactory factory)
+            var factory = Container.Resolve<ICardViewFactory>() as CardViewFactory;
+            if (factory != null)
             {
-                _factory = factory;
+                return factory.GetCardPrefab();
             }
             
-            public override CardViewController Spawn()
+            var gameSettings = Container.Resolve<GameSettings>();
+            if (gameSettings != null)
             {
-                var card = _factory.Create();
-                card.OnSpawned(this);
-                return card;
-            }
-            
-            public override void Despawn(CardViewController item)
-            {
-                if (item != null)
+                var prefabPath = gameSettings.cardPrefabPath;
+                if (prefabPath.StartsWith("Prefabs/"))
                 {
-                    item.OnDespawned();
-                    _factory.Return(item);
+                    prefabPath = prefabPath.Substring("Prefabs/".Length);
+                }
+                
+                var prefab = Resources.Load<GameObject>($"Prefabs/{prefabPath}");
+                if (prefab != null)
+                {
+                    return prefab;
                 }
             }
             
-            public override void Clear()
-            {
-                _factory.Clear();
-            }
+            Debug.LogError("[GameInstaller] Could not load card prefab, creating fallback");
+            return CreateFallbackCardPrefab();
+        }
+        
+        private GameObject CreateFallbackCardPrefab()
+        {
+            var fallback = new GameObject("CardPrefab");
+            var rectTransform = fallback.AddComponent<RectTransform>();
+            rectTransform.sizeDelta = new Vector2(120, 180);
+            
+            fallback.AddComponent<CanvasGroup>();
+            var cardView = fallback.AddComponent<CardViewController>();
+            
+            var frontObject = new GameObject("CardFront");
+            frontObject.transform.SetParent(fallback.transform, false);
+            frontObject.AddComponent<UnityEngine.UI.Image>();
+            
+            var backObject = new GameObject("CardBack");
+            backObject.transform.SetParent(fallback.transform, false);
+            backObject.AddComponent<UnityEngine.UI.Image>();
+            
+            return fallback;
         }
     }
 }
