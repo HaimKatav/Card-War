@@ -82,14 +82,14 @@ namespace CardWar.UI.Cards
             }
         }
         
-        public async UniTaskVoid FlipCard()
+        public async UniTask FlipCard()
         {
             KillCurrentAnimation();
             
             // First half of flip
             await transform.DORotate(new Vector3(0, 90, 0), _flipDuration / 2)
                 .SetEase(_flipEase)
-                .ToUniTask();
+                .AsyncWaitForCompletion();
             
             // Switch card face
             _cardFront.gameObject.SetActive(_isFaceUp);
@@ -98,7 +98,7 @@ namespace CardWar.UI.Cards
             // Second half of flip
             await transform.DORotate(new Vector3(0, _isFaceUp ? 0 : 180, 0), _flipDuration / 2)
                 .SetEase(_flipEase)
-                .ToUniTask();
+                .AsyncWaitForCompletion();
         }
         
         public async UniTask FlipToFront(CardData cardData)
@@ -121,7 +121,7 @@ namespace CardWar.UI.Cards
             
             await transform.DOMove(targetPosition, duration)
                 .SetEase(_moveEase)
-                .ToUniTask();
+                .AsyncWaitForCompletion();
         }
         
         public async UniTask MoveToLocal(Vector3 targetLocalPosition, float duration = -1)
@@ -133,7 +133,7 @@ namespace CardWar.UI.Cards
             
             await transform.DOLocalMove(targetLocalPosition, duration)
                 .SetEase(_moveEase)
-                .ToUniTask();
+                .AsyncWaitForCompletion();
         }
         
         public async UniTask AnimateDeal(Vector3 fromPosition, Vector3 toPosition, float delay = 0)
@@ -154,7 +154,7 @@ namespace CardWar.UI.Cards
                 .Join(transform.DOScale(1, 0.3f).SetEase(Ease.OutBack))
                 .Append(transform.DOMove(toPosition, _moveDuration).SetEase(_moveEase));
             
-            await _currentAnimation.ToUniTask();
+            await _currentAnimation.AsyncWaitForCompletion();
         }
         
         public async UniTask AnimateWin(Vector3 targetPosition)
@@ -167,7 +167,7 @@ namespace CardWar.UI.Cards
                 .Append(transform.DOMove(targetPosition, _moveDuration).SetEase(Ease.InBack))
                 .Join(_canvasGroup.DOFade(0, _moveDuration));
             
-            await _currentAnimation.ToUniTask();
+            await _currentAnimation.AsyncWaitForCompletion();
         }
         
         public async UniTask AnimateDiscard()
@@ -178,7 +178,7 @@ namespace CardWar.UI.Cards
                 .Append(transform.DOScale(0, 0.3f).SetEase(Ease.InBack))
                 .Join(_canvasGroup.DOFade(0, 0.3f));
             
-            await _currentAnimation.ToUniTask();
+            await _currentAnimation.AsyncWaitForCompletion();
         }
         
         public void ShowWarHighlight()

@@ -222,7 +222,7 @@ namespace CardWar.UI
             // Dramatic entrance
             await _warIndicator.transform.DOScale(1.2f, 0.3f)
                 .SetEase(Ease.OutBack)
-                .ToUniTask();
+                .AsyncWaitForCompletion();
             
             // Pulsing effect
             _warIndicator.transform.DOScale(1f, 0.5f)
@@ -243,7 +243,7 @@ namespace CardWar.UI
             
             await _warIndicator.transform.DOScale(0, 0.2f)
                 .SetEase(Ease.InBack)
-                .ToUniTask();
+                .AsyncWaitForCompletion();
             
             _warIndicator.SetActive(false);
         }
