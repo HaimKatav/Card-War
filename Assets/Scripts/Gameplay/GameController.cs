@@ -17,10 +17,10 @@ namespace CardWar.Gameplay.Controllers
         private bool _canPlayerInteract;
         private float _autoStartDelay = 1.0f;
         
-        public GameController(IGameService gameService, SignalBus EventBus)
+        public GameController(IGameService gameService, SignalBus eventBus)
         {
             _gameService = gameService;
-            _eventBus = EventBus;
+            _eventBus = eventBus;
         }
         
         public void Initialize()
@@ -214,14 +214,14 @@ namespace CardWar.Gameplay.Controllers
             _canPlayerInteract = true;
         }
         
-        private void OnGameEnd(GameEndEvent Event)
+        private void OnGameEnd(GameEndEvent @event)
         {
-            Debug.Log($"[GameController] Game ended. Winner: Player {Event.WinnerPlayerNumber}");
+            Debug.Log($"[GameController] Game ended. Winner: Player {@event.WinnerPlayerNumber}");
             _isGameActive = false;
             _canPlayerInteract = false;
             
             // Auto-restart after delay (TODO: Show game over screen instead)
-            ShowGameOverAndRestart(Event.WinnerPlayerNumber).Forget();
+            ShowGameOverAndRestart(@event.WinnerPlayerNumber).Forget();
         }
         
         private async UniTaskVoid ShowGameOverAndRestart(int winnerPlayerNumber)
@@ -236,19 +236,19 @@ namespace CardWar.Gameplay.Controllers
             await RestartGame();
         }
         
-        private void OnRoundCompleteEvent(RoundCompleteEvent Event)
+        private void OnRoundCompleteEvent(RoundCompleteEvent @event)
         {
             // Additional round complete handling if needed
             // UI updates will be handled by UIManager listening to this Event
         }
         
-        private void OnWarStart(WarStartEvent Event)
+        private void OnWarStart(WarStartEvent @event)
         {
-            Debug.Log($"[GameController] WAR! {Event.WarData.AllWarRounds.Count} rounds of war");
+            Debug.Log($"[GameController] WAR! {@event.WarData.AllWarRounds.Count} rounds of war");
             _canPlayerInteract = false;
             
             // Re-enable interaction after war animation
-            EnableInteractionAfterWar(Event.WarData.EstimatedAnimationDuration).Forget();
+            EnableInteractionAfterWar(@event.WarData.EstimatedAnimationDuration).Forget();
         }
         
         private async UniTaskVoid EnableInteractionAfterWar(float animationDuration)

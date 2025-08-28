@@ -138,7 +138,7 @@ namespace CardWar.Services.Game
                     
                     // Fire round complete event
                     OnRoundComplete?.Invoke(result);
-                    _signalBus.Fire(new RoundCompleteSignal(result));
+                    _signalBus.Fire(new RoundCompleteEvent(result));
                     
                     // Check for game end
                     if (result.IsGameEnded)

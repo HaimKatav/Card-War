@@ -16,10 +16,10 @@ namespace CardWar.Infrastructure.Events
     
     public class RoundStartEvent { }
     
-    public class RoundCompleteSignal 
+    public class RoundCompleteEvent 
     { 
         public GameRoundResultData Result { get; }
-        public RoundCompleteSignal(GameRoundResultData result) 
+        public RoundCompleteEvent(GameRoundResultData result) 
         { 
             Result = result; 
         }
