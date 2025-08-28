@@ -1,5 +1,6 @@
 using UnityEngine;
 using CardWar.Core.Data;
+using CardWar.Configuration;
 using Cysharp.Threading.Tasks;
 using Zenject;
 
@@ -11,10 +12,18 @@ namespace CardWar.Services.Assets
         
         Sprite GetCardSprite(CardData cardData);
         Sprite GetCardBackSprite();
+        
         AudioClip GetSoundEffect(SFXType sfxType);
+        AudioClip GetBackgroundMusic(string musicName);
+        
+        Sprite GetUISprite(string spriteName);
+        
+        T GetAsset<T>(string assetName, string customPath = null) where T : Object;
         
         UniTask PreloadCardAssets();
         void ClearCache();
+        
+        GameSettings GetGameSettings();
     }
     
     public enum SFXType
@@ -25,6 +34,7 @@ namespace CardWar.Services.Assets
         Victory,
         Defeat,
         ButtonClick,
-        Deal
+        Deal,
+        Shuffle
     }
 }
