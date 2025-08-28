@@ -10,14 +10,15 @@ namespace CardWar.Infrastructure.Installers
     {
         public override void InstallBindings()
         {
-            // Asset Service
-            Container.Bind<IAssetService>().To<AssetService>().AsSingle().NonLazy();
-            Container.Bind<IInitializable>().To<AssetService>().AsSingle();
+            Container.Bind(typeof(IAssetService), typeof(IInitializable))
+                .To<AssetService>()
+                .AsSingle()
+                .NonLazy();
             
             // Network Service
             Container.Bind<IFakeServerService>().To<FakeWarServer>().AsSingle();
             
-            // Game Service
+            // Game Service  
             Container.Bind<IGameService>().To<GameService>().AsSingle();
             
             // Signals
