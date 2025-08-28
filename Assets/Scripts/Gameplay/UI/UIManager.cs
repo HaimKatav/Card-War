@@ -335,28 +335,47 @@ namespace CardWar.Core.UI
         public void Dispose()
         {
             if (!_isInitialized) return;
-            
+    
             Debug.Log("[UIManager] Disposing");
-            
+    
             UnsubscribeFromEvents();
             KillCurrentAnimation();
-            
-            // Kill all DOTween animations on UI elements
-            if (_playerScoreText?.transform != null)
-                DOTween.Kill(_playerScoreText.transform);
-            
-            if (_opponentScoreText?.transform != null)
-                DOTween.Kill(_opponentScoreText.transform);
-            
-            if (_gameStateText?.transform != null)
-                DOTween.Kill(_gameStateText.transform);
-            
-            if (_warIndicator?.transform != null)
-                DOTween.Kill(_warIndicator.transform);
-            
-            if (_gameOverScreen?.transform != null)
-                DOTween.Kill(_gameOverScreen.transform);
-            
+    
+            try
+            {
+                if (_playerScoreText != null && _playerScoreText.gameObject != null)
+                    DOTween.Kill(_playerScoreText.transform);
+            }
+            catch (Exception) {}
+    
+            try
+            {
+                if (_opponentScoreText != null && _opponentScoreText.gameObject != null)
+                    DOTween.Kill(_opponentScoreText.transform);
+            }
+            catch (Exception) {}
+    
+            try
+            {
+                if (_gameStateText != null && _gameStateText.gameObject != null)
+                    DOTween.Kill(_gameStateText.transform);
+            }
+            catch (Exception) {}
+    
+            try
+            {
+                if (_warIndicator != null && _warIndicator != null)
+                    DOTween.Kill(_warIndicator.transform);
+            }
+            catch (Exception) {}
+    
+            try
+            {
+                if (_gameOverScreen != null && _gameOverScreen != null)
+                    DOTween.Kill(_gameOverScreen.transform);
+            }
+            catch (Exception) {}
+    
             _isInitialized = false;
         }
         
