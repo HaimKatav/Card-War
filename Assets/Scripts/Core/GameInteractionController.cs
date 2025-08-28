@@ -76,7 +76,7 @@ namespace CardWar.Core
             textRect.sizeDelta = Vector2.zero;
             textRect.anchoredPosition = Vector2.zero;
             
-            var text = textObj.AddComponent<UnityEngine.UI.Text>();
+            var text = textObj.AddComponent<Text>();
             text.text = "TAP TO DRAW";
             text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             text.fontSize = 18;
