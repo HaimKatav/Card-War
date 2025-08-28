@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6091498388597018981}
   - component: {fileID: 6209369873393655139}
+  - component: {fileID: -8540039676267182819}
   m_Layer: 0
   m_Name: ProjectContext
   m_TagString: Untagged
@@ -45,7 +46,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _scriptableObjectInstallers: []
-  _monoInstallers: []
+  _monoInstallers:
+  - {fileID: -8540039676267182819}
   _installerPrefabs: []
   _parentNewObjectsUnderContext: 1
   _editorReflectionBakingCoverageMode: 0
@@ -60,3 +62,34 @@ MonoBehaviour:
       _missingHandlerDefaultResponse: 2
       _requireStrictUnsubscribe: 0
       _defaultAsyncTickPriority: 1
+--- !u!114 &-8540039676267182819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 517466265649244844}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3df6d1f35f2413d9760547932b6a8e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _networkErrorConfig:
+    timeoutRate: 0.02
+    networkErrorRate: 0.05
+    serverErrorRate: 0.01
+    corruptionRate: 0.005
+    minNetworkDelay: 0.1
+    maxNetworkDelay: 0.5
+    timeoutDuration: 5
+    retryBaseDelay: 1
+    networkErrorMessages:
+    - Connection timeout
+    - Network unreachable
+    - Connection lost
+    - DNS resolution failed
+    serverErrorMessages:
+    - Internal server error
+    - Service unavailable
+    - Database connection failed
+    - Rate limit exceeded

@@ -12,13 +12,13 @@ namespace CardWar.UI
 {
     public class UIManager : MonoBehaviour, IInitializable, IDisposable
     {
-        [Header("HUD Elements")]
+        [Header("HUD Elements - Must be assigned in Inspector")]
         [SerializeField] private TextMeshProUGUI _playerScoreText;
         [SerializeField] private TextMeshProUGUI _opponentScoreText;
         [SerializeField] private TextMeshProUGUI _roundText;
         [SerializeField] private TextMeshProUGUI _gameStateText;
         
-        [Header("Popup Elements")]
+        [Header("Popup Elements - Must be assigned in Inspector")]
         [SerializeField] private GameObject _warIndicator;
         [SerializeField] private TextMeshProUGUI _warText;
         [SerializeField] private GameObject _gameOverScreen;
@@ -39,18 +39,22 @@ namespace CardWar.UI
         private Sequence _currentAnimation;
         
         [Inject]
-        public void Construct(IGameService gameService, SignalBus signalBus)
+        public void Construct(IGameService gameService, SignalBus eventBus)
         {
             _gameService = gameService;
-            _eventBus = signalBus;
+            _eventBus = eventBus;
         }
         
         public void Initialize()
         {
             Debug.Log("[UIManager] Initializing");
             
-            // Find UI elements if not assigned
-            FindUIElements();
+            // Validate required components are assigned
+            if (!ValidateUIReferences())
+            {
+                Debug.LogError("[UIManager] Critical UI references are missing! Please assign them in the Inspector.");
+                return;
+            }
             
             // Subscribe to events
             SubscribeToEvents();
@@ -66,63 +70,32 @@ namespace CardWar.UI
                 _gameOverScreen.SetActive(false);
         }
         
-        private void FindUIElements()
+        private bool ValidateUIReferences()
         {
-            // Try to find UI elements if not assigned in inspector
-            if (_playerScoreText == null)
-            {
-                var playerScore = GameObject.Find("PlayerScore");
-                if (playerScore != null)
-                    _playerScoreText = playerScore.GetComponent<TextMeshProUGUI>();
-            }
+            bool isValid = true;
             
+            if (_playerScoreText == null) 
+            {
+                Debug.LogError("[UIManager] Player Score Text is not assigned!");
+                isValid = false;
+            }
             if (_opponentScoreText == null)
             {
-                var opponentScore = GameObject.Find("OpponentScore");
-                if (opponentScore != null)
-                    _opponentScoreText = opponentScore.GetComponent<TextMeshProUGUI>();
+                Debug.LogError("[UIManager] Opponent Score Text is not assigned!");
+                isValid = false;
             }
-            
             if (_roundText == null)
             {
-                var roundCounter = GameObject.Find("RoundText");
-                if (roundCounter != null)
-                    _roundText = roundCounter.GetComponent<TextMeshProUGUI>();
+                Debug.LogError("[UIManager] Round Text is not assigned!");
+                isValid = false;
             }
-            
             if (_gameStateText == null)
             {
-                var stateText = GameObject.Find("StateText");
-                if (stateText != null)
-                    _gameStateText = stateText.GetComponent<TextMeshProUGUI>();
+                Debug.LogError("[UIManager] Game State Text is not assigned!");
+                isValid = false;
             }
             
-            if (_warIndicator == null)
-                _warIndicator = GameObject.Find("WarIndicator");
-            
-            if (_warText == null && _warIndicator != null)
-            {
-                var warTextObj = _warIndicator.transform.Find("WarText");
-                if (warTextObj != null)
-                    _warText = warTextObj.GetComponent<TextMeshProUGUI>();
-            }
-            
-            if (_gameOverScreen == null)
-                _gameOverScreen = GameObject.Find("GameOverScreen");
-            
-            if (_gameOverText == null && _gameOverScreen != null)
-            {
-                var gameOverTextObj = _gameOverScreen.transform.Find("GameOverText");
-                if (gameOverTextObj != null)
-                    _gameOverText = gameOverTextObj.GetComponent<TextMeshProUGUI>();
-            }
-            
-            if (_winnerText == null && _gameOverScreen != null)
-            {
-                var winnerTextObj = _gameOverScreen.transform.Find("WinnerText");
-                if (winnerTextObj != null)
-                    _winnerText = winnerTextObj.GetComponent<TextMeshProUGUI>();
-            }
+            return isValid;
         }
         
         private void SubscribeToEvents()
@@ -261,7 +234,7 @@ namespace CardWar.UI
                 _winnerText.color = winnerPlayerNumber == 1 ? Color.green : Color.red;
             }
             
-            // Fade in animation
+            // Get or add CanvasGroup for fade effect
             CanvasGroup canvasGroup = _gameOverScreen.GetComponent<CanvasGroup>();
             if (canvasGroup == null)
                 canvasGroup = _gameOverScreen.AddComponent<CanvasGroup>();
@@ -384,6 +357,16 @@ namespace CardWar.UI
         private void OnDestroy()
         {
             Dispose();
+        }
+        
+        private void OnValidate()
+        {
+            // This runs in editor when values change
+            // Helps catch missing references early
+            if (Application.isPlaying)
+                return;
+                
+            ValidateUIReferences();
         }
     }
 }

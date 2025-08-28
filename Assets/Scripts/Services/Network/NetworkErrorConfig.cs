@@ -1,10 +1,9 @@
-using System;
 using UnityEngine;
 
 namespace CardWar.Services.Network
 {
-    [Serializable]
-    public class NetworkErrorConfig
+    [CreateAssetMenu(fileName = "NetworkErrorConfig", menuName = "CardWar/Network Error Config")]
+    public class NetworkErrorConfig : ScriptableObject
     {
         [Header("Error Rates (0-1)")]
         [Range(0f, 1f)] public float timeoutRate = 0.02f;
