@@ -16,19 +16,27 @@ namespace CardWar.Gameplay.Controllers
     public class CardAnimationController : MonoBehaviour, IInitializable, IDisposable
     {
         [Header("Animation Settings")]
-        [SerializeField] private float _dealDelay = 0.1f;
+        [SerializeField] private float _dealDelay = 0.3f;
+        [SerializeField] private float _moveToWarDuration = 0.6f;
+        [SerializeField] private float _flipDuration = 0.3f;
+        [SerializeField] private float _resultPauseDuration = 1.5f;
+        
+        [Header("Positions")]
         [SerializeField] private Transform _playerCardPosition;
         [SerializeField] private Transform _opponentCardPosition;
-        [SerializeField] private Transform _deckPosition;
         [SerializeField] private Transform _warPilePosition;
+        [SerializeField] private Transform _deckPosition;
+        
+        private Transform _playerDeckPosition;
+        private Transform _opponentDeckPosition;
         
         private IAssetService _assetService;
         private IGameService _gameService;
         private SignalBus _signalBus;
         private CardViewController.Pool _cardPool;
-        
-        private readonly List<CardViewController> _activeCards = new List<CardViewController>();
-        private readonly Queue<CardViewController> _cardAnimationQueue = new Queue<CardViewController>();
+
+        private readonly List<CardViewController> _activeCards;
+        private bool _isAnimatingRound = false;
         
         [Inject]
         public void Construct(IAssetService assetService, IGameService gameService, SignalBus signalBus, CardViewController.Pool cardPool)
@@ -42,8 +50,36 @@ namespace CardWar.Gameplay.Controllers
         public void Initialize()
         {
             Debug.Log("[CardAnimationController] Initializing and subscribing to events");
+            
+            FindDeckPositions();
             SubscribeToEvents();
             PreloadAssetsAsync().Forget();
+        }
+        
+        private void FindDeckPositions()
+        {
+            GameObject playerDeck = GameObject.Find("PlayerDeckPosition");
+            GameObject opponentDeck = GameObject.Find("OpponentDeckPosition");
+            
+            if (playerDeck != null)
+            {
+                _playerDeckPosition = playerDeck.transform;
+            }
+            else if (_deckPosition != null)
+            {
+                _playerDeckPosition = _deckPosition;
+            }
+            
+            if (opponentDeck != null)
+            {
+                _opponentDeckPosition = opponentDeck.transform;
+            }
+            else if (_deckPosition != null)
+            {
+                _opponentDeckPosition = _deckPosition;
+            }
+            
+            Debug.Log($"[CardAnimationController] Deck positions - Player: {_playerDeckPosition != null}, Opponent: {_opponentDeckPosition != null}");
         }
         
         private void SubscribeToEvents()
@@ -73,61 +109,248 @@ namespace CardWar.Gameplay.Controllers
         
         private void OnRoundStart(RoundStartEvent eventData)
         {
-            Debug.Log("[CardAnimationController] Round started");
+            Debug.Log("[CardAnimationController] Round started - preparing animation");
         }
         
         private void OnRoundComplete(RoundCompleteEvent eventData)
         {
+            if (_isAnimatingRound) return;
+            
             var result = eventData.Result;
-            int playerScore = _gameService.PlayerCardCount;
-            int opponentScore = _gameService.OpponentCardCount;
+            Debug.Log($"[CardAnimationController] Playing round animation - Result: {result.Result}");
             
-            Debug.Log($"[CardAnimationController] Round complete - Result: {result.Result}, Player: {playerScore}, Opponent: {opponentScore}");
-            
-            AnimateRoundResult(result).Forget();
+            AnimateCompleteRound(result).Forget();
         }
         
-        private async UniTaskVoid AnimateRoundResult(GameRoundResultData result)
+        private async UniTaskVoid AnimateCompleteRound(GameRoundResultData result)
         {
-            var playerCard = SpawnCard(result.PlayerCard, _playerCardPosition.position, true);
-            var opponentCard = SpawnCard(result.OpponentCard, _opponentCardPosition.position, false);
+            _isAnimatingRound = true;
             
-            await UniTask.Delay(TimeSpan.FromSeconds(0.5f));
-            
-            await playerCard.FlipToFrontAsync();
-            await opponentCard.FlipToFrontAsync();
-            
-            await UniTask.Delay(TimeSpan.FromSeconds(1f));
-            
-            Transform winnerPosition = result.Result == GameResult.PlayerWin ? _playerCardPosition : _opponentCardPosition;
-            
-            int playerCardCount = _gameService.PlayerCardCount;
-            int opponentCardCount = _gameService.OpponentCardCount;
-            
-            if (playerCardCount > 0 && opponentCardCount > 0)
+            try
             {
-                await AnimateCardCollection(playerCard, opponentCard, winnerPosition);
+                // Step 1: Spawn cards at deck positions (face down)
+                Transform playerStart = _playerDeckPosition ?? _deckPosition;
+                Transform opponentStart = _opponentDeckPosition ?? _deckPosition;
+                
+                var playerCard = SpawnCard(result.PlayerCard, playerStart.position, true);
+                var opponentCard = SpawnCard(result.OpponentCard, opponentStart.position, false);
+                
+                playerCard.SetFaceDown(true);
+                opponentCard.SetFaceDown(true);
+                
+                await UniTask.Delay(TimeSpan.FromSeconds(0.1f));
+                
+                // Step 2: Move cards to war positions
+                await AnimateCardsToWarPositions(playerCard, opponentCard);
+                
+                // Step 3: Flip cards to reveal
+                await AnimateCardFlips(playerCard, opponentCard);
+                
+                // Step 4: Pause to show result
+                await UniTask.Delay(TimeSpan.FromSeconds(_resultPauseDuration));
+                
+                // Step 5: Collect cards to winner
+                await AnimateWinnerCollection(playerCard, opponentCard, result.Result);
+                
+                // Cleanup
+                CleanupCard(playerCard);
+                CleanupCard(opponentCard);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CardAnimationController] Animation failed: {e.Message}");
+            }
+            finally
+            {
+                _isAnimatingRound = false;
+            }
+        }
+        
+        private async UniTask AnimateCardsToWarPositions(CardViewController playerCard, CardViewController opponentCard)
+        {
+            var playerSequence = DOTween.Sequence();
+            var opponentSequence = DOTween.Sequence();
+            
+            // Player card moves up and slightly right
+            playerSequence.Append(playerCard.transform.DOMove(_playerCardPosition.position, _moveToWarDuration)
+                .SetEase(Ease.OutQuad));
+            playerSequence.Join(playerCard.transform.DORotate(new Vector3(0, 0, -5f), _moveToWarDuration));
+            
+            // Opponent card moves down and slightly left
+            opponentSequence.Append(opponentCard.transform.DOMove(_opponentCardPosition.position, _moveToWarDuration)
+                .SetEase(Ease.OutQuad));
+            opponentSequence.Join(opponentCard.transform.DORotate(new Vector3(0, 0, 5f), _moveToWarDuration));
+            
+            await UniTask.WhenAll(
+                playerSequence.AsyncWaitForCompletion().AsUniTask(),
+                opponentSequence.AsyncWaitForCompletion().AsUniTask()
+            );
+        }
+        
+        private async UniTask AnimateCardFlips(CardViewController playerCard, CardViewController opponentCard)
+        {
+            // Flip both cards simultaneously
+            await UniTask.WhenAll(
+                playerCard.FlipToFrontAsync(),
+                opponentCard.FlipToFrontAsync()
+            );
+        }
+        
+        private async UniTask AnimateWinnerCollection(CardViewController playerCard, CardViewController opponentCard, GameResult result)
+        {
+            Transform winnerPosition = result == GameResult.PlayerWin ? 
+                _playerDeckPosition ?? _playerCardPosition : 
+                _opponentDeckPosition ?? _opponentCardPosition;
+            
+            var sequence = DOTween.Sequence();
+            
+            // Both cards move to winner's deck
+            sequence.Append(playerCard.transform.DOMove(winnerPosition.position, 0.5f));
+            sequence.Join(opponentCard.transform.DOMove(winnerPosition.position, 0.5f));
+            sequence.Join(playerCard.transform.DOScale(0.8f, 0.5f));
+            sequence.Join(opponentCard.transform.DOScale(0.8f, 0.5f));
+            sequence.Join(playerCard.transform.DORotate(Vector3.zero, 0.5f));
+            sequence.Join(opponentCard.transform.DORotate(Vector3.zero, 0.5f));
+            
+            // Fade out
+            var playerCanvas = playerCard.GetComponent<CanvasGroup>();
+            var opponentCanvas = opponentCard.GetComponent<CanvasGroup>();
+            
+            if (playerCanvas != null)
+            {
+                sequence.Join(DOTween.To(() => playerCanvas.alpha, x => playerCanvas.alpha = x, 0, 0.3f)
+                    .SetDelay(0.2f));
             }
             
-            CleanupCard(playerCard);
-            CleanupCard(opponentCard);
+            if (opponentCanvas != null)
+            {
+                sequence.Join(DOTween.To(() => opponentCanvas.alpha, x => opponentCanvas.alpha = x, 0, 0.3f)
+                    .SetDelay(0.2f));
+            }
+            
+            await sequence.AsyncWaitForCompletion();
         }
         
         private void OnWarStart(WarStartEvent eventData)
         {
-            Debug.Log($"[CardAnimationController] War started with {eventData.WarData.AllWarRounds.Count} rounds");
-            AnimateWar(eventData.WarData).Forget();
+            Debug.Log($"[CardAnimationController] War animation starting - {eventData.WarData.AllWarRounds.Count} rounds");
+            AnimateWarSequence(eventData.WarData).Forget();
+        }
+        
+        private async UniTaskVoid AnimateWarSequence(WarData warData)
+        {
+            var warCards = new List<CardViewController>();
+            
+            try
+            {
+                foreach (var warRound in warData.AllWarRounds)
+                {
+                    await AnimateWarRound(warRound, warCards);
+                    await UniTask.Delay(TimeSpan.FromSeconds(0.5f));
+                }
+                
+                // Collect all war cards to winner
+                bool playerWins = warData.WinningPlayerNumber == 1;
+                Transform winnerDeck = playerWins ? _playerDeckPosition : _opponentDeckPosition;
+                
+                if (winnerDeck != null)
+                {
+                    var sequence = DOTween.Sequence();
+                    foreach (var card in warCards)
+                    {
+                        sequence.Join(card.transform.DOMove(winnerDeck.position, 0.8f));
+                        sequence.Join(card.transform.DOScale(0.5f, 0.8f));
+                        
+                        var canvas = card.GetComponent<CanvasGroup>();
+                        if (canvas != null)
+                        {
+                            sequence.Join(DOTween.To(() => canvas.alpha, x => canvas.alpha = x, 0, 0.5f)
+                                .SetDelay(0.3f));
+                        }
+                    }
+                    
+                    await sequence.AsyncWaitForCompletion();
+                }
+                
+                foreach (var card in warCards)
+                {
+                    CleanupCard(card);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CardAnimationController] War animation failed: {e.Message}");
+                foreach (var card in warCards)
+                {
+                    CleanupCard(card);
+                }
+            }
+        }
+        
+        private async UniTask AnimateWarRound(WarRound warRound, List<CardViewController> warCards)
+        {
+            // Place face-down cards
+            for (int i = 0; i < warRound.PlayerCards.Count; i++)
+            {
+                var playerCard = SpawnCard(warRound.PlayerCards[i], 
+                    _playerDeckPosition?.position ?? _deckPosition.position, true);
+                playerCard.SetFaceDown(true);
+                
+                Vector3 warPos = _warPilePosition.position + new Vector3(-30 + i * 15, -10, 0);
+                await playerCard.transform.DOMove(warPos, 0.3f).AsyncWaitForCompletion();
+                
+                warCards.Add(playerCard);
+            }
+            
+            for (int i = 0; i < warRound.OpponentCards.Count; i++)
+            {
+                var oppCard = SpawnCard(warRound.OpponentCards[i], 
+                    _opponentDeckPosition?.position ?? _deckPosition.position, false);
+                oppCard.SetFaceDown(true);
+                
+                Vector3 warPos = _warPilePosition.position + new Vector3(30 - i * 15, 10, 0);
+                await oppCard.transform.DOMove(warPos, 0.3f).AsyncWaitForCompletion();
+                
+                warCards.Add(oppCard);
+            }
+            
+            // Fighting cards
+            if (warRound.PlayerFightingCard != null && warRound.OpponentFightingCard != null)
+            {
+                var playerFight = SpawnCard(warRound.PlayerFightingCard, 
+                    _playerDeckPosition?.position ?? _deckPosition.position, true);
+                var oppFight = SpawnCard(warRound.OpponentFightingCard, 
+                    _opponentDeckPosition?.position ?? _deckPosition.position, false);
+                
+                warCards.Add(playerFight);
+                warCards.Add(oppFight);
+                
+                playerFight.SetFaceDown(true);
+                oppFight.SetFaceDown(true);
+                
+                await UniTask.WhenAll(
+                    playerFight.transform.DOMove(_playerCardPosition.position, 0.5f).AsyncWaitForCompletion().AsUniTask(),
+                    oppFight.transform.DOMove(_opponentCardPosition.position, 0.5f).AsyncWaitForCompletion().AsUniTask()
+                );
+                
+                await UniTask.WhenAll(
+                    playerFight.FlipToFrontAsync(),
+                    oppFight.FlipToFrontAsync()
+                );
+                
+                await UniTask.Delay(TimeSpan.FromSeconds(1f));
+            }
         }
         
         private void OnGameStart(GameStartEvent eventData)
         {
-            Debug.Log("[CardAnimationController] Game started");
+            Debug.Log("[CardAnimationController] Game started - clearing cards");
             ClearAllCards();
         }
         
         private void OnGameEnd(GameEndEvent eventData)
         {
-            Debug.Log($"[CardAnimationController] Game ended - Winner: Player {eventData.WinnerPlayerNumber}");
+            Debug.Log($"[CardAnimationController] Game ended");
             ClearAllCards();
         }
         
@@ -151,13 +374,18 @@ namespace CardWar.Gameplay.Controllers
         {
             var card = _cardPool.Spawn();
             card.transform.position = position;
+            card.transform.localScale = Vector3.one;
             card.Setup(cardData);
             
             var frontSprite = _assetService.GetCardSprite(cardData);
             var backSprite = _assetService.GetCardBackSprite();
             card.SetCardSprites(frontSprite, backSprite);
             
-            card.SetFaceDown(true);
+            var canvasGroup = card.GetComponent<CanvasGroup>();
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 1f;
+            }
             
             _activeCards.Add(card);
             return card;
@@ -182,105 +410,6 @@ namespace CardWar.Gameplay.Controllers
                 }
             }
             _activeCards.Clear();
-        }
-        
-        private async UniTask AnimateCardCollection(CardViewController playerCard, CardViewController opponentCard, Transform winnerPosition)
-        {
-            var sequence = DOTween.Sequence();
-            
-            sequence.Append(playerCard.transform.DOMove(winnerPosition.position, 0.5f));
-            sequence.Join(opponentCard.transform.DOMove(winnerPosition.position, 0.5f));
-            sequence.Join(playerCard.transform.DOScale(0, 0.5f));
-            sequence.Join(opponentCard.transform.DOScale(0, 0.5f));
-            
-            await sequence.AsyncWaitForCompletion();
-        }
-        
-        private async UniTaskVoid AnimateWar(WarData warData)
-        {
-            Debug.Log($"[CardAnimationController] Animating war with {warData.AllWarRounds.Count} rounds");
-            
-            var warCards = new List<CardViewController>();
-            
-            try
-            {
-                foreach (var warRound in warData.AllWarRounds)
-                {
-                    await AnimateWarRound(warRound, warCards);
-                }
-                
-                await UniTask.Delay(TimeSpan.FromSeconds(1f));
-                
-                bool playerWins = warData.WinningPlayerNumber == 1;
-                Transform winnerPosition = playerWins ? _playerCardPosition : _opponentCardPosition;
-                
-                var sequence = DOTween.Sequence();
-                foreach (var card in warCards)
-                {
-                    sequence.Join(card.transform.DOMove(winnerPosition.position, 0.5f));
-                    sequence.Join(card.transform.DOScale(0, 0.5f));
-                }
-                
-                await sequence.AsyncWaitForCompletion();
-                
-                foreach (var card in warCards)
-                {
-                    CleanupCard(card);
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[CardAnimationController] War animation failed: {e.Message}");
-                foreach (var card in warCards)
-                {
-                    CleanupCard(card);
-                }
-            }
-        }
-        
-        private async UniTask AnimateWarRound(WarRound warRound, List<CardViewController> warCards)
-        {
-            int cardsPerSide = Math.Max(warRound.PlayerCards.Count, warRound.OpponentCards.Count);
-            
-            for (int i = 0; i < cardsPerSide; i++)
-            {
-                if (i < warRound.PlayerCards.Count)
-                {
-                    var playerCard = SpawnCard(warRound.PlayerCards[i], _deckPosition.position, true);
-                    warCards.Add(playerCard);
-                    
-                    Vector3 targetPos = _warPilePosition.position + new Vector3(i * 0.5f, 0, 0);
-                    await playerCard.transform.DOMove(targetPos, 0.3f).AsyncWaitForCompletion();
-                }
-                
-                if (i < warRound.OpponentCards.Count)
-                {
-                    var opponentCard = SpawnCard(warRound.OpponentCards[i], _deckPosition.position, false);
-                    warCards.Add(opponentCard);
-                    
-                    Vector3 targetPos = _warPilePosition.position + new Vector3(-i * 0.5f, 0, 0);
-                    await opponentCard.transform.DOMove(targetPos, 0.3f).AsyncWaitForCompletion();
-                }
-                
-                await UniTask.Delay(TimeSpan.FromSeconds(_dealDelay));
-            }
-            
-            if (warRound.PlayerFightingCard != null && warRound.OpponentFightingCard != null)
-            {
-                var playerFightCard = SpawnCard(warRound.PlayerFightingCard, _deckPosition.position, true);
-                var opponentFightCard = SpawnCard(warRound.OpponentFightingCard, _deckPosition.position, false);
-                
-                warCards.Add(playerFightCard);
-                warCards.Add(opponentFightCard);
-                
-                await playerFightCard.transform.DOMove(_playerCardPosition.position, 0.5f).AsyncWaitForCompletion();
-                await opponentFightCard.transform.DOMove(_opponentCardPosition.position, 0.5f).AsyncWaitForCompletion();
-                
-                await playerFightCard.FlipToFrontAsync();
-                await opponentFightCard.FlipToFrontAsync();
-                
-                await UniTask.Delay(TimeSpan.FromSeconds(1f));
-            }
         }
         
         public void Dispose()
