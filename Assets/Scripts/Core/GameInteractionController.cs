@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using Zenject;
 using CardWar.Services.Game;
 using CardWar.Core.Enums;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Core
 {
@@ -14,7 +15,7 @@ namespace CardWar.Core
         [SerializeField] private bool _enableKeyboardInput = true;
         [SerializeField] private KeyCode _drawCardKey = KeyCode.Space;
         
-        [Header("UI References")]
+        [Header("UI References - Assign in Inspector")]
         [SerializeField] private Button _drawCardButton;
         
         private IGameService _gameService;
@@ -40,171 +41,123 @@ namespace CardWar.Core
         
         private void SetupUI()
         {
-            if (_drawCardButton == null && _gameCanvas != null)
-            {
-                CreateDrawCardButton();
-            }
-            
             if (_drawCardButton != null)
             {
                 _drawCardButton.onClick.AddListener(OnDrawCardClicked);
             }
-        }
-        
-        private void CreateDrawCardButton()
-        {
-            var buttonObj = new GameObject("DrawCardButton");
-            buttonObj.transform.SetParent(_gameCanvas.transform, false);
-            
-            var rectTransform = buttonObj.AddComponent<RectTransform>();
-            rectTransform.anchorMin = new Vector2(0.5f, 0.2f);
-            rectTransform.anchorMax = new Vector2(0.5f, 0.2f);
-            rectTransform.anchoredPosition = Vector2.zero;
-            rectTransform.sizeDelta = new Vector2(200, 60);
-            
-            var image = buttonObj.AddComponent<Image>();
-            image.color = new Color(0.2f, 0.6f, 1f, 0.8f);
-            
-            var button = buttonObj.AddComponent<Button>();
-            
-            var textObj = new GameObject("Text");
-            textObj.transform.SetParent(buttonObj.transform, false);
-            
-            var textRect = textObj.AddComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.sizeDelta = Vector2.zero;
-            textRect.anchoredPosition = Vector2.zero;
-            
-            var text = textObj.AddComponent<Text>();
-            text.text = "TAP TO DRAW";
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            text.fontSize = 18;
-            text.color = Color.white;
-            text.alignment = TextAnchor.MiddleCenter;
-            text.fontStyle = FontStyle.Bold;
-            
-            _drawCardButton = button;
+            else
+            {
+                Debug.LogWarning("[GameInteractionController] Draw Card Button not assigned! Please assign it in the Inspector or use the Scene Setup Tool to create UI properly.");
+            }
         }
         
         private void SubscribeToEvents()
         {
-            _gameService.OnGameStateChanged += OnGameStateChanged;
+            if (_gameService != null)
+            {
+                _gameService.OnGameStateChanged += OnGameStateChanged;
+            }
         }
         
         private void UnsubscribeFromEvents()
         {
             if (_gameService != null)
+            {
                 _gameService.OnGameStateChanged -= OnGameStateChanged;
+            }
         }
         
         private void Update()
         {
-            if (_enableTapToPlay && UnityEngine.Input.GetMouseButtonDown(0))
+            if (!_gameStarted || _gameService?.CurrentGameState != GameState.Playing)
+                return;
+                
+            HandleInput();
+        }
+        
+        private void HandleInput()
+        {
+            bool inputDetected = false;
+            
+            if (_enableTapToPlay)
             {
-                HandleScreenTap();
+                if (Input.GetMouseButtonDown(0) || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began))
+                {
+                    inputDetected = true;
+                }
             }
             
-            if (_enableKeyboardInput && UnityEngine.Input.GetKeyDown(_drawCardKey))
+            if (_enableKeyboardInput && Input.GetKeyDown(_drawCardKey))
+            {
+                inputDetected = true;
+            }
+            
+            if (inputDetected)
             {
                 OnDrawCardClicked();
             }
-        }
-        
-        private void HandleScreenTap()
-        {
-            if (CanProcessInput())
-            {
-                OnDrawCardClicked();
-            }
-        }
-        
-        private bool CanProcessInput()
-        {
-            if (_gameService == null) return false;
-            
-            var currentState = _gameService.CurrentGameState;
-            
-            return currentState == GameState.Playing || 
-                   currentState == GameState.Idle ||
-                   (!_gameStarted && currentState == GameState.Initializing);
         }
         
         private void OnDrawCardClicked()
         {
             if (_gameService == null) return;
             
-            try
+            if (_gameService.CurrentGameState == GameState.Idle)
             {
-                if (!_gameStarted)
-                {
-                    _gameService.StartNewGame();
-                    _gameStarted = true;
-                }
-                else if (CanProcessInput())
-                {
-                    _gameService.PlayNextRound();
-                }
+                StartGame();
             }
-            catch (System.Exception ex)
+            else if (_gameService.CurrentGameState == GameState.Playing)
             {
-                Debug.LogError($"[GameInteractionController] Error during game action: {ex.Message}");
+                PlayNextRound();
+            }
+        }
+        
+        private void StartGame()
+        {
+            if (_gameService != null)
+            {
+                _gameService.StartNewGame().Forget();
+                _gameStarted = true;
+                Debug.Log("[GameInteractionController] Game started via user input");
+            }
+        }
+        
+        private void PlayNextRound()
+        {
+            if (_gameService != null)
+            {
+                _gameService.PlayNextRound().Forget();
             }
         }
         
         private void OnGameStateChanged(GameState newState)
         {
-            UpdateButtonState(newState);
             UpdateButtonText(newState);
-        }
-        
-        private void UpdateButtonState(GameState gameState)
-        {
-            if (_drawCardButton == null) return;
             
-            bool isInteractable = gameState switch
+            if (newState == GameState.GameOver)
             {
-                GameState.Playing => true,
-                GameState.Idle => true,
-                GameState.Initializing => !_gameStarted,
-                GameState.RoundComplete => false,
-                GameState.War => false,
-                GameState.GameOver => false,
-                GameState.Paused => false,
-                _ => false
-            };
-            
-            _drawCardButton.interactable = isInteractable;
-            
-            var buttonImage = _drawCardButton.GetComponent<Image>();
-            if (buttonImage != null)
-            {
-                buttonImage.color = isInteractable ? 
-                    new Color(0.2f, 0.6f, 1f, 0.8f) : 
-                    new Color(0.5f, 0.5f, 0.5f, 0.8f);
+                _gameStarted = false;
             }
         }
         
         private void UpdateButtonText(GameState gameState)
         {
-            if (_drawCardButton == null) return;
-            
-            var buttonText = _drawCardButton.GetComponentInChildren<UnityEngine.UI.Text>();
-            if (buttonText == null) return;
-            
-            string text = gameState switch
+            if (_drawCardButton?.GetComponentInChildren<TMPro.TextMeshProUGUI>() is var buttonText && buttonText != null)
             {
-                GameState.Initializing when !_gameStarted => "START GAME",
-                GameState.Playing => "DRAW CARD",
-                GameState.Idle => "DRAW CARD",
-                GameState.RoundComplete => "PROCESSING...",
-                GameState.War => "WAR!",
-                GameState.GameOver => "GAME OVER",
-                GameState.Paused => "PAUSED",
-                _ => "WAITING..."
-            };
-            
-            buttonText.text = text;
+                string text = gameState switch
+                {
+                    GameState.Idle => "TAP TO START",
+                    GameState.Initializing => "STARTING...",
+                    GameState.Playing => "TAP TO DRAW",
+                    GameState.War => "WAR IN PROGRESS",
+                    GameState.RoundComplete => "PROCESSING...",
+                    GameState.GameOver => "GAME OVER - TAP TO RESTART",
+                    GameState.Paused => "PAUSED",
+                    _ => "TAP TO PLAY"
+                };
+                
+                buttonText.text = text;
+            }
         }
         
         public void Dispose()
@@ -222,25 +175,6 @@ namespace CardWar.Core
         private void OnDestroy()
         {
             Dispose();
-        }
-        
-        [ContextMenu("Force Start Game")]
-        private void ForceStartGame()
-        {
-            if (_gameService != null)
-            {
-                _gameService.StartNewGame();
-                _gameStarted = true;
-            }
-        }
-        
-        [ContextMenu("Force Play Round")]
-        private void ForcePlayRound()
-        {
-            if (_gameService != null)
-            {
-                _gameService.PlayNextRound();
-            }
         }
     }
 }

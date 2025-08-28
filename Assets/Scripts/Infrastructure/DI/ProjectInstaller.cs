@@ -21,6 +21,7 @@ namespace CardWar.Infrastructure.Installers
             
             try
             {
+                InstallSignalBus();
                 BindGameSettings();
                 BindNetworkConfig();
                 BindGlobalServices();
@@ -37,6 +38,12 @@ namespace CardWar.Infrastructure.Installers
             }
         }
         
+        private void InstallSignalBus()
+        {
+            SignalBusInstaller.Install(Container);
+            Debug.Log("[ProjectInstaller] SignalBus installed successfully");
+        }
+        
         private void BindGameSettings()
         {
             if (_gameSettings == null)
@@ -44,7 +51,7 @@ namespace CardWar.Infrastructure.Installers
                 _gameSettings = Resources.Load<GameSettings>("Settings/GameSettings");
                 if (_gameSettings == null)
                 {
-                    Debug.LogError("[ProjectInstaller] GameSettings not found! Please create it using: Assets -> Create -> CardWar -> Game Settings");
+                    Debug.LogError("[ProjectInstaller] GameSettings not found at Resources/Settings/GameSettings! Please create it.");
                     return;
                 }
             }
@@ -73,7 +80,6 @@ namespace CardWar.Infrastructure.Installers
         {
             var config = ScriptableObject.CreateInstance<NetworkErrorConfig>();
             
-            // Set reasonable defaults
             config.timeoutRate = 0.01f;
             config.networkErrorRate = 0.02f;
             config.serverErrorRate = 0.005f;
