@@ -35,6 +35,7 @@ namespace CardWar.Core
         
         public void Initialize()
         {
+            Debug.LogError("GameInteractionController initialized!!");
             SetupUI();
             SubscribeToEvents();
         }

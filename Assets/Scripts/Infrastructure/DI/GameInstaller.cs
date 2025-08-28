@@ -8,9 +8,7 @@ namespace CardWar.Infrastructure.Installers
 {
     public class GameInstaller : MonoInstaller
     {
-        [Header("Scene References - Assign in Inspector")]
-        [SerializeField] private Camera _gameCamera;
-        [SerializeField] private Canvas _gameCanvas;
+        [Header("Prefab References - Assign in Inspector")]
         [SerializeField] private GameObject _cardPrefab;
         [SerializeField] private Transform _cardPoolContainer;
         
@@ -35,11 +33,27 @@ namespace CardWar.Infrastructure.Installers
         
         private void BindSceneComponents()
         {
-            if (_gameCamera != null)
-                Container.Bind<Camera>().FromInstance(_gameCamera).AsSingle();
+            var gameCamera = Camera.main;
+            if (gameCamera != null)
+            {
+                Container.Bind<Camera>().FromInstance(gameCamera).AsSingle();
+                Debug.Log("[GameInstaller] Camera bound successfully");
+            }
+            else
+            {
+                Debug.LogError("[GameInstaller] Camera not found in scene!");
+            }
             
-            if (_gameCanvas != null)
-                Container.Bind<Canvas>().FromInstance(_gameCanvas).AsSingle();
+            var gameCanvas = FindObjectOfType<Canvas>();
+            if (gameCanvas != null)
+            {
+                Container.Bind<Canvas>().FromInstance(gameCanvas).AsSingle();
+                Debug.Log("[GameInstaller] Canvas bound successfully");
+            }
+            else
+            {
+                Debug.LogError("[GameInstaller] Canvas not found in scene!");
+            }
             
             var canvasManager = FindObjectOfType<CanvasManager>();
             if (canvasManager != null)
@@ -96,9 +110,13 @@ namespace CardWar.Infrastructure.Installers
         {
             if (_cardPrefab != null)
                 Container.Bind<GameObject>().WithId("CardPrefab").FromInstance(_cardPrefab);
+            else
+                Debug.LogWarning("[GameInstaller] CardPrefab not assigned in Inspector");
             
             if (_cardPoolContainer != null)
                 Container.Bind<Transform>().WithId("CardPoolContainer").FromInstance(_cardPoolContainer);
+            else
+                Debug.LogWarning("[GameInstaller] CardPoolContainer not assigned in Inspector");
             
             Debug.Log("[GameInstaller] Prefab references bound");
         }
