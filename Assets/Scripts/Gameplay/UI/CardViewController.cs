@@ -200,15 +200,6 @@ namespace CardWar.UI.Cards
             if (_cardData == null) return;
             
             // TODO: Load actual card sprite from resources
-            // For now, just set a placeholder color based on suit
-            Color suitColor = _cardData.Suit switch
-            {
-                CardSuit.Hearts => Color.red,
-                CardSuit.Diamonds => Color.red,
-                CardSuit.Clubs => Color.black,
-                CardSuit.Spades => Color.black,
-                _ => Color.gray
-            };
             
             if (_cardFront != null)
             {

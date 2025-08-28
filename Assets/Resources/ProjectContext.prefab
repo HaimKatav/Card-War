@@ -74,22 +74,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d3df6d1f35f2413d9760547932b6a8e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _networkErrorConfig:
-    timeoutRate: 0.02
-    networkErrorRate: 0.05
-    serverErrorRate: 0.01
-    corruptionRate: 0.005
-    minNetworkDelay: 0.1
-    maxNetworkDelay: 0.5
-    timeoutDuration: 5
-    retryBaseDelay: 1
-    networkErrorMessages:
-    - Connection timeout
-    - Network unreachable
-    - Connection lost
-    - DNS resolution failed
-    serverErrorMessages:
-    - Internal server error
-    - Service unavailable
-    - Database connection failed
-    - Rate limit exceeded
+  _networkErrorConfig: {fileID: 11400000, guid: 562b2b3a814b14ff1b22af985ee95f08, type: 2}
+  _preloadCardAssets: 1

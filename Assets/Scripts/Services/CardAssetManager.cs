@@ -74,10 +74,7 @@ namespace CardWar.Services.Assets
                         _cardSprites[cardId] = CreateCardPlaceholder(suit, rank);
                         missingCount++;
                         
-                        if (missingCount <= 5) // Only log first few missing
-                        {
-                            Debug.LogWarning($"[CardAssetManager] Card sprite not found: {CARDS_PATH}{spriteName}");
-                        }
+                        Debug.LogWarning($"[CardAssetManager] Card sprite not found: {CARDS_PATH}{spriteName}");
                     }
                 }
             }
