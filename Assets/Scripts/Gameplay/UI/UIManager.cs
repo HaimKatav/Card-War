@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
 using Zenject;
@@ -7,23 +8,37 @@ using Cysharp.Threading.Tasks;
 using CardWar.Core.Enums;
 using CardWar.Infrastructure.Events;
 using CardWar.Services.Game;
+using CardWar.Services.Assets;
+using CardWar.Configuration;
 
-namespace CardWar.UI
+namespace CardWar.Core.UI
 {
     public class UIManager : MonoBehaviour, IInitializable, IDisposable
     {
-        [Header("HUD Elements - Must be assigned in Inspector")]
+        [Header("UI Panels")]
+        [SerializeField] private GameObject _playerScorePanel;
+        [SerializeField] private GameObject _opponentScorePanel;
+        [SerializeField] private GameObject _centerGamePanel;
+        [SerializeField] private GameObject _gameStatePanel;
+        
+        [Header("Text Components")]
         [SerializeField] private TextMeshProUGUI _playerScoreText;
         [SerializeField] private TextMeshProUGUI _opponentScoreText;
         [SerializeField] private TextMeshProUGUI _roundText;
         [SerializeField] private TextMeshProUGUI _gameStateText;
         
-        [Header("Popup Elements - Must be assigned in Inspector")]
+        [Header("Popup Elements")]
         [SerializeField] private GameObject _warIndicator;
         [SerializeField] private TextMeshProUGUI _warText;
         [SerializeField] private GameObject _gameOverScreen;
         [SerializeField] private TextMeshProUGUI _gameOverText;
         [SerializeField] private TextMeshProUGUI _winnerText;
+        
+        [Header("Background Elements")]
+        [SerializeField] private Image _backgroundImage;
+        [SerializeField] private Image _playerScoreBackground;
+        [SerializeField] private Image _opponentScoreBackground;
+        [SerializeField] private Image _centerPanelBackground;
         
         [Header("Animation Settings")]
         [SerializeField] private float _scoreUpdateDuration = 0.5f;
@@ -32,6 +47,9 @@ namespace CardWar.UI
         
         private IGameService _gameService;
         private SignalBus _eventBus;
+        private IAssetService _assetService;
+        private CanvasManager _canvasManager;
+        private GameSettings _gameSettings;
         
         private int _displayedPlayerScore = 26;
         private int _displayedOpponentScore = 26;
@@ -39,42 +57,42 @@ namespace CardWar.UI
         private Sequence _currentAnimation;
         
         [Inject]
-        public void Construct(IGameService gameService, SignalBus eventBus)
+        public void Construct(
+            IGameService gameService, 
+            SignalBus eventBus, 
+            IAssetService assetService,
+            CanvasManager canvasManager,
+            GameSettings gameSettings)
         {
             _gameService = gameService;
             _eventBus = eventBus;
+            _assetService = assetService;
+            _canvasManager = canvasManager;
+            _gameSettings = gameSettings;
         }
         
         public void Initialize()
         {
-            Debug.Log("[UIManager] Initializing");
+            Debug.Log("[UIManager] Initializing with art assets...");
             
-            // Validate required components are assigned
             if (!ValidateUIReferences())
             {
-                Debug.LogError("[UIManager] Critical UI references are missing! Please assign them in the Inspector.");
+                Debug.LogError("[UIManager] Critical UI references are missing! Some features may not work properly.");
                 return;
             }
             
-            // Subscribe to events
+            SetupBackgroundArt();
+            SetupUIArt();
             SubscribeToEvents();
-            
-            // Initialize UI
             ResetUI();
-            
-            // Hide popups
-            if (_warIndicator != null)
-                _warIndicator.SetActive(false);
-                
-            if (_gameOverScreen != null)
-                _gameOverScreen.SetActive(false);
+            HidePopups();
         }
         
         private bool ValidateUIReferences()
         {
             bool isValid = true;
             
-            if (_playerScoreText == null) 
+            if (_playerScoreText == null)
             {
                 Debug.LogError("[UIManager] Player Score Text is not assigned!");
                 isValid = false;
@@ -96,6 +114,61 @@ namespace CardWar.UI
             }
             
             return isValid;
+        }
+        
+        private void SetupBackgroundArt()
+        {
+            if (_backgroundImage != null && _assetService != null)
+            {
+                var bgSprite = _assetService.GetUISprite("TableBackground");
+                if (bgSprite != null)
+                {
+                    _backgroundImage.sprite = bgSprite;
+                    Debug.Log("[UIManager] Background art loaded successfully");
+                }
+                else
+                {
+                    Debug.LogWarning("[UIManager] Background art not found, using fallback color");
+                    _backgroundImage.color = _gameSettings.backgroundColor;
+                }
+            }
+        }
+        
+        private void SetupUIArt()
+        {
+            if (_assetService == null) return;
+            
+            // Setup player score panel background
+            if (_playerScoreBackground != null)
+            {
+                var panelSprite = _assetService.GetUISprite("ScorePanelDecor");
+                if (panelSprite != null)
+                {
+                    _playerScoreBackground.sprite = panelSprite;
+                }
+                _playerScoreBackground.color = _gameSettings.playerColor;
+            }
+            
+            // Setup opponent score panel background
+            if (_opponentScoreBackground != null)
+            {
+                var panelSprite = _assetService.GetUISprite("ScorePanelDecor");
+                if (panelSprite != null)
+                {
+                    _opponentScoreBackground.sprite = panelSprite;
+                }
+                _opponentScoreBackground.color = _gameSettings.opponentColor;
+            }
+            
+            // Setup center panel background
+            if (_centerPanelBackground != null)
+            {
+                var roundPanelSprite = _assetService.GetUISprite("RoundPanel");
+                if (roundPanelSprite != null)
+                {
+                    _centerPanelBackground.sprite = roundPanelSprite;
+                }
+            }
         }
         
         private void SubscribeToEvents()
@@ -153,11 +226,20 @@ namespace CardWar.UI
                 _gameStateText.text = state;
         }
         
+        private void HidePopups()
+        {
+            if (_warIndicator != null)
+                _warIndicator.SetActive(false);
+                
+            if (_gameOverScreen != null)
+                _gameOverScreen.SetActive(false);
+        }
+        
         private void AnimateScoreUpdate(int newPlayerScore, int newOpponentScore)
         {
             KillCurrentAnimation();
             
-            // Animate score changes
+            // Animate player score if changed
             if (_playerScoreText != null && newPlayerScore != _displayedPlayerScore)
             {
                 int startScore = _displayedPlayerScore;
@@ -171,6 +253,7 @@ namespace CardWar.UI
                 _playerScoreText.transform.DOPunchScale(Vector3.one * 0.2f, _scoreUpdateDuration);
             }
             
+            // Animate opponent score if changed
             if (_opponentScoreText != null && newOpponentScore != _displayedOpponentScore)
             {
                 int startScore = _displayedOpponentScore;
@@ -188,6 +271,20 @@ namespace CardWar.UI
         private async UniTask ShowWarIndicator()
         {
             if (_warIndicator == null) return;
+            
+            // Load war indicator art
+            if (_assetService != null)
+            {
+                var warSprite = _assetService.GetUISprite("WarIndicator");
+                if (warSprite != null)
+                {
+                    var warImage = _warIndicator.GetComponent<Image>();
+                    if (warImage != null)
+                    {
+                        warImage.sprite = warSprite;
+                    }
+                }
+            }
             
             _warIndicator.SetActive(true);
             _warIndicator.transform.localScale = Vector3.zero;
@@ -231,7 +328,7 @@ namespace CardWar.UI
             {
                 string winner = winnerPlayerNumber == 1 ? "PLAYER WINS!" : "OPPONENT WINS!";
                 _winnerText.text = winner;
-                _winnerText.color = winnerPlayerNumber == 1 ? Color.green : Color.red;
+                _winnerText.color = winnerPlayerNumber == 1 ? _gameSettings.playerColor : _gameSettings.opponentColor;
             }
             
             // Get or add CanvasGroup for fade effect
@@ -313,7 +410,6 @@ namespace CardWar.UI
                 _ => ""
             };
             
-            // Brief feedback
             if (_gameStateText != null && !string.IsNullOrEmpty(resultText))
             {
                 _gameStateText.text = resultText;
@@ -361,8 +457,6 @@ namespace CardWar.UI
         
         private void OnValidate()
         {
-            // This runs in editor when values change
-            // Helps catch missing references early
             if (Application.isPlaying)
                 return;
                 

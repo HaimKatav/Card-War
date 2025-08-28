@@ -9,4 +9,5 @@ EditorBuildSettings:
     path: Assets/Scenes/SampleScene.unity
     guid: 2cda990e2423bbf4892e6590ba056729
   m_configObjects:
+    com.unity.adaptiveperformance.simulator.provider_settings: {fileID: 11400000, guid: e6beaf1913e424327af2ea362bb47fb7, type: 2}
     com.unity.addressableassets: {fileID: 11400000, guid: c8253bbe9282a416bb83a46f98e5ae0e, type: 2}

@@ -4,346 +4,217 @@ using UnityEngine.UI;
 using TMPro;
 using System.IO;
 using Zenject;
-using CardWar.UI;
-using CardWar.UI.Cards;
+using CardWar.Core.UI;
 using CardWar.Gameplay.Controllers;
 using CardWar.Configuration;
 using CardWar.Infrastructure.Installers;
+using CardWar.Services.Assets;
+using CardWar.Editor.Builders;
 
 namespace CardWar.Editor
 {
     public class ComprehensiveSceneBuilder : EditorWindow
     {
         private GameSettings _gameSettings;
-        private bool _backupOldAssets = true;
+        private bool _useArtAssets = true;
+        private bool _backupExistingAssets = true;
         private string _backupSuffix = "_OLD";
         
-        [MenuItem("CardWar/🏗️ Comprehensive Scene Builder")]
+        [MenuItem("CardWar/🎨 Fixed Scene Builder")]
         public static void ShowWindow()
         {
-            var window = GetWindow<ComprehensiveSceneBuilder>("War Card Game - Clean Scene Builder");
-            window.minSize = new Vector2(400, 600);
+            var window = GetWindow<ComprehensiveSceneBuilder>("War Card Game - Fixed Scene Builder");
+            window.minSize = new Vector2(450, 700);
         }
         
         private void OnEnable()
         {
-            LoadOrCreateGameSettings();
+            LoadGameSettings();
         }
         
         private void OnGUI()
         {
-            GUILayout.Label("🏗️ WAR CARD GAME - CLEAN SCENE BUILDER", EditorStyles.boldLabel);
+            GUILayout.Label("🎨 WAR CARD GAME - FIXED SCENE BUILDER", EditorStyles.boldLabel);
             GUILayout.Space(10);
             
             EditorGUILayout.HelpBox(
-                "This tool will create a completely clean scene setup using configurable settings.\n" +
-                "It will rename existing assets and create new ones from scratch.",
+                "This FIXED version will:\n" +
+                "• Create proper Canvas with screen adaptation\n" +
+                "• Build UI with actual art assets\n" +
+                "• Set up working prefabs with correct references\n" +
+                "• Position elements correctly for all screens\n" +
+                "• Fix all Zenject integration issues\n" +
+                "• Validate the complete setup",
                 MessageType.Info);
             
             GUILayout.Space(10);
             
-            // Game Settings Section
+            // Settings Section
             EditorGUILayout.LabelField("Configuration", EditorStyles.boldLabel);
             _gameSettings = (GameSettings)EditorGUILayout.ObjectField("Game Settings", _gameSettings, typeof(GameSettings), false);
+            _useArtAssets = EditorGUILayout.Toggle("Use Art Assets", _useArtAssets);
+            _backupExistingAssets = EditorGUILayout.Toggle("Backup Existing Assets", _backupExistingAssets);
+            
+            if (_backupExistingAssets)
+            {
+                EditorGUI.indentLevel++;
+                _backupSuffix = EditorGUILayout.TextField("Backup Suffix", _backupSuffix);
+                EditorGUI.indentLevel--;
+            }
             
             if (_gameSettings == null)
             {
-                EditorGUILayout.HelpBox("Game Settings asset required! Click 'Create Game Settings' to generate one.", MessageType.Warning);
-                
-                if (GUILayout.Button("Create Game Settings Asset"))
+                EditorGUILayout.HelpBox("Game Settings required!", MessageType.Error);
+                if (GUILayout.Button("Create Game Settings"))
                 {
-                    CreateGameSettingsAsset();
+                    CreateGameSettings();
                 }
                 return;
             }
             
-            GUILayout.Space(10);
-            
-            // Backup Options
-            EditorGUILayout.LabelField("Backup Options", EditorStyles.boldLabel);
-            _backupOldAssets = EditorGUILayout.Toggle("Backup Existing Assets", _backupOldAssets);
-            if (_backupOldAssets)
-            {
-                _backupSuffix = EditorGUILayout.TextField("Backup Suffix", _backupSuffix);
-            }
-            
             GUILayout.Space(20);
             
-            // Main Action Button
+            // Main Actions
             GUI.backgroundColor = Color.green;
-            if (GUILayout.Button("🚀 BUILD COMPLETE CLEAN SCENE", GUILayout.Height(60)))
+            if (GUILayout.Button("🚀 BUILD COMPLETE FIXED SCENE", GUILayout.Height(60)))
             {
-                if (EditorUtility.DisplayDialog("Build Clean Scene", 
-                    $"This will create a completely new scene setup and {(_backupOldAssets ? "backup" : "replace")} existing assets.\n\n" +
-                    "This process includes:\n" +
-                    "• Creating/organizing folder structure\n" +
-                    "• Setting up GameSettings-based asset paths\n" +
-                    "• Building new prefabs with proper connections\n" +
-                    "• Creating clean scene hierarchy\n" +
-                    "• Setting up Zenject bindings\n\n" +
+                if (EditorUtility.DisplayDialog("Build Fixed Scene", 
+                    $"This will create a completely new scene setup.\n\n" +
+                    "Process includes:\n" +
+                    "• Clear existing scene\n" +
+                    "• Create proper Canvas hierarchy\n" +
+                    "• Set up art-integrated UI\n" +
+                    "• Build working prefabs\n" +
+                    "• Configure Zenject properly\n" +
+                    "• Validate complete setup\n\n" +
                     "Continue?", 
-                    "Yes, Build Clean Scene", "Cancel"))
+                    "Yes, Build Scene", "Cancel"))
                 {
-                    BuildCompleteScene();
+                    BuildFixedScene();
                 }
             }
             GUI.backgroundColor = Color.white;
             
-            GUILayout.Space(20);
+            GUILayout.Space(10);
             
             // Individual Actions
             EditorGUILayout.LabelField("Individual Actions", EditorStyles.boldLabel);
             
-            if (GUILayout.Button("1. 📁 Create Folder Structure"))
-                CreateFolderStructure();
+            if (GUILayout.Button("🧪 Test Art Asset Loading"))
+            {
+                TestArtAssets();
+            }
             
-            if (GUILayout.Button("2. 🔄 Backup & Rename Old Assets"))
-                BackupExistingAssets();
+            if (GUILayout.Button("🔧 Create Canvas System Only"))
+            {
+                CreateCanvasSystemOnly();
+            }
             
-            if (GUILayout.Button("3. 🎮 Create New Prefabs"))
-                CreateNewPrefabs();
+            if (GUILayout.Button("🎨 Create Art-Integrated Prefabs"))
+            {
+                CreateArtIntegratedPrefabs();
+            }
             
-            if (GUILayout.Button("4. 🏗️ Setup Clean Scene Hierarchy"))
-                SetupSceneHierarchy();
+            if (GUILayout.Button("🔗 Fix Existing References"))
+            {
+                FixExistingReferences();
+            }
             
-            if (GUILayout.Button("5. 🔗 Connect All References"))
-                ConnectAllReferences();
+            if (GUILayout.Button("🧹 Clean Scene"))
+            {
+                if (EditorUtility.DisplayDialog("Clean Scene", "This will remove all GameObjects except Main Camera. Continue?", "Yes", "Cancel"))
+                {
+                    ClearScene();
+                }
+            }
             
-            if (GUILayout.Button("6. 🧪 Validate Setup"))
-                ValidateCompleteSetup();
+            GUILayout.Space(20);
+            
+            // Status Section
+            EditorGUILayout.LabelField("Scene Status", EditorStyles.boldLabel);
+            DisplaySceneStatus();
         }
         
-        private void BuildCompleteScene()
+        private void BuildFixedScene()
         {
-            Debug.Log("🏗️ [Scene Builder] Starting complete clean scene build...");
+            Debug.Log("🎨 [Fixed Scene Builder] Starting complete fixed scene build...");
             
             try
             {
-                EditorUtility.DisplayProgressBar("Building Scene", "Creating folder structure...", 0.1f);
-                CreateFolderStructure();
-                
-                EditorUtility.DisplayProgressBar("Building Scene", "Backing up existing assets...", 0.2f);
-                if (_backupOldAssets)
+                EditorUtility.DisplayProgressBar("Building Scene", "Backing up existing assets...", 0.1f);
+                if (_backupExistingAssets)
                     BackupExistingAssets();
                 
-                EditorUtility.DisplayProgressBar("Building Scene", "Creating new prefabs...", 0.4f);
-                CreateNewPrefabs();
+                EditorUtility.DisplayProgressBar("Building Scene", "Clearing scene...", 0.2f);
+                ClearScene();
                 
-                EditorUtility.DisplayProgressBar("Building Scene", "Setting up scene hierarchy...", 0.6f);
-                SetupSceneHierarchy();
+                EditorUtility.DisplayProgressBar("Building Scene", "Creating ProjectContext...", 0.3f);
+                CreateProjectContext();
                 
-                EditorUtility.DisplayProgressBar("Building Scene", "Connecting references...", 0.8f);
-                ConnectAllReferences();
+                EditorUtility.DisplayProgressBar("Building Scene", "Building Canvas system...", 0.4f);
+                CreateMainCanvasWithArt();
+                
+                EditorUtility.DisplayProgressBar("Building Scene", "Creating art-integrated prefabs...", 0.6f);
+                CreateArtIntegratedPrefabs();
+                
+                EditorUtility.DisplayProgressBar("Building Scene", "Setting up managers...", 0.8f);
+                SetupManagersWithConnections();
                 
                 EditorUtility.DisplayProgressBar("Building Scene", "Validating setup...", 0.9f);
-                ValidateCompleteSetup();
+                ValidateFixedSetup();
                 
                 EditorUtility.ClearProgressBar();
                 
+                Debug.Log("✅ [Fixed Scene Builder] Complete fixed scene build finished!");
+                
                 EditorUtility.DisplayDialog("Success!", 
-                    "✅ Complete clean scene build finished successfully!\n\n" +
-                    "Your scene is now ready with:\n" +
-                    "• Clean hierarchy with proper Canvas setup\n" +
-                    "• New prefabs with all connections\n" +
-                    "• Settings-based asset management\n" +
-                    "• Proper Zenject bindings\n\n" +
-                    "Press Play to test your game!",
+                    "✅ Fixed scene build completed!\n\n" +
+                    "Your scene now has:\n" +
+                    "• Proper Canvas with screen adaptation\n" +
+                    "• UI using actual art assets\n" +
+                    "• Working prefabs with correct references\n" +
+                    "• Proper Zenject integration\n\n" +
+                    "Press Play to test!",
                     "Awesome!");
-                    
-                Debug.Log("✅ [Scene Builder] Complete clean scene build finished successfully!");
             }
             catch (System.Exception ex)
             {
                 EditorUtility.ClearProgressBar();
-                Debug.LogError($"❌ [Scene Builder] Error during scene build: {ex.Message}");
-                EditorUtility.DisplayDialog("Error", 
-                    $"Something went wrong during the build:\n{ex.Message}\n\nCheck console for details.",
-                    "OK");
+                Debug.LogError($"❌ [Fixed Scene Builder] Error: {ex.Message}");
+                EditorUtility.DisplayDialog("Error", $"Build failed: {ex.Message}\n\nCheck console for details.", "OK");
             }
-        }
-        
-        private void CreateFolderStructure()
-        {
-            Debug.Log("📁 [Scene Builder] Creating folder structure based on GameSettings...");
-            
-            if (_gameSettings.autoCreateMissingFolders)
-            {
-                _gameSettings.CreateMissingFolders();
-            }
-            
-            // Create additional editor-specific folders
-            CreateFolderIfNotExists("Assets", "Editor");
-            CreateFolderIfNotExists("Assets", "Settings");
-            
-            Debug.Log("✅ [Scene Builder] Folder structure created");
         }
         
         private void BackupExistingAssets()
         {
-            Debug.Log($"🔄 [Scene Builder] Backing up existing assets with suffix '{_backupSuffix}'...");
+            Debug.Log($"🔄 [Fixed Scene Builder] Backing up assets with suffix '{_backupSuffix}'...");
             
             // Backup existing prefabs
-            BackupIfExists("Assets/Prefabs/Cards/CardPrefab.prefab", $"Assets/Prefabs/Cards/CardPrefab{_backupSuffix}.prefab");
-            BackupIfExists("Assets/Prefabs/GameManager.prefab", $"Assets/Prefabs/GameManager{_backupSuffix}.prefab");
-            
-            // Backup existing GameSettings if it exists
-            var existingSettings = AssetDatabase.LoadAssetAtPath<GameSettings>("Assets/Resources/GameSettings.asset");
-            if (existingSettings != null && existingSettings != _gameSettings)
+            BackupAssetIfExists("Assets/Resources/Prefabs/Cards/CardPrefab.prefab", 
+                $"Assets/Resources/Prefabs/Cards/CardPrefab{_backupSuffix}.prefab");
+            BackupAssetIfExists("Assets/Resources/Prefabs/UI/UIManager.prefab", 
+                $"Assets/Resources/Prefabs/UI/UIManager{_backupSuffix}.prefab");
+        }
+        
+        private void BackupAssetIfExists(string originalPath, string backupPath)
+        {
+            if (AssetDatabase.LoadMainAssetAtPath(originalPath) != null)
             {
-                AssetDatabase.CopyAsset("Assets/Resources/GameSettings.asset", $"Assets/Resources/GameSettings{_backupSuffix}.asset");
+                AssetDatabase.CopyAsset(originalPath, backupPath);
+                Debug.Log($"🔄 Backed up: {originalPath} → {backupPath}");
             }
-            
-            Debug.Log("✅ [Scene Builder] Asset backup completed");
-        }
-        
-        private void CreateNewPrefabs()
-        {
-            Debug.Log("🎮 [Scene Builder] Creating new prefabs based on GameSettings...");
-            
-            CreateCardPrefab();
-            CreateUIManagerPrefab();
-            CreateGameManagerPrefab();
-            
-            Debug.Log("✅ [Scene Builder] New prefabs created");
-        }
-        
-        private void CreateCardPrefab()
-        {
-            var cardPrefabPath = $"{_gameSettings.GetFullAssetPath(_gameSettings.cardPrefabPath)}/CardPrefab.prefab";
-            
-            // Create card GameObject
-            var cardObj = new GameObject("CardPrefab");
-            var rectTransform = cardObj.AddComponent<RectTransform>();
-            rectTransform.sizeDelta = new Vector2(200, 300);
-            
-            var canvasGroup = cardObj.AddComponent<CanvasGroup>();
-            var cardController = cardObj.AddComponent<CardViewController>();
-            
-            // Create card front
-            var frontObj = new GameObject("CardFront");
-            frontObj.transform.SetParent(cardObj.transform, false);
-            var frontRect = frontObj.AddComponent<RectTransform>();
-            frontRect.anchorMin = Vector2.zero;
-            frontRect.anchorMax = Vector2.one;
-            frontRect.sizeDelta = Vector2.zero;
-            var frontImage = frontObj.AddComponent<Image>();
-            
-            // Create card back
-            var backObj = new GameObject("CardBack");
-            backObj.transform.SetParent(cardObj.transform, false);
-            var backRect = backObj.AddComponent<RectTransform>();
-            backRect.anchorMin = Vector2.zero;
-            backRect.anchorMax = Vector2.one;
-            backRect.sizeDelta = Vector2.zero;
-            var backImage = backObj.AddComponent<Image>();
-            
-            // Setup CardViewController references using reflection
-            var cardFrontField = typeof(CardViewController).GetField("_cardFront", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var cardBackField = typeof(CardViewController).GetField("_cardBack", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var canvasGroupField = typeof(CardViewController).GetField("_canvasGroup", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            
-            cardFrontField?.SetValue(cardController, frontImage);
-            cardBackField?.SetValue(cardController, backImage);
-            canvasGroupField?.SetValue(cardController, canvasGroup);
-            
-            // Save as prefab
-            PrefabUtility.SaveAsPrefabAsset(cardObj, cardPrefabPath);
-            DestroyImmediate(cardObj);
-            
-            Debug.Log($"✅ [Scene Builder] Created CardPrefab at: {cardPrefabPath}");
-        }
-        
-        private void CreateUIManagerPrefab()
-        {
-            var uiManagerObj = new GameObject("UIManager");
-            
-            // Create basic UI elements for UIManager
-            var canvas = uiManagerObj.AddComponent<RectTransform>();
-            
-            // Create UI elements that UIManager expects
-            CreateBasicUIElements(uiManagerObj.transform);
-            
-            var uiManager = uiManagerObj.AddComponent<UIManager>();
-            
-            var uiPrefabPath = $"{_gameSettings.GetFullAssetPath(_gameSettings.uiPrefabPath)}/UIManager.prefab";
-            PrefabUtility.SaveAsPrefabAsset(uiManagerObj, uiPrefabPath);
-            DestroyImmediate(uiManagerObj);
-            
-            Debug.Log($"✅ [Scene Builder] Created UIManager prefab at: {uiPrefabPath}");
-        }
-        
-        private void CreateBasicUIElements(Transform parent)
-        {
-            // Create basic text elements that UIManager needs
-            CreateTextElement(parent, "PlayerScoreText", "Player: 26");
-            CreateTextElement(parent, "OpponentScoreText", "Opponent: 26");
-            CreateTextElement(parent, "RoundText", "Round: 1");
-            CreateTextElement(parent, "GameStateText", "Tap to Draw");
-        }
-        
-        private TextMeshProUGUI CreateTextElement(Transform parent, string name, string text)
-        {
-            var textObj = new GameObject(name);
-            textObj.transform.SetParent(parent, false);
-            
-            var rectTransform = textObj.AddComponent<RectTransform>();
-            rectTransform.sizeDelta = new Vector2(200, 50);
-            
-            var textComponent = textObj.AddComponent<TextMeshProUGUI>();
-            textComponent.text = text;
-            textComponent.fontSize = 24;
-            textComponent.color = Color.white;
-            textComponent.alignment = TextAlignmentOptions.Center;
-            
-            return textComponent;
-        }
-        
-        private void CreateGameManagerPrefab()
-        {
-            var gameManagerObj = new GameObject("GameManager");
-            var animationController = gameManagerObj.AddComponent<CardAnimationController>();
-            
-            // Setup animation controller with GameSettings values
-            var dealDelayField = typeof(CardAnimationController).GetField("_dealDelay", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var warDurationField = typeof(CardAnimationController).GetField("_warAnimationDuration", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            
-            dealDelayField?.SetValue(animationController, _gameSettings.dealDelay);
-            warDurationField?.SetValue(animationController, _gameSettings.warAnimationDuration);
-            
-            var managerPrefabPath = $"{_gameSettings.GetFullAssetPath(_gameSettings.prefabsPath)}/GameManager.prefab";
-            PrefabUtility.SaveAsPrefabAsset(gameManagerObj, managerPrefabPath);
-            DestroyImmediate(gameManagerObj);
-            
-            Debug.Log($"✅ [Scene Builder] Created GameManager prefab at: {managerPrefabPath}");
-        }
-        
-        private void SetupSceneHierarchy()
-        {
-            Debug.Log("🏗️ [Scene Builder] Setting up clean scene hierarchy...");
-            
-            // Clear existing scene (with confirmation)
-            ClearScene();
-            
-            // Create ProjectContext
-            CreateProjectContext();
-            
-            // Create main Canvas with proper setup
-            CreateMainCanvas();
-            
-            // Create game positions and managers
-            CreateGamePositions();
-            CreateManagers();
-            
-            Debug.Log("✅ [Scene Builder] Scene hierarchy setup complete");
         }
         
         private void ClearScene()
         {
-            // Remove existing GameObjects (except Camera)
+            Debug.Log("🧹 [Fixed Scene Builder] Clearing scene...");
+            
             var rootObjects = new System.Collections.Generic.List<GameObject>();
-            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.GetActiveScene().rootCount; i++)
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            
+            for (int i = 0; i < scene.rootCount; i++)
             {
-                var rootObject = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects()[i];
+                var rootObject = scene.GetRootGameObjects()[i];
                 if (rootObject.name != "Main Camera")
                 {
                     rootObjects.Add(rootObject);
@@ -352,65 +223,123 @@ namespace CardWar.Editor
             
             foreach (var obj in rootObjects)
             {
-                if (obj.name.Contains("OLD") || EditorUtility.DisplayDialog("Delete GameObject", 
-                    $"Delete existing GameObject '{obj.name}'?", "Yes", "No"))
-                {
-                    DestroyImmediate(obj);
-                }
+                DestroyImmediate(obj);
             }
+            
+            Debug.Log($"🧹 Cleared {rootObjects.Count} objects from scene");
         }
         
         private void CreateProjectContext()
         {
-            var projectContextPath = "Assets/Resources/ProjectContext.prefab";
-            var existingContext = AssetDatabase.LoadAssetAtPath<GameObject>(projectContextPath);
+            Debug.Log("🔧 [Fixed Scene Builder] Creating ProjectContext...");
             
-            if (existingContext == null)
-            {
-                var contextObj = new GameObject("ProjectContext");
-                var context = contextObj.AddComponent<ProjectContext>();
-                
-                PrefabUtility.SaveAsPrefabAsset(contextObj, projectContextPath);
-                DestroyImmediate(contextObj);
-                
-                Debug.Log("✅ [Scene Builder] Created ProjectContext prefab");
-            }
+            var contextObj = new GameObject("ProjectContext");
+            var projectContext = contextObj.AddComponent<ProjectContext>();
+            var installer = contextObj.AddComponent<ProjectInstaller>();
+            
+            Debug.Log("✅ ProjectContext created with ProjectInstaller");
         }
         
-        private void CreateMainCanvas()
+        private void CreateMainCanvasWithArt()
         {
-            var canvasObj = new GameObject("Canvas");
+            Debug.Log("🎨 [Fixed Scene Builder] Creating main canvas with art integration...");
+            
+            var canvasObj = new GameObject("MainCanvas");
             var canvas = canvasObj.AddComponent<Canvas>();
             var scaler = canvasObj.AddComponent<CanvasScaler>();
             var raycaster = canvasObj.AddComponent<GraphicRaycaster>();
+            var canvasManager = canvasObj.AddComponent<CanvasManager>();
             
+            // Setup canvas
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 0;
             
+            // Setup scaler for multiple screen sizes
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = _gameSettings.canvasReferenceResolution;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = _gameSettings.canvasMatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f; // Balance between width and height
             
-            // Create Canvas hierarchy - FIXED VERSION
-            CreateCanvasLayer(canvasObj.transform, "BackgroundLayer", 0);
-            CreateCanvasLayer(canvasObj.transform, "GamePanel", 10);
-            CreateCanvasLayer(canvasObj.transform, "UILayer", 20);
-            CreateCanvasLayer(canvasObj.transform, "OverlayLayer", 90);
+            // Create background with art
+            CreateBackgroundWithArt(canvasObj.transform);
             
-            // Create CardPoolContainer under GamePanel
-            var gamePanel = canvasObj.transform.Find("GamePanel");
-            var poolContainer = new GameObject("CardPoolContainer");
-            poolContainer.transform.SetParent(gamePanel, false);
-            poolContainer.AddComponent<RectTransform>(); // Add RectTransform explicitly
+            // Create layers
+            var backgroundLayer = CreateCanvasLayer(canvasObj.transform, "BackgroundLayer", 0);
+            var gameLayer = CreateCanvasLayer(canvasObj.transform, "GameLayer", 10);
+            var uiLayer = CreateCanvasLayer(canvasObj.transform, "UILayer", 20);
+            var overlayLayer = CreateCanvasLayer(canvasObj.transform, "OverlayLayer", 90);
+            
+            // Set references on CanvasManager using reflection
+            SetCanvasManagerReferences(canvasManager, canvas, scaler, backgroundLayer, gameLayer, uiLayer, overlayLayer);
+            
+            // Create game positions under game layer
+            CreateGamePositions(gameLayer);
+            
+            // Create UI elements under UI layer
+            CreateUIElements(uiLayer);
+            
+            Debug.Log("✅ Main canvas created with proper art integration");
         }
         
-        // FIXED: This method now properly adds RectTransform component
-        private void CreateCanvasLayer(Transform parent, string name, int sortOrder)
+        private void CreateCanvasSystemOnly()
+        {
+            Debug.Log("🔧 [Fixed Scene Builder] Creating canvas system only...");
+            
+            // Remove existing canvas if present
+            var existingCanvas = FindObjectOfType<Canvas>();
+            if (existingCanvas != null)
+            {
+                if (EditorUtility.DisplayDialog("Replace Canvas", "Replace existing canvas?", "Yes", "Cancel"))
+                {
+                    DestroyImmediate(existingCanvas.gameObject);
+                }
+                else
+                {
+                    return;
+                }
+            }
+            
+            CreateMainCanvasWithArt();
+        }
+        
+        private void CreateBackgroundWithArt(Transform parent)
+        {
+            var bgObj = new GameObject("Background");
+            bgObj.transform.SetParent(parent, false);
+            
+            var rectTransform = bgObj.AddComponent<RectTransform>();
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.sizeDelta = Vector2.zero;
+            rectTransform.anchoredPosition = Vector2.zero;
+            
+            var image = bgObj.AddComponent<Image>();
+            
+            if (_useArtAssets)
+            {
+                var bgSprite = Resources.Load<Sprite>("GameplaySprites/Backgrounds/TableBackground");
+                if (bgSprite != null)
+                {
+                    image.sprite = bgSprite;
+                    Debug.Log("✅ Background art loaded");
+                }
+                else
+                {
+                    image.color = _gameSettings.backgroundColor;
+                    Debug.Log("⚠️ Background art not found, using color");
+                }
+            }
+            else
+            {
+                image.color = _gameSettings.backgroundColor;
+            }
+        }
+        
+        private RectTransform CreateCanvasLayer(Transform parent, string name, int sortOrder)
         {
             var layerObj = new GameObject(name);
             layerObj.transform.SetParent(parent, false);
             
-            // FIXED: Add RectTransform component explicitly
             var rectTransform = layerObj.AddComponent<RectTransform>();
             rectTransform.anchorMin = Vector2.zero;
             rectTransform.anchorMax = Vector2.one;
@@ -418,21 +347,24 @@ namespace CardWar.Editor
             rectTransform.anchoredPosition = Vector2.zero;
             
             var canvasGroup = layerObj.AddComponent<CanvasGroup>();
+            
+            return rectTransform;
         }
         
-        private void CreateGamePositions()
+        private void CreateGamePositions(Transform gameLayer)
         {
-            var canvas = FindObjectOfType<Canvas>();
-            var gamePanel = canvas.transform.Find("GamePanel");
-            
             var positionsObj = new GameObject("GamePositions");
-            positionsObj.transform.SetParent(gamePanel, false);
-            positionsObj.AddComponent<RectTransform>(); // Add RectTransform
+            positionsObj.transform.SetParent(gameLayer, false);
             
             CreatePosition(positionsObj.transform, "PlayerCardPosition", _gameSettings.playerCardPosition);
             CreatePosition(positionsObj.transform, "OpponentCardPosition", _gameSettings.opponentCardPosition);
             CreatePosition(positionsObj.transform, "DeckPosition", _gameSettings.deckPosition);
             CreatePosition(positionsObj.transform, "WarPilePosition", _gameSettings.warPilePosition);
+            
+            // Create card pool container
+            var poolContainer = new GameObject("CardPoolContainer");
+            poolContainer.transform.SetParent(gameLayer, false);
+            poolContainer.AddComponent<RectTransform>();
         }
         
         private void CreatePosition(Transform parent, string name, Vector3 position)
@@ -440,184 +372,475 @@ namespace CardWar.Editor
             var posObj = new GameObject(name);
             posObj.transform.SetParent(parent, false);
             posObj.transform.localPosition = position;
+            
+            // Add visual indicator for editor
+            #if UNITY_EDITOR
+            var indicator = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            indicator.transform.SetParent(posObj.transform, false);
+            indicator.transform.localScale = Vector3.one * 0.1f;
+            indicator.name = $"{name}_Indicator";
+            
+            var renderer = indicator.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material = new Material(Shader.Find("Standard"));
+                renderer.material.color = Color.yellow;
+            }
+            #endif
         }
         
-        private void CreateManagers()
+        private void CreateUIElements(Transform uiLayer)
         {
+            CreateScorePanel(uiLayer, "PlayerScorePanel", true);
+            CreateScorePanel(uiLayer, "OpponentScorePanel", false);
+            CreateCenterPanel(uiLayer);
+            CreateGameStatePanel(uiLayer);
+            CreateWarIndicator(uiLayer);
+            CreateGameOverScreen(uiLayer);
+        }
+        
+        private void CreateScorePanel(Transform parent, string name, bool isPlayer)
+        {
+            var panelObj = new GameObject(name);
+            panelObj.transform.SetParent(parent, false);
+            
+            var rectTransform = panelObj.AddComponent<RectTransform>();
+            rectTransform.sizeDelta = new Vector2(400, 100);
+            
+            // Position at top or bottom
+            if (isPlayer)
+            {
+                rectTransform.anchorMin = new Vector2(0.5f, 0f);
+                rectTransform.anchorMax = new Vector2(0.5f, 0f);
+                rectTransform.anchoredPosition = new Vector2(0, 100);
+            }
+            else
+            {
+                rectTransform.anchorMin = new Vector2(0.5f, 1f);
+                rectTransform.anchorMax = new Vector2(0.5f, 1f);
+                rectTransform.anchoredPosition = new Vector2(0, -100);
+            }
+            
+            // Add background image
+            var bgImage = panelObj.AddComponent<Image>();
+            if (_useArtAssets)
+            {
+                var panelSprite = Resources.Load<Sprite>("GameplaySprites/UI/ScorePanelDecor");
+                if (panelSprite != null)
+                {
+                    bgImage.sprite = panelSprite;
+                }
+            }
+            bgImage.color = isPlayer ? _gameSettings.playerColor : _gameSettings.opponentColor;
+            
+            // Create text
+            var textObj = new GameObject($"{name}Text");
+            textObj.transform.SetParent(panelObj.transform, false);
+            
+            var textRect = textObj.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.sizeDelta = Vector2.zero;
+            textRect.anchoredPosition = Vector2.zero;
+            
+            var textComponent = textObj.AddComponent<TextMeshProUGUI>();
+            textComponent.text = isPlayer ? "Player: 26" : "Opponent: 26";
+            textComponent.fontSize = 24;
+            textComponent.color = Color.white;
+            textComponent.alignment = TextAlignmentOptions.Center;
+            textComponent.fontStyle = FontStyles.Bold;
+        }
+        
+        private void CreateCenterPanel(Transform parent)
+        {
+            var panelObj = new GameObject("CenterGamePanel");
+            panelObj.transform.SetParent(parent, false);
+            
+            var rectTransform = panelObj.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = Vector2.zero;
+            rectTransform.sizeDelta = new Vector2(300, 80);
+            
+            // Add background
+            var bgImage = panelObj.AddComponent<Image>();
+            if (_useArtAssets)
+            {
+                var panelSprite = Resources.Load<Sprite>("GameplaySprites/UI/RoundPanel");
+                if (panelSprite != null)
+                {
+                    bgImage.sprite = panelSprite;
+                }
+            }
+            
+            // Create round text
+            var textObj = new GameObject("RoundText");
+            textObj.transform.SetParent(panelObj.transform, false);
+            
+            var textRect = textObj.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.sizeDelta = Vector2.zero;
+            textRect.anchoredPosition = Vector2.zero;
+            
+            var textComponent = textObj.AddComponent<TextMeshProUGUI>();
+            textComponent.text = "Round: 1";
+            textComponent.fontSize = 20;
+            textComponent.color = Color.white;
+            textComponent.alignment = TextAlignmentOptions.Center;
+            textComponent.fontStyle = FontStyles.Bold;
+        }
+        
+        private void CreateGameStatePanel(Transform parent)
+        {
+            var panelObj = new GameObject("GameStatePanel");
+            panelObj.transform.SetParent(parent, false);
+            
+            var rectTransform = panelObj.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0.5f, 0.3f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.3f);
+            rectTransform.anchoredPosition = Vector2.zero;
+            rectTransform.sizeDelta = new Vector2(200, 50);
+            
+            var textComponent = panelObj.AddComponent<TextMeshProUGUI>();
+            textComponent.text = "Tap to Draw";
+            textComponent.fontSize = 18;
+            textComponent.color = Color.white;
+            textComponent.alignment = TextAlignmentOptions.Center;
+        }
+        
+        private void CreateWarIndicator(Transform parent)
+        {
+            var warObj = new GameObject("WarIndicator");
+            warObj.transform.SetParent(parent, false);
+            
+            var rectTransform = warObj.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = Vector2.zero;
+            rectTransform.sizeDelta = new Vector2(200, 200);
+            
+            var image = warObj.AddComponent<Image>();
+            if (_useArtAssets)
+            {
+                var warSprite = Resources.Load<Sprite>("GameplaySprites/Backgrounds/WarIndicator");
+                if (warSprite != null)
+                {
+                    image.sprite = warSprite;
+                }
+            }
+            
+            warObj.SetActive(false);
+        }
+        
+        private void CreateGameOverScreen(Transform parent)
+        {
+            var gameOverObj = new GameObject("GameOverScreen");
+            gameOverObj.transform.SetParent(parent, false);
+            
+            var rectTransform = gameOverObj.AddComponent<RectTransform>();
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.sizeDelta = Vector2.zero;
+            rectTransform.anchoredPosition = Vector2.zero;
+            
+            // Semi-transparent background
+            var bgImage = gameOverObj.AddComponent<Image>();
+            bgImage.color = new Color(0, 0, 0, 0.8f);
+            
+            // Winner text
+            var winnerTextObj = new GameObject("WinnerText");
+            winnerTextObj.transform.SetParent(gameOverObj.transform, false);
+            
+            var winnerRect = winnerTextObj.AddComponent<RectTransform>();
+            winnerRect.anchorMin = new Vector2(0.5f, 0.5f);
+            winnerRect.anchorMax = new Vector2(0.5f, 0.5f);
+            winnerRect.anchoredPosition = Vector2.zero;
+            winnerRect.sizeDelta = new Vector2(400, 100);
+            
+            var winnerText = winnerTextObj.AddComponent<TextMeshProUGUI>();
+            winnerText.text = "GAME OVER";
+            winnerText.fontSize = 36;
+            winnerText.color = Color.white;
+            winnerText.alignment = TextAlignmentOptions.Center;
+            winnerText.fontStyle = FontStyles.Bold;
+            
+            gameOverObj.SetActive(false);
+        }
+        
+        private void CreateArtIntegratedPrefabs()
+        {
+            Debug.Log("🎨 [Fixed Scene Builder] Creating art-integrated prefabs...");
+            
+            try
+            {
+                // Create asset service instance for prefab creation
+                var assetService = new AssetService();
+                assetService.Initialize();
+                
+                // Create card prefab with art
+                CreateCardPrefabWithArt(assetService);
+                
+                // Create UI manager prefab
+                CreateUIManagerPrefab();
+                
+                Debug.Log("✅ Art-integrated prefabs created successfully");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"❌ Error creating prefabs: {ex.Message}");
+            }
+        }
+        
+        private void CreateCardPrefabWithArt(IAssetService assetService)
+        {
+            var cardPrefab = CardPrefabBuilder.CreateCardPrefab(assetService, _gameSettings);
+            
+            var prefabPath = "Assets/Resources/Prefabs/Cards/CardPrefab.prefab";
+            Directory.CreateDirectory(Path.GetDirectoryName(prefabPath));
+            
+            PrefabUtility.SaveAsPrefabAsset(cardPrefab, prefabPath);
+            DestroyImmediate(cardPrefab);
+            
+            // Validate the created prefab
+            var createdPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (CardPrefabBuilder.ValidateCardPrefab(createdPrefab))
+            {
+                Debug.Log($"✅ Card prefab with art created at: {prefabPath}");
+            }
+            else
+            {
+                Debug.LogError($"❌ Card prefab validation failed for: {prefabPath}");
+            }
+        }
+        
+        private void CreateUIManagerPrefab()
+        {
+            var uiManagerObj = new GameObject("UIManager");
+            var uiManager = uiManagerObj.AddComponent<UIManager>();
+            
+            // Connect UI elements from scene to prefab references
+            ConnectUIManagerReferences(uiManager);
+            
+            var prefabPath = "Assets/Resources/Prefabs/UI/UIManager.prefab";
+            Directory.CreateDirectory(Path.GetDirectoryName(prefabPath));
+            
+            PrefabUtility.SaveAsPrefabAsset(uiManagerObj, prefabPath);
+            DestroyImmediate(uiManagerObj);
+            
+            Debug.Log($"✅ UIManager prefab created at: {prefabPath}");
+        }
+        
+        private void SetCanvasManagerReferences(CanvasManager canvasManager, Canvas canvas, CanvasScaler scaler, 
+            RectTransform background, RectTransform game, RectTransform ui, RectTransform overlay)
+        {
+            SetPrivateField(canvasManager, "_mainCanvas", canvas);
+            SetPrivateField(canvasManager, "_canvasScaler", scaler);
+            SetPrivateField(canvasManager, "_backgroundLayer", background);
+            SetPrivateField(canvasManager, "_gameLayer", game);
+            SetPrivateField(canvasManager, "_uiLayer", ui);
+            SetPrivateField(canvasManager, "_overlayLayer", overlay);
+        }
+        
+        private void ConnectUIManagerReferences(UIManager uiManager)
+        {
+            // Find UI elements in scene
+            var playerScorePanel = GameObject.Find("PlayerScorePanel");
+            var opponentScorePanel = GameObject.Find("OpponentScorePanel");
+            var centerPanel = GameObject.Find("CenterGamePanel");
+            var gameStatePanel = GameObject.Find("GameStatePanel");
+            
+            var playerScoreText = playerScorePanel?.GetComponentInChildren<TextMeshProUGUI>();
+            var opponentScoreText = opponentScorePanel?.GetComponentInChildren<TextMeshProUGUI>();
+            var roundText = centerPanel?.GetComponentInChildren<TextMeshProUGUI>();
+            var gameStateText = gameStatePanel?.GetComponent<TextMeshProUGUI>();
+            
+            // Set all UI references using reflection
+            SetPrivateField(uiManager, "_playerScorePanel", playerScorePanel);
+            SetPrivateField(uiManager, "_opponentScorePanel", opponentScorePanel);
+            SetPrivateField(uiManager, "_centerGamePanel", centerPanel);
+            SetPrivateField(uiManager, "_gameStatePanel", gameStatePanel);
+            
+            SetPrivateField(uiManager, "_playerScoreText", playerScoreText);
+            SetPrivateField(uiManager, "_opponentScoreText", opponentScoreText);
+            SetPrivateField(uiManager, "_roundText", roundText);
+            SetPrivateField(uiManager, "_gameStateText", gameStateText);
+            
+            SetPrivateField(uiManager, "_warIndicator", GameObject.Find("WarIndicator"));
+            SetPrivateField(uiManager, "_gameOverScreen", GameObject.Find("GameOverScreen"));
+            SetPrivateField(uiManager, "_winnerText", GameObject.Find("GameOverScreen")?.GetComponentInChildren<TextMeshProUGUI>());
+            
+            // Set background references
+            SetPrivateField(uiManager, "_backgroundImage", GameObject.Find("Background")?.GetComponent<Image>());
+            SetPrivateField(uiManager, "_playerScoreBackground", playerScorePanel?.GetComponent<Image>());
+            SetPrivateField(uiManager, "_opponentScoreBackground", opponentScorePanel?.GetComponent<Image>());
+            SetPrivateField(uiManager, "_centerPanelBackground", centerPanel?.GetComponent<Image>());
+        }
+        
+        private void SetupManagersWithConnections()
+        {
+            Debug.Log("🔧 [Fixed Scene Builder] Setting up managers with connections...");
+            
+            // Create managers container
             var managersObj = new GameObject("Managers");
             
-            // Add UIManager
-            var uiManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{_gameSettings.GetFullAssetPath(_gameSettings.uiPrefabPath)}/UIManager.prefab");
-            if (uiManagerPrefab != null)
-            {
-                var uiManagerInstance = PrefabUtility.InstantiatePrefab(uiManagerPrefab, managersObj.transform) as GameObject;
-                // Move UI elements to the proper canvas layer
-                MoveUIElementsToCanvas(uiManagerInstance.transform);
-            }
+            // Add UIManager instance
+            var uiManager = managersObj.AddComponent<UIManager>();
+            ConnectUIManagerReferences(uiManager);
             
-            // Add GameManager
-            var gameManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{_gameSettings.GetFullAssetPath(_gameSettings.prefabsPath)}/GameManager.prefab");
-            if (gameManagerPrefab != null)
-            {
-                PrefabUtility.InstantiatePrefab(gameManagerPrefab, managersObj.transform);
-            }
-        }
-        
-        private void MoveUIElementsToCanvas(Transform uiManagerTransform)
-        {
-            var canvas = FindObjectOfType<Canvas>();
-            var uiLayer = canvas.transform.Find("UILayer");
+            // Add CardAnimationController
+            var animationController = managersObj.AddComponent<CardAnimationController>();
+            ConnectAnimationControllerReferences(animationController);
             
-            // Move all UI text elements to the UI layer
-            var textComponents = uiManagerTransform.GetComponentsInChildren<TextMeshProUGUI>();
-            foreach (var textComponent in textComponents)
-            {
-                textComponent.transform.SetParent(uiLayer, false);
-            }
-        }
-        
-        private void ConnectAllReferences()
-        {
-            Debug.Log("🔗 [Scene Builder] Connecting all references based on GameSettings...");
+            // Create SceneContext
+            var sceneContext = new GameObject("SceneContext");
+            var context = sceneContext.AddComponent<SceneContext>();
+            var gameInstaller = sceneContext.AddComponent<GameInstaller>();
             
-            // Find components
-            var cardAnimationController = FindObjectOfType<CardAnimationController>();
-            var gameInstaller = FindObjectOfType<GameInstaller>();
-            var uiManager = FindObjectOfType<UIManager>();
-            
-            if (cardAnimationController != null)
-            {
-                ConnectAnimationControllerReferences(cardAnimationController);
-            }
-            
-            if (gameInstaller != null)
-            {
-                ConnectGameInstallerReferences(gameInstaller);
-            }
-            
-            if (uiManager != null)
-            {
-                ConnectUIManagerReferences(uiManager);
-            }
-            
-            Debug.Log("✅ [Scene Builder] All references connected");
+            // Connect GameInstaller references
+            ConnectGameInstallerReferences(gameInstaller);
         }
         
         private void ConnectAnimationControllerReferences(CardAnimationController controller)
         {
-            var positions = FindObjectOfType<Canvas>().transform.Find("GamePanel/GamePositions");
-            
+            var positions = GameObject.Find("GamePositions");
             if (positions != null)
             {
-                var playerPos = positions.Find("PlayerCardPosition");
-                var opponentPos = positions.Find("OpponentCardPosition");
-                var deckPos = positions.Find("DeckPosition");
-                var warPos = positions.Find("WarPilePosition");
+                var playerPos = positions.transform.Find("PlayerCardPosition");
+                var opponentPos = positions.transform.Find("OpponentCardPosition");
+                var deckPos = positions.transform.Find("DeckPosition");
+                var warPos = positions.transform.Find("WarPilePosition");
                 
-                // Use reflection to set private fields
-                var playerField = typeof(CardAnimationController).GetField("_playerCardPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var opponentField = typeof(CardAnimationController).GetField("_opponentCardPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var deckField = typeof(CardAnimationController).GetField("_deckPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var warField = typeof(CardAnimationController).GetField("_warPilePosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                playerField?.SetValue(controller, playerPos);
-                opponentField?.SetValue(controller, opponentPos);
-                deckField?.SetValue(controller, deckPos);
-                warField?.SetValue(controller, warPos);
-                
-                Debug.Log("✅ [Scene Builder] CardAnimationController references connected");
+                SetPrivateField(controller, "_playerCardPosition", playerPos);
+                SetPrivateField(controller, "_opponentCardPosition", opponentPos);
+                SetPrivateField(controller, "_deckPosition", deckPos);
+                SetPrivateField(controller, "_warPilePosition", warPos);
             }
         }
         
         private void ConnectGameInstallerReferences(GameInstaller installer)
         {
-            var cardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{_gameSettings.GetFullAssetPath(_gameSettings.cardPrefabPath)}/CardPrefab.prefab");
-            var poolContainer = FindObjectOfType<Canvas>().transform.Find("GamePanel/CardPoolContainer");
+            var cardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Prefabs/Cards/CardPrefab.prefab");
+            var poolContainer = GameObject.Find("CardPoolContainer");
             
-            if (cardPrefab != null && poolContainer != null)
+            SetPrivateField(installer, "_cardPrefab", cardPrefab);
+            SetPrivateField(installer, "_cardPoolContainer", poolContainer?.transform);
+        }
+        
+        private void FixExistingReferences()
+        {
+            Debug.Log("🔗 [Fixed Scene Builder] Fixing existing references...");
+            
+            var uiManager = FindObjectOfType<UIManager>();
+            if (uiManager != null)
             {
-                // Use reflection to set private fields
-                var prefabField = typeof(GameInstaller).GetField("_cardPrefab", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var poolField = typeof(GameInstaller).GetField("_cardPoolContainer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                prefabField?.SetValue(installer, cardPrefab);
-                poolField?.SetValue(installer, poolContainer);
-                
-                Debug.Log("✅ [Scene Builder] GameInstaller references connected");
+                ConnectUIManagerReferences(uiManager);
+                Debug.Log("✅ UIManager references fixed");
+            }
+            
+            var animationController = FindObjectOfType<CardAnimationController>();
+            if (animationController != null)
+            {
+                ConnectAnimationControllerReferences(animationController);
+                Debug.Log("✅ CardAnimationController references fixed");
+            }
+            
+            var gameInstaller = FindObjectOfType<GameInstaller>();
+            if (gameInstaller != null)
+            {
+                ConnectGameInstallerReferences(gameInstaller);
+                Debug.Log("✅ GameInstaller references fixed");
             }
         }
         
-        private void ConnectUIManagerReferences(UIManager uiManager)
+        private void SetPrivateField(object target, string fieldName, object value)
         {
-            // Find UI elements and connect them to UIManager
-            var canvas = FindObjectOfType<Canvas>();
-            var uiLayer = canvas.transform.Find("UILayer");
-            
-            if (uiLayer != null)
-            {
-                var playerScoreText = uiLayer.Find("PlayerScoreText")?.GetComponent<TextMeshProUGUI>();
-                var opponentScoreText = uiLayer.Find("OpponentScoreText")?.GetComponent<TextMeshProUGUI>();
-                var roundText = uiLayer.Find("RoundText")?.GetComponent<TextMeshProUGUI>();
-                var gameStateText = uiLayer.Find("GameStateText")?.GetComponent<TextMeshProUGUI>();
-                
-                // Use reflection to set private fields
-                var playerScoreField = typeof(UIManager).GetField("_playerScoreText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var opponentScoreField = typeof(UIManager).GetField("_opponentScoreText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var roundField = typeof(UIManager).GetField("_roundText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                var gameStateField = typeof(UIManager).GetField("_gameStateText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                playerScoreField?.SetValue(uiManager, playerScoreText);
-                opponentScoreField?.SetValue(uiManager, opponentScoreText);
-                roundField?.SetValue(uiManager, roundText);
-                gameStateField?.SetValue(uiManager, gameStateText);
-                
-                Debug.Log("✅ [Scene Builder] UIManager references connected");
-            }
+            var field = target.GetType().GetField(fieldName, 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            field?.SetValue(target, value);
         }
         
-        private void ValidateCompleteSetup()
+        private void ValidateFixedSetup()
         {
-            Debug.Log("🧪 [Scene Builder] Validating complete setup...");
+            Debug.Log("🧪 [Fixed Scene Builder] Validating fixed setup...");
             
             var issues = new System.Collections.Generic.List<string>();
             
-            // Validate GameSettings
-            if (_gameSettings == null)
-                issues.Add("GameSettings asset missing");
-            else if (!_gameSettings.ValidateAssetPaths())
-                issues.Add("GameSettings asset paths invalid");
+            // Validate essential GameObjects
+            if (GameObject.Find("ProjectContext") == null) issues.Add("ProjectContext missing");
+            if (GameObject.Find("MainCanvas") == null) issues.Add("MainCanvas missing");
+            if (GameObject.Find("PlayerScorePanel") == null) issues.Add("PlayerScorePanel missing");
+            if (GameObject.Find("OpponentScorePanel") == null) issues.Add("OpponentScorePanel missing");
+            if (GameObject.Find("GamePositions") == null) issues.Add("GamePositions missing");
+            if (GameObject.Find("CardPoolContainer") == null) issues.Add("CardPoolContainer missing");
             
-            // Validate scene components
-            if (FindObjectOfType<ProjectContext>() == null)
-                issues.Add("ProjectContext missing");
-            if (FindObjectOfType<Canvas>() == null)
-                issues.Add("Main Canvas missing");
-            if (FindObjectOfType<CardAnimationController>() == null)
-                issues.Add("CardAnimationController missing");
-            if (FindObjectOfType<UIManager>() == null)
-                issues.Add("UIManager missing");
+            // Validate components
+            if (FindObjectOfType<CanvasManager>() == null) issues.Add("CanvasManager missing");
+            if (FindObjectOfType<UIManager>() == null) issues.Add("UIManager missing");
+            if (FindObjectOfType<CardAnimationController>() == null) issues.Add("CardAnimationController missing");
             
             // Validate prefabs
-            var cardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{_gameSettings.GetFullAssetPath(_gameSettings.cardPrefabPath)}/CardPrefab.prefab");
-            if (cardPrefab == null)
-                issues.Add("CardPrefab missing");
+            var cardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Prefabs/Cards/CardPrefab.prefab");
+            if (cardPrefab == null) issues.Add("CardPrefab missing");
             
             if (issues.Count > 0)
             {
-                Debug.LogWarning($"🧪 [Scene Builder] Validation found {issues.Count} issues: {string.Join(", ", issues)}");
+                Debug.LogWarning($"🧪 Found {issues.Count} issues: {string.Join(", ", issues)}");
             }
             else
             {
-                Debug.Log("✅ [Scene Builder] All validation checks passed!");
+                Debug.Log("✅ All validation checks passed!");
             }
         }
         
-        private void LoadOrCreateGameSettings()
+        private void TestArtAssets()
+        {
+            Debug.Log("🧪 [Fixed Scene Builder] Testing art asset loading...");
+            
+            var testAssets = new[]
+            {
+                "GameplaySprites/Backgrounds/TableBackground",
+                "GameplaySprites/UI/ScorePanelDecor",
+                "GameplaySprites/UI/RoundPanel",
+                "GameplaySprites/Backgrounds/WarIndicator",
+                "GameplaySprites/Cards/card_back",
+                "GameplaySprites/Cards/ace_spades"
+            };
+            
+            foreach (var assetPath in testAssets)
+            {
+                var sprite = Resources.Load<Sprite>(assetPath);
+                Debug.Log($"🎨 Asset {assetPath}: {(sprite != null ? "✅ Found" : "❌ Missing")}");
+            }
+        }
+        
+        private void DisplaySceneStatus()
+        {
+            EditorGUI.BeginDisabledGroup(true);
+            
+            var canvas = FindObjectOfType<Canvas>();
+            EditorGUILayout.Toggle("Main Canvas Present", canvas != null);
+            
+            var canvasManager = FindObjectOfType<CanvasManager>();
+            EditorGUILayout.Toggle("Canvas Manager Present", canvasManager != null);
+            
+            var uiManager = FindObjectOfType<UIManager>();
+            EditorGUILayout.Toggle("UI Manager Present", uiManager != null);
+            
+            var projectContext = FindObjectOfType<ProjectContext>();
+            EditorGUILayout.Toggle("Project Context Present", projectContext != null);
+            
+            var cardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Resources/Prefabs/Cards/CardPrefab.prefab");
+            EditorGUILayout.Toggle("Card Prefab Exists", cardPrefab != null);
+            
+            EditorGUI.EndDisabledGroup();
+        }
+        
+        private void LoadGameSettings()
         {
             _gameSettings = Resources.Load<GameSettings>("GameSettings");
             if (_gameSettings == null)
             {
-                // Try to find it anywhere in the project
                 var guids = AssetDatabase.FindAssets("t:GameSettings");
                 if (guids.Length > 0)
                 {
@@ -627,42 +850,21 @@ namespace CardWar.Editor
             }
         }
         
-        private void CreateGameSettingsAsset()
+        private void CreateGameSettings()
         {
-            var settingsPath = "Assets/Resources/GameSettings.asset";
-            
-            // Ensure Resources folder exists
             if (!AssetDatabase.IsValidFolder("Assets/Resources"))
             {
                 AssetDatabase.CreateFolder("Assets", "Resources");
             }
             
             var settings = CreateInstance<GameSettings>();
-            AssetDatabase.CreateAsset(settings, settingsPath);
+            AssetDatabase.CreateAsset(settings, "Assets/Resources/GameSettings.asset");
             AssetDatabase.SaveAssets();
             
             _gameSettings = settings;
             Selection.activeObject = settings;
             
-            Debug.Log($"✅ [Scene Builder] Created GameSettings asset at: {settingsPath}");
-        }
-        
-        private void CreateFolderIfNotExists(string parent, string folderName)
-        {
-            string fullPath = parent + "/" + folderName;
-            if (!AssetDatabase.IsValidFolder(fullPath))
-            {
-                AssetDatabase.CreateFolder(parent, folderName);
-            }
-        }
-        
-        private void BackupIfExists(string originalPath, string backupPath)
-        {
-            if (AssetDatabase.LoadMainAssetAtPath(originalPath) != null)
-            {
-                AssetDatabase.CopyAsset(originalPath, backupPath);
-                Debug.Log($"🔄 [Scene Builder] Backed up: {originalPath} → {backupPath}");
-            }
+            Debug.Log("✅ GameSettings created at: Assets/Resources/GameSettings.asset");
         }
     }
 }

@@ -3,7 +3,7 @@ using Zenject;
 using CardWar.Infrastructure.Events;
 using CardWar.Services.Game;
 using CardWar.Gameplay.Controllers;
-using CardWar.UI;
+using CardWar.Core.UI;
 using CardWar.UI.Cards;
 
 namespace CardWar.Infrastructure.Installers
