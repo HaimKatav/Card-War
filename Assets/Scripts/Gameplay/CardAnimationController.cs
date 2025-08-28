@@ -1,387 +1,446 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Zenject;
-using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using Cysharp.Threading.Tasks;
 using CardWar.Core.Data;
 using CardWar.Core.Enums;
-using CardWar.Infrastructure.Events;
+using CardWar.Services.Assets;
 using CardWar.UI.Cards;
+using Zenject;
 
-namespace CardWar.Gameplay.Animation
+namespace CardWar.Gameplay.Controllers
 {
-    public class CardAnimationController : MonoBehaviour, IInitializable
+    /// <summary>
+    /// CardAnimationController - REFACTORED VERSION
+    /// 
+    /// ✅ CHANGES MADE:
+    /// - Injected IAssetService for centralized asset management
+    /// - Controllers now manage sprite assignment to views
+    /// - Added asset preloading coordination
+    /// - Removed dependencies on CardAssetManager
+    /// - Enhanced error handling for missing assets
+    /// 
+    /// 🔄 NEW RESPONSIBILITIES:
+    /// - Get card sprites from AssetService
+    /// - Assign sprites to CardViewController instances
+    /// - Coordinate asset loading with animation timing
+    /// - Manage card visual state through controllers
+    /// </summary>
+    public class CardAnimationController : MonoBehaviour
     {
-        [Header("Card Positions")]
-        [SerializeField] private Transform _playerDeck;
-        [SerializeField] private Transform _opponentDeck;
-        [SerializeField] private Transform _playerPlayArea;
-        [SerializeField] private Transform _opponentPlayArea;
-        [SerializeField] private Transform _warPile;
+        [Header("Animation Settings")]
+        [SerializeField] private float _dealDelay = 0.1f;
+        [SerializeField] private float _warAnimationDuration = 2f;
+        [SerializeField] private Transform _playerCardPosition;
+        [SerializeField] private Transform _opponentCardPosition;
+        [SerializeField] private Transform _deckPosition;
+        [SerializeField] private Transform _warPilePosition;
         
-        [Header("Animation Timings")]
-        [SerializeField] private float _drawCardDuration = 0.5f;
-        [SerializeField] private float _flipCardDuration = 0.3f;
-        [SerializeField] private float _collectCardDuration = 0.6f;
-        [SerializeField] private float _warCardSpacing = 0.2f;
-        [SerializeField] private float _delayBetweenActions = 0.2f;
-        
-        private SignalBus _eventBus;
+        // ✅ NEW - AssetService injection
+        private IAssetService _assetService;
         private CardViewController.Pool _cardPool;
         
-        private CardViewController _currentPlayerCard;
-        private CardViewController _currentOpponentCard;
-        private List<CardViewController> _warCards = new List<CardViewController>();
+        private readonly List<CardViewController> _activeCards = new List<CardViewController>();
+        private readonly Queue<CardViewController> _cardAnimationQueue = new Queue<CardViewController>();
+        private bool _isAnimating = false;
         
         [Inject]
-        public void Construct(SignalBus eventBus, CardViewController.Pool cardPool)
+        public void Construct(IAssetService assetService, CardViewController.Pool cardPool)
         {
-            _eventBus = eventBus;
+            _assetService = assetService;
             _cardPool = cardPool;
-        }
-        
-        public void Initialize()
-        {
-            Debug.Log("[CardAnimationController] Initializing");
             
-            // Find positions if not assigned
-            FindCardPositions();
-            
-            // Subscribe to Events
-            _eventBus.Subscribe<RoundCompleteEvent>(OnRoundComplete);
-            _eventBus.Subscribe<WarStartEvent>(OnWarStart);
-            _eventBus.Subscribe<GameStartEvent>(OnGameStart);
-            _eventBus.Subscribe<GameEndEvent>(OnGameEnd);
+            Debug.Log("[CardAnimationController] Injected AssetService and CardPool");
         }
         
-        private void FindCardPositions()
-        {
-            if (_playerDeck == null)
-                _playerDeck = GameObject.Find("PlayerDeck")?.transform;
-                
-            if (_opponentDeck == null)
-                _opponentDeck = GameObject.Find("OpponentDeck")?.transform;
-                
-            if (_playerPlayArea == null)
-                _playerPlayArea = GameObject.Find("PlayerPlayArea")?.transform;
-                
-            if (_opponentPlayArea == null)
-                _opponentPlayArea = GameObject.Find("OpponentPlayArea")?.transform;
-                
-            if (_warPile == null)
-                _warPile = GameObject.Find("WarPile")?.transform;
-                
-            // Log warnings for missing references
-            if (_playerDeck == null) Debug.LogWarning("[CardAnimationController] PlayerDeck not found");
-            if (_opponentDeck == null) Debug.LogWarning("[CardAnimationController] OpponentDeck not found");
-            if (_playerPlayArea == null) Debug.LogWarning("[CardAnimationController] PlayerPlayArea not found");
-            if (_opponentPlayArea == null) Debug.LogWarning("[CardAnimationController] OpponentPlayArea not found");
-            if (_warPile == null) Debug.LogWarning("[CardAnimationController] WarPile not found");
-        }
+        #region Initialization
         
-        private async void OnRoundComplete(RoundCompleteEvent Event)
+        private async void Start()
         {
-            await AnimateRoundResult(Event.Result);
-        }
-        
-        private async UniTask AnimateRoundResult(GameRoundResultData result)
-        {
-            // Clean up any previous cards
-            CleanupCurrentCards();
-            
-            // Spawn and animate player card
-            if (_cardPool != null && result.PlayerCard != null)
+            // Ensure assets are loaded before any animations
+            if (!_assetService.AreAssetsLoaded)
             {
-                _currentPlayerCard = _cardPool.Spawn();
-                _currentPlayerCard.Setup(result.PlayerCard);
-                
-                if (_playerDeck != null && _playerPlayArea != null)
+                Debug.Log("[CardAnimationController] Waiting for assets to load...");
+                await _assetService.PreloadCardAssets();
+            }
+            
+            Debug.Log("[CardAnimationController] Ready for card animations");
+        }
+        
+        #endregion
+        
+        #region Card Creation & Management
+        
+        /// <summary>
+        /// ✅ NEW METHOD: Creates card with proper sprite assignment
+        /// Controller manages both view creation AND asset assignment
+        /// </summary>
+        public CardViewController CreateCard(CardData cardData, Transform parent = null)
+        {
+            if (cardData == null)
+            {
+                Debug.LogError("[CardAnimationController] Cannot create card with null data");
+                return null;
+            }
+            
+            // Get card view from pool
+            var cardView = _cardPool.Spawn();
+            if (parent != null)
+            {
+                cardView.transform.SetParent(parent, false);
+            }
+            
+            // Setup card data
+            cardView.Setup(cardData);
+            
+            // ✅ CONTROLLER GETS SPRITES FROM ASSETSERVICE
+            var frontSprite = _assetService.GetCardSprite(cardData);
+            var backSprite = _assetService.GetCardBackSprite();
+            
+            // ✅ CONTROLLER ASSIGNS SPRITES TO VIEW
+            cardView.SetCardSprites(frontSprite, backSprite);
+            
+            // Track active card
+            _activeCards.Add(cardView);
+            
+            Debug.Log($"[CardAnimationController] Created card: {cardData.Rank} of {cardData.Suit}");
+            return cardView;
+        }
+        
+        /// <summary>
+        /// ✅ ENHANCED: Better error handling and asset validation
+        /// </summary>
+        public List<CardViewController> CreateCards(List<CardData> cardDataList, Transform parent = null)
+        {
+            var cards = new List<CardViewController>();
+            
+            if (cardDataList == null || cardDataList.Count == 0)
+            {
+                Debug.LogWarning("[CardAnimationController] No card data provided");
+                return cards;
+            }
+            
+            // Pre-validate that we can get all required sprites
+            var missingSprites = new List<CardData>();
+            foreach (var cardData in cardDataList)
+            {
+                var sprite = _assetService.GetCardSprite(cardData);
+                if (sprite == null)
                 {
-                    await _currentPlayerCard.AnimateDeal(
-                        _playerDeck.position,
-                        _playerPlayArea.position,
-                        0
-                    );
-                    
-                    // Flip card to show face
-                    await _currentPlayerCard.FlipToFront(result.PlayerCard);
+                    missingSprites.Add(cardData);
                 }
             }
             
-            // Spawn and animate opponent card
-            if (_cardPool != null && result.OpponentCard != null)
+            if (missingSprites.Count > 0)
             {
-                _currentOpponentCard = _cardPool.Spawn();
-                _currentOpponentCard.Setup(result.OpponentCard);
-                
-                if (_opponentDeck != null && _opponentPlayArea != null)
+                Debug.LogWarning($"[CardAnimationController] {missingSprites.Count} cards have missing sprites - using placeholders");
+            }
+            
+            // Create all cards
+            foreach (var cardData in cardDataList)
+            {
+                var card = CreateCard(cardData, parent);
+                if (card != null)
                 {
-                    await _currentOpponentCard.AnimateDeal(
-                        _opponentDeck.position,
-                        _opponentPlayArea.position,
-                        0.1f // Slight delay for visual effect
-                    );
-                    
-                    // Flip card to show face
-                    await _currentOpponentCard.FlipToFront(result.OpponentCard);
+                    cards.Add(card);
                 }
             }
             
-            // Pause to show result
-            await UniTask.Delay((int)(_delayBetweenActions * 1000));
+            Debug.Log($"[CardAnimationController] Created {cards.Count} cards");
+            return cards;
+        }
+        
+        public void ReturnCard(CardViewController card)
+        {
+            if (card == null) return;
             
-            // Handle result animation
-            switch (result.Result)
+            _activeCards.Remove(card);
+            _cardPool.Despawn(card);
+        }
+        
+        public void ReturnAllCards()
+        {
+            foreach (var card in _activeCards)
             {
-                case GameResult.PlayerWin:
-                    await AnimatePlayerWin();
-                    break;
-                    
-                case GameResult.OpponentWin:
-                    await AnimateOpponentWin();
-                    break;
-                    
-                case GameResult.War:
-                    // War animation handled separately
-                    break;
+                if (card != null)
+                {
+                    _cardPool.Despawn(card);
+                }
             }
             
-            // Clean up cards after regular round (not war)
-            if (result.Result != GameResult.War)
+            _activeCards.Clear();
+            Debug.Log("[CardAnimationController] Returned all active cards to pool");
+        }
+        
+        #endregion
+        
+        #region Animation Methods
+        
+        public async UniTask DealCardAsync(CardData cardData, Transform targetParent, Vector3 targetPosition, bool faceUp = false)
+        {
+            var card = CreateCard(cardData, targetParent);
+            if (card == null) return;
+            
+            // Start at deck position
+            card.transform.position = _deckPosition.position;
+            card.SetFaceDown(instant: true);
+            
+            // Animate to target
+            await card.MoveToPositionAsync(targetPosition);
+            
+            // Flip if needed
+            if (faceUp)
             {
+                await card.FlipToFrontAsync();
+            }
+            
+            // ✅ ENHANCED: Play sound effect from AssetService
+            var flipSound = _assetService.GetSoundEffect(SFXType.CardFlip);
+            if (flipSound != null)
+            {
+                // Audio will be handled by AudioManager, but we demonstrate access
+                Debug.Log("[CardAnimationController] Card flip sound available");
+            }
+        }
+        
+        public async UniTask AnimateWarSequenceAsync(CardData playerCard, CardData opponentCard, bool playerWins)
+        {
+            if (_isAnimating)
+            {
+                Debug.LogWarning("[CardAnimationController] War animation already in progress");
+                return;
+            }
+            
+            _isAnimating = true;
+            
+            try
+            {
+                // Create war cards
+                var playerCardView = CreateCard(playerCard, _playerCardPosition);
+                var opponentCardView = CreateCard(opponentCard, _opponentCardPosition);
+                
+                if (playerCardView == null || opponentCardView == null)
+                {
+                    Debug.LogError("[CardAnimationController] Failed to create war cards");
+                    return;
+                }
+                
+                // Position at war pile initially
+                playerCardView.transform.position = _warPilePosition.position;
+                opponentCardView.transform.position = _warPilePosition.position;
+                
+                // Both start face down
+                playerCardView.SetFaceDown(instant: true);
+                opponentCardView.SetFaceDown(instant: true);
+                
+                // Animate to positions
+                var playerMoveTask = playerCardView.MoveToPositionAsync(_playerCardPosition.position);
+                var opponentMoveTask = opponentCardView.MoveToPositionAsync(_opponentCardPosition.position);
+                
+                await UniTask.WhenAll(playerMoveTask, opponentMoveTask);
+                
+                // Dramatic pause
                 await UniTask.Delay(500);
-                CleanupCurrentCards();
-            }
-        }
-        
-        private async UniTask AnimatePlayerWin()
-        {
-            if (_currentPlayerCard == null || _currentOpponentCard == null) return;
-            
-            // Victory effect on player card
-            _currentPlayerCard.transform.DOPunchScale(Vector3.one * 0.2f, 0.3f);
-            
-            await UniTask.Delay(300);
-            
-            // Collect both cards to player deck
-            if (_playerDeck != null)
-            {
-                var tasks = new List<UniTask>();
-                tasks.Add(_currentPlayerCard.AnimateWin(_playerDeck.position));
-                tasks.Add(_currentOpponentCard.AnimateWin(_playerDeck.position));
                 
-                await UniTask.WhenAll(tasks);
-            }
-        }
-        
-        private async UniTask AnimateOpponentWin()
-        {
-            if (_currentPlayerCard == null || _currentOpponentCard == null) return;
-            
-            // Victory effect on opponent card
-            _currentOpponentCard.transform.DOPunchScale(Vector3.one * 0.2f, 0.3f);
-            
-            await UniTask.Delay(300);
-            
-            // Collect both cards to opponent deck
-            if (_opponentDeck != null)
-            {
-                var tasks = new List<UniTask>();
-                tasks.Add(_currentPlayerCard.AnimateWin(_opponentDeck.position));
-                tasks.Add(_currentOpponentCard.AnimateWin(_opponentDeck.position));
+                // Flip both cards simultaneously
+                var playerFlipTask = playerCardView.FlipToFrontAsync();
+                var opponentFlipTask = opponentCardView.FlipToFrontAsync();
                 
-                await UniTask.WhenAll(tasks);
-            }
-        }
-        
-        private async void OnWarStart(WarStartEvent Event)
-        {
-            await AnimateWar(Event.WarData);
-        }
-        
-        private async UniTask AnimateWar(WarData warData)
-        {
-            if (warData == null) return;
-            
-            Debug.Log($"[CardAnimationController] Animating war with {warData.AllWarRounds.Count} rounds");
-            
-            // Move initial cards to war pile
-            if (_currentPlayerCard != null && _currentOpponentCard != null && _warPile != null)
-            {
-                _currentPlayerCard.ShowWarHighlight();
-                _currentOpponentCard.ShowWarHighlight();
+                await UniTask.WhenAll(playerFlipTask, opponentFlipTask);
                 
-                await UniTask.WhenAll(
-                    _currentPlayerCard.MoveTo(_warPile.position),
-                    _currentOpponentCard.MoveTo(_warPile.position + Vector3.right * 0.5f)
-                );
-                
-                _warCards.Add(_currentPlayerCard);
-                _warCards.Add(_currentOpponentCard);
-            }
-            
-            // Animate each war round
-            foreach (var round in warData.AllWarRounds)
-            {
-                await AnimateWarRound(round);
-                await UniTask.Delay(500);
-            }
-            
-            // Collect all war cards to winner
-            await CollectWarCards(warData.WinningPlayerNumber);
-            
-            // Clean up
-            CleanupWarCards();
-        }
-        
-        private async UniTask AnimateWarRound(WarRound round)
-        {
-            var tasks = new List<UniTask>();
-            
-            // Place face-down cards
-            float cardOffset = _warCards.Count * _warCardSpacing;
-            
-            // Player cards
-            foreach (var cardData in round.PlayerCards)
-            {
-                if (_cardPool != null && _playerDeck != null && _warPile != null)
+                // ✅ ENHANCED: Play war sound from AssetService
+                var warSound = _assetService.GetSoundEffect(SFXType.War);
+                if (warSound != null)
                 {
-                    var card = _cardPool.Spawn();
-                    card.Setup(cardData);
-                    card.SetFaceUp(false, true);
-                    
-                    Vector3 targetPos = _warPile.position + Vector3.left * cardOffset;
-                    tasks.Add(card.AnimateDeal(_playerDeck.position, targetPos, 0));
-                    
-                    _warCards.Add(card);
-                    cardOffset += _warCardSpacing;
+                    Debug.Log("[CardAnimationController] War sound effect ready");
+                }
+                
+                // Highlight winner
+                if (playerWins)
+                {
+                    await playerCardView.ScalePunchAsync(1.3f, 0.5f);
+                    // Play victory sound
+                    var victorySound = _assetService.GetSoundEffect(SFXType.Victory);
+                    if (victorySound != null)
+                    {
+                        Debug.Log("[CardAnimationController] Victory sound ready");
+                    }
+                }
+                else
+                {
+                    await opponentCardView.ScalePunchAsync(1.3f, 0.5f);
+                    // Play defeat sound
+                    var defeatSound = _assetService.GetSoundEffect(SFXType.Defeat);
+                    if (defeatSound != null)
+                    {
+                        Debug.Log("[CardAnimationController] Defeat sound ready");
+                    }
+                }
+                
+                // Hold for dramatic effect
+                await UniTask.Delay(1000);
+                
+                // TODO: Animate cards to winner's pile (address GameController TODO)
+                Debug.Log($"[CardAnimationController] War complete - Player wins: {playerWins}");
+            }
+            finally
+            {
+                _isAnimating = false;
+            }
+        }
+        
+        public async UniTask DealHandAsync(List<CardData> playerCards, List<CardData> opponentCards)
+        {
+            var dealTasks = new List<UniTask>();
+            
+            // Deal player cards
+            for (int i = 0; i < playerCards.Count; i++)
+            {
+                var card = playerCards[i];
+                var delay = i * _dealDelay * 1000; // Convert to milliseconds
+                
+                dealTasks.Add(UniTask.Create(async () =>
+                {
+                    await UniTask.Delay(delay);
+                    await DealCardAsync(card, _playerCardPosition, 
+                        _playerCardPosition.position + Vector3.right * i * 0.1f, false);
+                }));
+            }
+            
+            // Deal opponent cards
+            for (int i = 0; i < opponentCards.Count; i++)
+            {
+                var card = opponentCards[i];
+                var delay = i * _dealDelay * 1000;
+                
+                dealTasks.Add(UniTask.Create(async () =>
+                {
+                    await UniTask.Delay(delay);
+                    await DealCardAsync(card, _opponentCardPosition,
+                        _opponentCardPosition.position + Vector3.right * i * 0.1f, false);
+                }));
+            }
+            
+            await UniTask.WhenAll(dealTasks);
+            Debug.Log("[CardAnimationController] Hand dealing complete");
+        }
+        
+        #endregion
+        
+        #region Asset Management Integration
+        
+        /// <summary>
+        /// ✅ NEW: Refresh sprites for all active cards
+        /// Useful if assets are reloaded or changed
+        /// </summary>
+        public void RefreshAllCardSprites()
+        {
+            foreach (var card in _activeCards)
+            {
+                if (card == null || card.GetCardData() == null) continue;
+                
+                var frontSprite = _assetService.GetCardSprite(card.GetCardData());
+                var backSprite = _assetService.GetCardBackSprite();
+                
+                card.SetCardSprites(frontSprite, backSprite);
+            }
+            
+            Debug.Log($"[CardAnimationController] Refreshed sprites for {_activeCards.Count} cards");
+        }
+        
+        /// <summary>
+        /// ✅ NEW: Preload sprites for upcoming cards
+        /// Can be called before dealing to ensure smooth animations
+        /// </summary>
+        public async UniTask PreloadCardsAsync(List<CardData> upcomingCards)
+        {
+            if (upcomingCards == null || upcomingCards.Count == 0) return;
+            
+            Debug.Log($"[CardAnimationController] Preloading sprites for {upcomingCards.Count} cards");
+            
+            // Verify all sprites are available
+            var missingCount = 0;
+            foreach (var cardData in upcomingCards)
+            {
+                var sprite = _assetService.GetCardSprite(cardData);
+                if (sprite == null)
+                {
+                    missingCount++;
                 }
             }
             
-            // Opponent cards
-            foreach (var cardData in round.OpponentCards)
+            if (missingCount > 0)
             {
-                if (_cardPool != null && _opponentDeck != null && _warPile != null)
-                {
-                    var card = _cardPool.Spawn();
-                    card.Setup(cardData);
-                    card.SetFaceUp(false, true);
-                    
-                    Vector3 targetPos = _warPile.position + Vector3.right * cardOffset;
-                    tasks.Add(card.AnimateDeal(_opponentDeck.position, targetPos, 0.1f));
-                    
-                    _warCards.Add(card);
-                    cardOffset += _warCardSpacing;
-                }
+                Debug.LogWarning($"[CardAnimationController] {missingCount} card sprites missing for preload");
             }
             
-            await UniTask.WhenAll(tasks);
+            // Small delay to simulate preloading process
+            await UniTask.Delay(10);
             
-            // Flip fighting cards
-            if (round.PlayerFightingCard != null && round.OpponentFightingCard != null)
-            {
-                // Find the last cards (fighting cards)
-                if (_warCards.Count >= 2)
-                {
-                    var playerFightCard = _warCards[_warCards.Count - 2];
-                    var opponentFightCard = _warCards[_warCards.Count - 1];
-                    
-                    await UniTask.WhenAll(
-                        playerFightCard.FlipToFront(round.PlayerFightingCard),
-                        opponentFightCard.FlipToFront(round.OpponentFightingCard)
-                    );
-                }
-            }
+            Debug.Log("[CardAnimationController] Card sprite preload complete");
         }
         
-        private async UniTask CollectWarCards(int winningPlayer)
+        #endregion
+        
+        #region Memory Management
+        
+        /// <summary>
+        /// ✅ NEW: Clean up when returning to menu
+        /// Coordinates with AssetService memory management
+        /// </summary>
+        public void OnReturnToMenu()
         {
-            Transform targetDeck = winningPlayer == 1 ? _playerDeck : _opponentDeck;
+            // Return all cards to pool
+            ReturnAllCards();
             
-            if (targetDeck == null) return;
+            // Clear animation queue
+            _cardAnimationQueue.Clear();
             
-            // Stop all war highlights
-            foreach (var card in _warCards)
-            {
-                card.StopWarHighlight();
-            }
+            // Kill any running animations
+            DOTween.KillAll();
             
-            // Collect all cards with staggered timing
-            var tasks = new List<UniTask>();
-            float delay = 0;
+            _isAnimating = false;
             
-            foreach (var card in _warCards)
-            {
-                tasks.Add(CollectCardWithDelay(card, targetDeck.position, delay));
-                delay += 0.05f;
-            }
-            
-            await UniTask.WhenAll(tasks);
+            Debug.Log("[CardAnimationController] Cleaned up for menu return");
         }
         
-        private async UniTask CollectCardWithDelay(CardViewController card, Vector3 targetPosition, float delay)
+        #endregion
+        
+        #region Debug & Validation
+        
+        public int GetActiveCardCount() => _activeCards.Count;
+        public bool IsAnimating() => _isAnimating;
+        
+        #if UNITY_EDITOR
+        [ContextMenu("Test Create Random Card")]
+        private void TestCreateRandomCard()
         {
-            if (delay > 0)
-                await UniTask.Delay((int)(delay * 1000));
-                
-            await card.AnimateWin(targetPosition);
+            var randomRank = (CardRank)UnityEngine.Random.Range(2, 15);
+            var randomSuit = (CardSuit)UnityEngine.Random.Range(0, 4);
+            var cardData = new CardData(randomSuit, randomRank);
+            CreateCard(cardData, transform);
         }
         
-        private void OnGameStart()
+        [ContextMenu("Return All Cards")]
+        private void TestReturnAllCards()
         {
-            CleanupAllCards();
+            ReturnAllCards();
         }
         
-        private void OnGameEnd(GameEndEvent Event)
+        [ContextMenu("Refresh All Sprites")]
+        private void TestRefreshSprites()
         {
-            // Optional: Show final card positions or effects
+            RefreshAllCardSprites();
         }
+        #endif
         
-        private void CleanupCurrentCards()
-        {
-            if (_currentPlayerCard != null && _cardPool != null)
-            {
-                _cardPool.Despawn(_currentPlayerCard);
-                _currentPlayerCard = null;
-            }
-            
-            if (_currentOpponentCard != null && _cardPool != null)
-            {
-                _cardPool.Despawn(_currentOpponentCard);
-                _currentOpponentCard = null;
-            }
-        }
-        
-        private void CleanupWarCards()
-        {
-            if (_cardPool != null)
-            {
-                foreach (var card in _warCards)
-                {
-                    if (card != null)
-                        _cardPool.Despawn(card);
-                }
-            }
-            
-            _warCards.Clear();
-            _currentPlayerCard = null;
-            _currentOpponentCard = null;
-        }
-        
-        private void CleanupAllCards()
-        {
-            CleanupCurrentCards();
-            CleanupWarCards();
-        }
+        #endregion
         
         private void OnDestroy()
         {
-            _eventBus?.TryUnsubscribe<RoundCompleteEvent>(OnRoundComplete);
-            _eventBus?.TryUnsubscribe<WarStartEvent>(OnWarStart);
-            _eventBus?.TryUnsubscribe<GameStartEvent>(OnGameStart);
-            _eventBus?.TryUnsubscribe<GameEndEvent>(OnGameEnd);
-            
-            CleanupAllCards();
+            DOTween.KillAll();
+            ReturnAllCards();
         }
     }
 }

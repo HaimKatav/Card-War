@@ -25,9 +25,8 @@ namespace CardWar.UI.Cards
         private CardData _cardData;
         private RectTransform _rectTransform;
         private bool _isFaceUp;
-        private Sequence _currentAnimation;
+        private Tween _currentAnimation;
         
-        // For pooling
         public class Pool : MonoMemoryPool<CardViewController> 
         {
             protected override void OnDespawned(CardViewController item)
@@ -56,209 +55,270 @@ namespace CardWar.UI.Cards
             
             if (_cardBack == null)
                 _cardBack = transform.Find("CardBack")?.GetComponent<Image>();
+                
+            // Ensure we start face down
+            SetFaceDown(instant: true);
         }
+        
+        #region Public API - Called by Controllers/Managers
         
         public void Setup(CardData cardData)
         {
             _cardData = cardData;
-            UpdateCardVisual();
+            
+            Debug.Log($"[CardViewController] Card setup: {cardData?.Rank} of {cardData?.Suit}");
         }
         
-        public void SetFaceUp(bool faceUp, bool immediate = false)
+        public void SetCardSprites(Sprite frontSprite, Sprite backSprite)
         {
-            if (_isFaceUp == faceUp) return;
-            
-            _isFaceUp = faceUp;
-            
-            if (immediate)
+            if (_cardFront != null && frontSprite != null)
             {
-                _cardFront.gameObject.SetActive(faceUp);
-                _cardBack.gameObject.SetActive(!faceUp);
-                transform.localRotation = Quaternion.identity;
+                _cardFront.sprite = frontSprite;
+            }
+            
+            if (_cardBack != null && backSprite != null)
+            {
+                _cardBack.sprite = backSprite;
+            }
+            
+            Debug.Log($"[CardViewController] Sprites set for {_cardData?.Rank} of {_cardData?.Suit}");
+        }
+        
+        public void SetFrontSprite(Sprite sprite)
+        {
+            if (_cardFront != null && sprite != null)
+            {
+                _cardFront.sprite = sprite;
+            }
+        }
+        
+        public void SetBackSprite(Sprite sprite)
+        {
+            if (_cardBack != null && sprite != null)
+            {
+                _cardBack.sprite = sprite;
+            }
+        }
+        
+        #endregion
+        
+        #region Card State Management
+        
+        public CardData GetCardData() => _cardData;
+        public bool IsFaceUp => _isFaceUp;
+        public bool IsAnimating => _currentAnimation != null && _currentAnimation.IsActive();
+        
+        public void SetFaceUp(bool instant = false)
+        {
+            if (_isFaceUp && !instant) return;
+            
+            _isFaceUp = true;
+            
+            if (instant)
+            {
+                _cardFront.gameObject.SetActive(true);
+                _cardBack.gameObject.SetActive(false);
             }
             else
             {
-                FlipCard().Forget();
+                FlipToFront();
             }
         }
         
-        public async UniTask FlipCard()
+        public void SetFaceDown(bool instant = false)
         {
-            KillCurrentAnimation();
+            if (!_isFaceUp && !instant) return;
             
-            // First half of flip
-            await transform.DORotate(new Vector3(0, 90, 0), _flipDuration / 2)
-                .SetEase(_flipEase)
-                .AsyncWaitForCompletion();
+            _isFaceUp = false;
             
-            // Switch card face
-            _cardFront.gameObject.SetActive(_isFaceUp);
-            _cardBack.gameObject.SetActive(!_isFaceUp);
-            
-            // Second half of flip
-            await transform.DORotate(new Vector3(0, _isFaceUp ? 0 : 180, 0), _flipDuration / 2)
-                .SetEase(_flipEase)
-                .AsyncWaitForCompletion();
-        }
-        
-        public async UniTask FlipToFront(CardData cardData)
-        {
-            _cardData = cardData;
-            UpdateCardVisual();
-            
-            if (!_isFaceUp)
+            if (instant)
             {
-                await FlipCard();
+                _cardFront.gameObject.SetActive(false);
+                _cardBack.gameObject.SetActive(true);
             }
-        }
-        
-        public async UniTask MoveTo(Vector3 targetPosition, float duration = -1)
-        {
-            if (duration < 0)
-                duration = _moveDuration;
-            
-            KillCurrentAnimation();
-            
-            await transform.DOMove(targetPosition, duration)
-                .SetEase(_moveEase)
-                .AsyncWaitForCompletion();
-        }
-        
-        public async UniTask MoveToLocal(Vector3 targetLocalPosition, float duration = -1)
-        {
-            if (duration < 0)
-                duration = _moveDuration;
-            
-            KillCurrentAnimation();
-            
-            await transform.DOLocalMove(targetLocalPosition, duration)
-                .SetEase(_moveEase)
-                .AsyncWaitForCompletion();
-        }
-        
-        public async UniTask AnimateDeal(Vector3 fromPosition, Vector3 toPosition, float delay = 0)
-        {
-            transform.position = fromPosition;
-            SetFaceUp(false, true);
-            
-            _canvasGroup.alpha = 0;
-            transform.localScale = Vector3.zero;
-            
-            if (delay > 0)
-                await UniTask.Delay(TimeSpan.FromSeconds(delay));
-            
-            KillCurrentAnimation();
-            
-            _currentAnimation = DOTween.Sequence()
-                .Append(_canvasGroup.DOFade(1, 0.2f))
-                .Join(transform.DOScale(1, 0.3f).SetEase(Ease.OutBack))
-                .Append(transform.DOMove(toPosition, _moveDuration).SetEase(_moveEase));
-            
-            await _currentAnimation.AsyncWaitForCompletion();
-        }
-        
-        public async UniTask AnimateWin(Vector3 targetPosition)
-        {
-            KillCurrentAnimation();
-            
-            // Victory bounce animation
-            _currentAnimation = DOTween.Sequence()
-                .Append(transform.DOPunchScale(Vector3.one * 0.2f, 0.3f))
-                .Append(transform.DOMove(targetPosition, _moveDuration).SetEase(Ease.InBack))
-                .Join(_canvasGroup.DOFade(0, _moveDuration));
-            
-            await _currentAnimation.AsyncWaitForCompletion();
-        }
-        
-        public async UniTask AnimateDiscard()
-        {
-            KillCurrentAnimation();
-            
-            _currentAnimation = DOTween.Sequence()
-                .Append(transform.DOScale(0, 0.3f).SetEase(Ease.InBack))
-                .Join(_canvasGroup.DOFade(0, 0.3f));
-            
-            await _currentAnimation.AsyncWaitForCompletion();
-        }
-        
-        public void ShowWarHighlight()
-        {
-            // Pulsing effect for war
-            transform.DOScale(1.1f, 0.5f)
-                .SetLoops(-1, LoopType.Yoyo)
-                .SetEase(Ease.InOutSine);
-        }
-        
-        public void StopWarHighlight()
-        {
-            DOTween.Kill(transform);
-            transform.localScale = Vector3.one;
-        }
-        
-        private void UpdateCardVisual()
-        {
-            if (_cardData == null) return;
-            
-            // TODO: Load actual card sprite from resources
-            
-            if (_cardFront != null)
+            else
             {
-                _cardFront.color = Color.white;
-                
-                // Try to load sprite
-                string spritePath = $"Cards/{_cardData.CardId}";
-                Sprite cardSprite = Resources.Load<Sprite>(spritePath);
-                
-                if (cardSprite != null)
-                {
-                    _cardFront.sprite = cardSprite;
-                }
-                else
-                {
-                    // Fallback: show text
-                    // TODO: Add TextMeshPro component for card rank/suit display
-                    Debug.LogWarning($"Card sprite not found: {spritePath}");
-                }
+                FlipToBack();
             }
         }
         
-        private void ResetCard()
+        public void ResetCard()
         {
-            KillCurrentAnimation();
+            _currentAnimation?.Kill();
+            _currentAnimation = null;
             
             _cardData = null;
             _isFaceUp = false;
-            _canvasGroup.alpha = 1;
-            transform.localScale = Vector3.one;
-            transform.localRotation = Quaternion.identity;
             
-            if (_cardFront != null)
-            {
-                _cardFront.gameObject.SetActive(false);
-                _cardFront.sprite = null;
-            }
+            _canvasGroup.alpha = 1f;
+            _rectTransform.localScale = Vector3.one;
+            _rectTransform.rotation = Quaternion.identity;
             
-            if (_cardBack != null)
-            {
-                _cardBack.gameObject.SetActive(true);
-            }
+            _cardFront.gameObject.SetActive(false);
+            _cardBack.gameObject.SetActive(true);
+            
+            _cardFront.sprite = null;
+            _cardBack.sprite = null;
         }
         
-        private void KillCurrentAnimation()
+        #endregion
+        
+        #region Animation Methods
+        
+        public async UniTask FlipToFrontAsync()
         {
-            if (_currentAnimation != null && _currentAnimation.IsActive())
-            {
-                _currentAnimation.Kill();
-                _currentAnimation = null;
-            }
+            if (IsAnimating) return;
             
-            DOTween.Kill(transform);
-            DOTween.Kill(_canvasGroup);
+            _currentAnimation = DOTween.Sequence()
+                .Append(transform.DOScaleX(0f, _flipDuration / 2).SetEase(_flipEase))
+                .AppendCallback(() =>
+                {
+                    _cardFront.gameObject.SetActive(true);
+                    _cardBack.gameObject.SetActive(false);
+                    _isFaceUp = true;
+                })
+                .Append(transform.DOScaleX(1f, _flipDuration / 2).SetEase(_flipEase))
+                .OnComplete(() => _currentAnimation = null);
+            
+            await _currentAnimation.AsyncWaitForCompletion();
         }
+        
+        public async UniTask FlipToBackAsync()
+        {
+            if (IsAnimating) return;
+            
+            _currentAnimation = DOTween.Sequence()
+                .Append(transform.DOScaleX(0f, _flipDuration / 2).SetEase(_flipEase))
+                .AppendCallback(() =>
+                {
+                    _cardFront.gameObject.SetActive(false);
+                    _cardBack.gameObject.SetActive(true);
+                    _isFaceUp = false;
+                })
+                .Append(transform.DOScaleX(1f, _flipDuration / 2).SetEase(_flipEase))
+                .OnComplete(() => _currentAnimation = null);
+            
+            await _currentAnimation.AsyncWaitForCompletion();
+        }
+        
+        public void FlipToFront()
+        {
+            if (IsAnimating) return;
+            
+            _currentAnimation = DOTween.Sequence()
+                .Append(transform.DOScaleX(0f, _flipDuration / 2).SetEase(_flipEase))
+                .AppendCallback(() =>
+                {
+                    _cardFront.gameObject.SetActive(true);
+                    _cardBack.gameObject.SetActive(false);
+                    _isFaceUp = true;
+                })
+                .Append(transform.DOScaleX(1f, _flipDuration / 2).SetEase(_flipEase))
+                .OnComplete(() => _currentAnimation = null);
+        }
+        
+        public void FlipToBack()
+        {
+            if (IsAnimating) return;
+            
+            _currentAnimation = DOTween.Sequence()
+                .Append(transform.DOScaleX(0f, _flipDuration / 2).SetEase(_flipEase))
+                .AppendCallback(() =>
+                {
+                    _cardFront.gameObject.SetActive(false);
+                    _cardBack.gameObject.SetActive(true);
+                    _isFaceUp = false;
+                })
+                .Append(transform.DOScaleX(1f, _flipDuration / 2).SetEase(_flipEase))
+                .OnComplete(() => _currentAnimation = null);
+        }
+        
+        public async UniTask MoveToPositionAsync(Vector2 targetPosition)
+        {
+            if (IsAnimating) return;
+            _currentAnimation = _rectTransform
+                .DOAnchorPos(targetPosition, _moveDuration, true)
+                .SetEase(_moveEase)
+                .OnComplete(() => _currentAnimation = null);
+            
+            await _currentAnimation.AsyncWaitForCompletion();
+        }
+        
+        public void MoveToPosition(Vector3 targetPosition)
+        {
+            _currentAnimation?.Kill();
+            
+            _currentAnimation = _rectTransform
+                .DOAnchorPos(targetPosition, _moveDuration, true)
+                .SetEase(_moveEase)
+                .OnComplete(() => _currentAnimation = null);
+        }
+        
+        public async UniTask ScalePunchAsync(float punchScale = 1.2f, float duration = 0.3f)
+        {
+            if (IsAnimating) return;
+            
+            _currentAnimation = _rectTransform
+                .DOPunchScale(Vector3.one * punchScale, duration, 1, 0.5f)
+                .OnComplete(() => _currentAnimation = null);
+            
+            await _currentAnimation.AsyncWaitForCompletion();
+        }
+        
+        public async UniTask FadeOutAsync(float duration = 0.5f)
+        {
+            if (IsAnimating) return;
+            
+            _currentAnimation = _canvasGroup
+                .DOFade(0f, duration)
+                .OnComplete(() => _currentAnimation = null);
+            
+            await _currentAnimation.AsyncWaitForCompletion();
+        }
+        
+        public async UniTask FadeInAsync(float duration = 0.5f)
+        {
+            if (IsAnimating) return;
+            
+            _currentAnimation = _canvasGroup
+                .DOFade(1f, duration)
+                .OnComplete(() => _currentAnimation = null);
+            
+            await _currentAnimation.AsyncWaitForCompletion();
+        }
+        
+        #endregion
+        
+        #region Debug & Validation
+        
+        private void OnValidate()
+        {
+            if (_cardFront == null)
+                _cardFront = transform.Find("CardFront")?.GetComponent<Image>();
+            
+            if (_cardBack == null)
+                _cardBack = transform.Find("CardBack")?.GetComponent<Image>();
+            
+            if (_canvasGroup == null)
+                _canvasGroup = GetComponent<CanvasGroup>();
+        }
+        
+        #if UNITY_EDITOR
+        [ContextMenu("Test Flip to Front")]
+        private void TestFlipToFront() => FlipToFront();
+        
+        [ContextMenu("Test Flip to Back")]
+        private void TestFlipToBack() => FlipToBack();
+        
+        [ContextMenu("Test Scale Punch")]
+        private void TestScalePunch() => _ = ScalePunchAsync();
+        #endif
+        
+        #endregion
         
         private void OnDestroy()
         {
-            KillCurrentAnimation();
+            _currentAnimation?.Kill();
         }
     }
 }
