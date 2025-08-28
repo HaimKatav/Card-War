@@ -1,8 +1,8 @@
+using CardWar.Gameplay.Controllers;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UI;
 using TMPro;
-using CardWar.Gameplay.Animation;
 using CardWar.UI;
 
 namespace CardWar.Editor

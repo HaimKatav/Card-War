@@ -3,7 +3,6 @@ using Zenject;
 using CardWar.Infrastructure.Events;
 using CardWar.Services.Game;
 using CardWar.Gameplay.Controllers;
-using CardWar.Gameplay.Animation;
 using CardWar.UI;
 using CardWar.UI.Cards;
 
