@@ -50,12 +50,12 @@ namespace CardWar.Gameplay.Controllers
                 HandlePlayerInput();
             }
             
-            if (Input.GetKeyDown(KeyCode.R))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.R))
             {
                 RestartGame().Forget();
             }
             
-            if (Input.GetKeyDown(KeyCode.P))
+            if (UnityEngine.Input.GetKeyDown(KeyCode.P))
             {
                 TogglePause();
             }

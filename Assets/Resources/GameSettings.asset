@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7be6bb650929456982f7dc7e1226b74f, type: 3}
+  m_Name: GameSettings
+  m_EditorClassIdentifier: 
+  cardSpritesPath: GameplaySprites/Cards
+  cardBackSpriteName: card_back
+  cardSpriteFormat: '{rank}_{suit}'
+  uiSpritesPath: GameplaySprites/UI
+  backgroundSpritesPath: GameplaySprites/Backgrounds
+  buttonSpritesPath: GameplaySprites/UI/Buttons
+  sfxPath: Audio/SFX
+  musicPath: Audio/Music
+  prefabsPath: Prefabs
+  cardPrefabPath: Prefabs/Cards
+  uiPrefabPath: Prefabs/UI
+  sceneName: GameScene
+  canvasReferenceResolution: {x: 1080, y: 1920}
+  canvasMatchWidthOrHeight: 0.5
+  dealDelay: 0.1
+  cardAnimationDuration: 0.5
+  warAnimationDuration: 2
+  cardPoolInitialSize: 20
+  playerCardPosition: {x: 0, y: -300, z: 0}
+  opponentCardPosition: {x: 0, y: 300, z: 0}
+  deckPosition: {x: -200, y: 0, z: 0}
+  warPilePosition: {x: 200, y: 0, z: 0}
+  playerColor: {r: 0.2, g: 0.6, b: 1, a: 1}
+  opponentColor: {r: 1, g: 0.4, b: 0.2, a: 1}
+  warColor: {r: 1, g: 0.8, b: 0.1, a: 1}
+  backgroundColor: {r: 0.1, g: 0.5, b: 0.1, a: 1}
+  enableDebugLogs: 1
+  enableAssetValidation: 1
+  autoCreateMissingFolders: 1
