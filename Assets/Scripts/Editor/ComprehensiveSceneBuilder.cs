@@ -111,23 +111,6 @@ namespace CardWar.Editor
             
             if (GUILayout.Button("6. 🧪 Validate Setup"))
                 ValidateCompleteSetup();
-            
-            GUILayout.Space(20);
-            
-            // Settings Actions
-            EditorGUILayout.LabelField("Settings Management", EditorStyles.boldLabel);
-            
-            if (GUILayout.Button("⚙️ Edit Game Settings"))
-            {
-                if (_gameSettings != null)
-                    Selection.activeObject = _gameSettings;
-            }
-            
-            if (GUILayout.Button("📋 Debug Asset Paths"))
-            {
-                if (_gameSettings != null)
-                    _gameSettings.ValidateInEditor();
-            }
         }
         
         private void BuildCompleteScene()
@@ -273,6 +256,13 @@ namespace CardWar.Editor
         private void CreateUIManagerPrefab()
         {
             var uiManagerObj = new GameObject("UIManager");
+            
+            // Create basic UI elements for UIManager
+            var canvas = uiManagerObj.AddComponent<RectTransform>();
+            
+            // Create UI elements that UIManager expects
+            CreateBasicUIElements(uiManagerObj.transform);
+            
             var uiManager = uiManagerObj.AddComponent<UIManager>();
             
             var uiPrefabPath = $"{_gameSettings.GetFullAssetPath(_gameSettings.uiPrefabPath)}/UIManager.prefab";
@@ -280,6 +270,32 @@ namespace CardWar.Editor
             DestroyImmediate(uiManagerObj);
             
             Debug.Log($"✅ [Scene Builder] Created UIManager prefab at: {uiPrefabPath}");
+        }
+        
+        private void CreateBasicUIElements(Transform parent)
+        {
+            // Create basic text elements that UIManager needs
+            CreateTextElement(parent, "PlayerScoreText", "Player: 26");
+            CreateTextElement(parent, "OpponentScoreText", "Opponent: 26");
+            CreateTextElement(parent, "RoundText", "Round: 1");
+            CreateTextElement(parent, "GameStateText", "Tap to Draw");
+        }
+        
+        private TextMeshProUGUI CreateTextElement(Transform parent, string name, string text)
+        {
+            var textObj = new GameObject(name);
+            textObj.transform.SetParent(parent, false);
+            
+            var rectTransform = textObj.AddComponent<RectTransform>();
+            rectTransform.sizeDelta = new Vector2(200, 50);
+            
+            var textComponent = textObj.AddComponent<TextMeshProUGUI>();
+            textComponent.text = text;
+            textComponent.fontSize = 24;
+            textComponent.color = Color.white;
+            textComponent.alignment = TextAlignmentOptions.Center;
+            
+            return textComponent;
         }
         
         private void CreateGameManagerPrefab()
@@ -375,7 +391,7 @@ namespace CardWar.Editor
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = _gameSettings.canvasMatchWidthOrHeight;
             
-            // Create Canvas hierarchy
+            // Create Canvas hierarchy - FIXED VERSION
             CreateCanvasLayer(canvasObj.transform, "BackgroundLayer", 0);
             CreateCanvasLayer(canvasObj.transform, "GamePanel", 10);
             CreateCanvasLayer(canvasObj.transform, "UILayer", 20);
@@ -385,14 +401,17 @@ namespace CardWar.Editor
             var gamePanel = canvasObj.transform.Find("GamePanel");
             var poolContainer = new GameObject("CardPoolContainer");
             poolContainer.transform.SetParent(gamePanel, false);
+            poolContainer.AddComponent<RectTransform>(); // Add RectTransform explicitly
         }
         
+        // FIXED: This method now properly adds RectTransform component
         private void CreateCanvasLayer(Transform parent, string name, int sortOrder)
         {
             var layerObj = new GameObject(name);
             layerObj.transform.SetParent(parent, false);
             
-            var rectTransform = layerObj.GetComponent<RectTransform>();
+            // FIXED: Add RectTransform component explicitly
+            var rectTransform = layerObj.AddComponent<RectTransform>();
             rectTransform.anchorMin = Vector2.zero;
             rectTransform.anchorMax = Vector2.one;
             rectTransform.sizeDelta = Vector2.zero;
@@ -408,6 +427,7 @@ namespace CardWar.Editor
             
             var positionsObj = new GameObject("GamePositions");
             positionsObj.transform.SetParent(gamePanel, false);
+            positionsObj.AddComponent<RectTransform>(); // Add RectTransform
             
             CreatePosition(positionsObj.transform, "PlayerCardPosition", _gameSettings.playerCardPosition);
             CreatePosition(positionsObj.transform, "OpponentCardPosition", _gameSettings.opponentCardPosition);
@@ -430,7 +450,9 @@ namespace CardWar.Editor
             var uiManagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{_gameSettings.GetFullAssetPath(_gameSettings.uiPrefabPath)}/UIManager.prefab");
             if (uiManagerPrefab != null)
             {
-                PrefabUtility.InstantiatePrefab(uiManagerPrefab, managersObj.transform);
+                var uiManagerInstance = PrefabUtility.InstantiatePrefab(uiManagerPrefab, managersObj.transform) as GameObject;
+                // Move UI elements to the proper canvas layer
+                MoveUIElementsToCanvas(uiManagerInstance.transform);
             }
             
             // Add GameManager
@@ -441,6 +463,19 @@ namespace CardWar.Editor
             }
         }
         
+        private void MoveUIElementsToCanvas(Transform uiManagerTransform)
+        {
+            var canvas = FindObjectOfType<Canvas>();
+            var uiLayer = canvas.transform.Find("UILayer");
+            
+            // Move all UI text elements to the UI layer
+            var textComponents = uiManagerTransform.GetComponentsInChildren<TextMeshProUGUI>();
+            foreach (var textComponent in textComponents)
+            {
+                textComponent.transform.SetParent(uiLayer, false);
+            }
+        }
+        
         private void ConnectAllReferences()
         {
             Debug.Log("🔗 [Scene Builder] Connecting all references based on GameSettings...");
@@ -448,6 +483,7 @@ namespace CardWar.Editor
             // Find components
             var cardAnimationController = FindObjectOfType<CardAnimationController>();
             var gameInstaller = FindObjectOfType<GameInstaller>();
+            var uiManager = FindObjectOfType<UIManager>();
             
             if (cardAnimationController != null)
             {
@@ -457,6 +493,11 @@ namespace CardWar.Editor
             if (gameInstaller != null)
             {
                 ConnectGameInstallerReferences(gameInstaller);
+            }
+            
+            if (uiManager != null)
+            {
+                ConnectUIManagerReferences(uiManager);
             }
             
             Debug.Log("✅ [Scene Builder] All references connected");
@@ -503,6 +544,34 @@ namespace CardWar.Editor
                 poolField?.SetValue(installer, poolContainer);
                 
                 Debug.Log("✅ [Scene Builder] GameInstaller references connected");
+            }
+        }
+        
+        private void ConnectUIManagerReferences(UIManager uiManager)
+        {
+            // Find UI elements and connect them to UIManager
+            var canvas = FindObjectOfType<Canvas>();
+            var uiLayer = canvas.transform.Find("UILayer");
+            
+            if (uiLayer != null)
+            {
+                var playerScoreText = uiLayer.Find("PlayerScoreText")?.GetComponent<TextMeshProUGUI>();
+                var opponentScoreText = uiLayer.Find("OpponentScoreText")?.GetComponent<TextMeshProUGUI>();
+                var roundText = uiLayer.Find("RoundText")?.GetComponent<TextMeshProUGUI>();
+                var gameStateText = uiLayer.Find("GameStateText")?.GetComponent<TextMeshProUGUI>();
+                
+                // Use reflection to set private fields
+                var playerScoreField = typeof(UIManager).GetField("_playerScoreText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var opponentScoreField = typeof(UIManager).GetField("_opponentScoreText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var roundField = typeof(UIManager).GetField("_roundText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var gameStateField = typeof(UIManager).GetField("_gameStateText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                
+                playerScoreField?.SetValue(uiManager, playerScoreText);
+                opponentScoreField?.SetValue(uiManager, opponentScoreText);
+                roundField?.SetValue(uiManager, roundText);
+                gameStateField?.SetValue(uiManager, gameStateText);
+                
+                Debug.Log("✅ [Scene Builder] UIManager references connected");
             }
         }
         
