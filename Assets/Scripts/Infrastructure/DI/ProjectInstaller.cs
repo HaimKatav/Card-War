@@ -132,6 +132,7 @@ namespace CardWar.Infrastructure.Installers
         private void DeclareSignals()
         {
             Container.DeclareSignal<GameStartEvent>();
+            Container.DeclareSignal<RoundStartEvent>();  
             Container.DeclareSignal<RoundCompleteEvent>();
             Container.DeclareSignal<GameEndEvent>();
             Container.DeclareSignal<WarStartEvent>();
