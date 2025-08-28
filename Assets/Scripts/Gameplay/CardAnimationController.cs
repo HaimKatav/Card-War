@@ -37,9 +37,9 @@ namespace CardWar.Gameplay.Controllers
         
         private async void Start()
         {
-            if (!_assetService.AreAllCardSpritesLoaded())
+            if (!_assetService.AreAssetsLoaded)
             {
-                await _assetService.PreloadAllCardSprites();
+                await _assetService.PreloadCardAssets();
             }
         }
         
