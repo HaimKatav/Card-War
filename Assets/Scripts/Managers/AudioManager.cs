@@ -104,7 +104,7 @@ namespace CardWar.Managers
             if (clip != null)
             {
                 _sfxSource.PlayOneShot(clip);
-                Debug.Log($"Playing sound: {sound}");
+                Debug.Log($"[AudioManager] Playing sound: {sound}");
             }
         }
 
@@ -124,7 +124,7 @@ namespace CardWar.Managers
                 _musicSource.clip = clip;
                 _musicSource.loop = loop;
                 _musicSource.Play();
-                Debug.Log($"Playing music: {musicKey}");
+                Debug.Log($"[AudioManager] Playing music: {musicKey}");
             }
         }
 

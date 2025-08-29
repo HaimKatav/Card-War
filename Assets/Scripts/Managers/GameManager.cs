@@ -36,6 +36,8 @@ namespace CardWar.Managers
             _gameSettings = gameSettings;
             _currentState = GameState.FirstLoad;
             _previousState = GameState.FirstLoad;
+            
+            _diService.RegisterService<IGameStateService>(this);
         }
 
         private void Start()
@@ -52,7 +54,7 @@ namespace CardWar.Managers
 
         private async void CreateUIManager()
         {
-            _uiManager = await _assetService.LoadAssetAsync<UIManager>("MainCanvas");
+            _uiManager = await _assetService.LoadAssetAsync<UIManager>(GameSettings.MAIN_MENU_ASSET_PATH);
         }
 
         private void CreateGameController()

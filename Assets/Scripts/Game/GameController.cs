@@ -59,11 +59,11 @@ namespace CardWar.Game
         {
             if (!_isGameActive || _isPaused)
             {
-                Debug.LogWarning("Cannot draw cards - game not active or paused");
+                Debug.LogWarning("[GameController] Cannot draw cards - game not active or paused");
                 return;
             }
             
-            Debug.Log("Drawing next cards");
+            Debug.Log("[GameController] Drawing next cards");
             OnCardsDrawn?.Invoke();
         }
 

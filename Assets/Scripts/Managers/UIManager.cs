@@ -108,7 +108,7 @@ namespace CardWar.Managers
         private void HandleSettingsButtonClick()
         {
             _audioService?.PlaySound(SoundEffect.ButtonClick);
-            Debug.Log("Settings not implemented yet");
+            Debug.Log("[UIManager] Settings not implemented yet");
         }
 
         private void HandleQuitButtonClick()
@@ -137,7 +137,7 @@ namespace CardWar.Managers
 
         private void HandleGameStateChanged(GameState newState, GameState previousState)
         {
-            Debug.Log($"UI handling state change: {previousState} -> {newState}");
+            Debug.Log($"[UIManager] UI handling state change: {previousState} -> {newState}");
             
             switch (newState)
             {
@@ -278,7 +278,7 @@ namespace CardWar.Managers
             {
                 UIState previousState = _currentUIState;
                 _currentUIState = state;
-                Debug.Log($"UI State: {previousState} -> {_currentUIState}");
+                Debug.Log($"[UIManager] UI State: {previousState} -> {_currentUIState}");
                 OnUIStateChanged?.Invoke(_currentUIState);
             }
         }

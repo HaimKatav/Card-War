@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CardWar.Core;
 using UnityEngine;
 using CardWar.Services;
 using Cysharp.Threading.Tasks;
@@ -26,7 +27,7 @@ namespace CardWar.Managers
 
         public async UniTask<T> LoadAssetAsync<T>(string assetPath) where T : UnityEngine.Object
         {
-            if (_loadedAssets.TryGetValue(assetPath, out UnityEngine.Object cachedAsset))
+            if (_loadedAssets.TryGetValue(assetPath, out var cachedAsset))
             {
                 return cachedAsset as T;
             }
@@ -44,7 +45,7 @@ namespace CardWar.Managers
 
         public T LoadAsset<T>(string assetPath) where T : UnityEngine.Object
         {
-            if (_loadedAssets.TryGetValue(assetPath, out UnityEngine.Object cachedAsset))
+            if (_loadedAssets.TryGetValue(assetPath, out var cachedAsset))
             {
                 return cachedAsset as T;
             }
@@ -62,29 +63,29 @@ namespace CardWar.Managers
         {
             if (_loadedAssets.Remove(assetPath))
             {
-                Debug.Log($"Asset unloaded: {assetPath}");
+                Debug.Log($"[AssetManager] Asset unloaded: {assetPath}");
             }
         }
 
         public async UniTask PreloadCardAssets()
         {
             await LoadCardSprites();
-            Debug.Log($"Preloaded {_cardSprites.Count} card sprites");
+            Debug.Log($"[AssetManager] Preloaded {_cardSprites.Count} card sprites");
         }
 
         private async UniTask LoadCardSprites()
         {
-            _cardBackSprite = await LoadAssetAsync<Sprite>("GameplaySprites/Cards/card_back");
+            _cardBackSprite = await LoadAssetAsync<Sprite>(GameSettings.CARD_BACK_SPRITE_ASSET_PATH);
             
             string[] suits = { "hearts", "diamonds", "clubs", "spades" };
             string[] ranks = { "2", "3", "4", "5", "6", "7", "8", "9", "10", "jack", "queen", "king", "ace" };
             
-            foreach (string suit in suits)
+            foreach (var suit in suits)
             {
-                foreach (string rank in ranks)
+                foreach (var rank in ranks)
                 {
                     string cardKey = $"{rank}_{suit}";
-                    string path = $"GameplaySprites/Cards/{cardKey}";
+                    string path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}{cardKey}";
                     Sprite sprite = await LoadAssetAsync<Sprite>(path);
                     
                     if (sprite != null)

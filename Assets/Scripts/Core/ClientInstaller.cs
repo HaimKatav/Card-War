@@ -37,14 +37,14 @@ namespace CardWar.Core
 
         private void LoadSettings()
         {
-            _gameSettings = Resources.Load<GameSettings>("Settings/GameSettings");
+            _gameSettings = Resources.Load<GameSettings>(GameSettings.GAME_SETTINGS_ASSET_PATH);
             if (_gameSettings == null)
             {
-                Debug.LogError("GameSettings not found in Resources/Settings/");
+                Debug.LogError($"GameSettings not found.");
                 _gameSettings = ScriptableObject.CreateInstance<GameSettings>();
             }
             
-            _networkSettings = Resources.Load<NetworkSettingsData>("Settings/NetworkSettings");
+            _networkSettings = Resources.Load<NetworkSettingsData>(GameSettings.NETWORK_SETTINGS_ASSET_PATH);
             if (_networkSettings == null)
             {
                 Debug.LogWarning("NetworkSettings not found, using defaults");
@@ -59,44 +59,29 @@ namespace CardWar.Core
 
         private void CreateCoreServices()
         {
-            CreateGameManager();
-            CreateAssetManager();
-            CreateAudioManager();
+            var managerObject = new GameObject("Managers").transform;
+            CreateManager<AssetManager>("AssetManager", managerObject);
+            CreateManager<AudioManager>("AudioManager", managerObject);
+            CreateManager<GameManager>("GameManager", managerObject);
         }
 
-        private void CreateGameManager()
+        private void CreateManager<T>(string managerName, Transform managerTransform) where T : Component
         {
-            GameObject managerObject = new GameObject("GameManager");
-            managerObject.transform.SetParent(transform);
-            GameManager gameManager = managerObject.AddComponent<GameManager>();
-            
-            RegisterService<IGameStateService>(gameManager);
+            var manager = new GameObject(managerName);
+            manager.transform.SetParent(managerTransform);
+            manager.AddComponent<T>();
         }
-
-        private void CreateAssetManager()
-        {
-            GameObject managerObject = new GameObject("AssetManager");
-            managerObject.transform.SetParent(transform);
-            managerObject.AddComponent<AssetManager>();
-        }
-
-        private void CreateAudioManager()
-        {
-            GameObject managerObject = new GameObject("AudioManager");
-            managerObject.transform.SetParent(transform);
-            managerObject.AddComponent<AudioManager>();
-        }
-
+        
         private void NotifyStartupComplete()
         {
-            IGameStateService gameStateService = GetService<IGameStateService>();
+            var gameStateService = GetService<IGameStateService>();
             gameStateService?.NotifyStartupComplete();
         }
 
         public T GetService<T>() where T : class
         {
-            Type serviceType = typeof(T);
-            if (_services.TryGetValue(serviceType, out object service))
+            var serviceType = typeof(T);
+            if (_services.TryGetValue(serviceType, out var service))
             {
                 return service as T;
             }
@@ -107,7 +92,7 @@ namespace CardWar.Core
 
         public void RegisterService<T>(T service) where T : class
         {
-            Type serviceType = typeof(T);
+            var serviceType = typeof(T);
             
             if (_services.ContainsKey(serviceType))
             {
@@ -123,7 +108,7 @@ namespace CardWar.Core
 
         public void UnregisterService<T>() where T : class
         {
-            Type serviceType = typeof(T);
+            var serviceType = typeof(T);
             if (_services.Remove(serviceType))
             {
                 Debug.Log($"Service {serviceType.Name} unregistered");

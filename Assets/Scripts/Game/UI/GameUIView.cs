@@ -1,7 +1,9 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using CardWar.Services;
+using UnityEngine.Events;
 using Zenject;
 
 namespace CardWar.Game.UI
@@ -46,40 +48,36 @@ namespace CardWar.Game.UI
 
         private void SetupButtons()
         {
-            if (_drawButton != null)
+            AddButtonListener(_drawButton, HandleDrawButtonClick);
+            AddButtonListener(_pauseButton, HandlePauseButtonClick);
+            AddButtonListener(_resumeButton, HandleResumeButtonClick);
+            AddButtonListener(_quitButton, HandleQuitButtonClick);
+        }
+
+        private void AddButtonListener(Button button, UnityAction onClick)
+        {
+            if (button == null)
             {
-                _drawButton.onClick.RemoveAllListeners();
-                _drawButton.onClick.AddListener(HandleDrawButtonClick);
+                Debug.LogError("[GameUIView] Button is null - cannot add listener.");
+                return;
             }
             
-            if (_pauseButton != null)
-            {
-                _pauseButton.onClick.RemoveAllListeners();
-                _pauseButton.onClick.AddListener(HandlePauseButtonClick);
-            }
-            
-            if (_resumeButton != null)
-            {
-                _resumeButton.onClick.RemoveAllListeners();
-                _resumeButton.onClick.AddListener(HandleResumeButtonClick);
-            }
-            
-            if (_quitButton != null)
-            {
-                _quitButton.onClick.RemoveAllListeners();
-                _quitButton.onClick.AddListener(HandleQuitButtonClick);
-            }
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(onClick);
         }
 
         private void SubscribeToEvents()
         {
-            if (_gameController != null)
+            if (_gameController == null)
             {
-                _gameController.OnRoundStarted += HandleRoundStarted;
-                _gameController.OnWarStarted += HandleWarStarted;
-                _gameController.OnGamePaused += HandleGamePaused;
-                _gameController.OnGameResumed += HandleGameResumed;
+                Debug.LogError("[GameUIView] Game controller is null - cannot subscribe to events.");
+                return;
             }
+            
+            _gameController.OnRoundStarted += HandleRoundStarted;
+            _gameController.OnWarStarted += HandleWarStarted;
+            _gameController.OnGamePaused += HandleGamePaused;
+            _gameController.OnGameResumed += HandleGameResumed;
         }
 
         private void HandleDrawButtonClick()
