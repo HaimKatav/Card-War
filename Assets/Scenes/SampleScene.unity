@@ -351,7 +351,6 @@ GameObject:
   m_Component:
   - component: {fileID: 733975700}
   - component: {fileID: 733975702}
-  - component: {fileID: 733975701}
   m_Layer: 0
   m_Name: ClienInstaller
   m_TagString: Untagged
@@ -374,22 +373,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &733975701
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 733975699}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4635db04ffd4a1181f62b77500a5e80, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _startButton: {fileID: 0}
-  _clientInstallerPrefab: {fileID: 733975699}
-  _clientInstaller: {fileID: 0}
-  _isInitialized: 0
 --- !u!114 &733975702
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -402,6 +385,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e56db45873e47a38467640b00cba618, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _gameSettings: {fileID: 11400000, guid: cfd21a68f491944faaeb694bd9a1273a, type: 2}
+  _networkSettings: {fileID: 11400000, guid: e4436907a35f04d0a8aae37780f1c3ef, type: 2}
 --- !u!1 &884087150
 GameObject:
   m_ObjectHideFlags: 0
