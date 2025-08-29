@@ -47,7 +47,7 @@ namespace CardWar.Core
                 return;
             }
 
-            if (!_states.TryGetValue(newStateType, out IGameState newState))
+            if (!_states.TryGetValue(newStateType, out var newState))
             {
                 Debug.LogError($"[GameStateMachine] State not registered: {newStateType}");
                 return;
@@ -163,7 +163,7 @@ namespace CardWar.Core
 
         private async void SimulateLoading()
         {
-            for (int i = 0; i <= 10; i++)
+            for (var i = 0; i <= 10; i++)
             {
                 _onProgress?.Invoke(i / 10f);
                 await Cysharp.Threading.Tasks.UniTask.Delay(200);
@@ -220,7 +220,7 @@ namespace CardWar.Core
         public override void Enter()
         {
             Debug.Log($"[{GetType().Name}] Entering GameEnded state");
-            bool playerWon = UnityEngine.Random.value > 0.5f;
+            var playerWon = UnityEngine.Random.value > 0.5f;
             _uiService?.ShowGameOverScreen(true, playerWon);
         }
 

@@ -47,9 +47,9 @@ namespace CardWar.Managers
         {
             _stateMachine = new GameStateMachine();
             
-            IUIService uiService = _diService.GetService<IUIService>();
-            IGameControllerService gameController = _diService.GetService<IGameControllerService>();
-            IAudioService audioService = _diService.GetService<IAudioService>();
+            var uiService = _diService.GetService<IUIService>();
+            var gameController = _diService.GetService<IGameControllerService>();
+            var audioService = _diService.GetService<IAudioService>();
             
             _stateMachine.RegisterState(new FirstLoadState(uiService, gameController, audioService));
             _stateMachine.RegisterState(new MainMenuState(uiService, gameController, audioService));

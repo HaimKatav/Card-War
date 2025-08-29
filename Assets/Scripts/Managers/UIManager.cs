@@ -167,7 +167,7 @@ namespace CardWar.Managers
 
         private void DetermineWinnerAndShowGameOver()
         {
-            bool playerWon = UnityEngine.Random.value > 0.5f;
+            var playerWon = UnityEngine.Random.value > 0.5f;
             ShowGameOverScreen(true, playerWon);
         }
 
@@ -190,7 +190,7 @@ namespace CardWar.Managers
                 
                 if (_loadingText != null)
                 {
-                    string loadingDots = new string('.', (int)(Time.time * 2) % 4);
+                    var loadingDots = new string('.', (int)(Time.time * 2) % 4);
                     _loadingText.text = $"Loading{loadingDots}";
                 }
             }
@@ -276,7 +276,7 @@ namespace CardWar.Managers
         {
             if (_currentUIState != state)
             {
-                UIState previousState = _currentUIState;
+                var previousState = _currentUIState;
                 _currentUIState = state;
                 Debug.Log($"[UIManager] UI State: {previousState} -> {_currentUIState}");
                 OnUIStateChanged?.Invoke(_currentUIState);

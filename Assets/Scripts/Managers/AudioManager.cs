@@ -66,13 +66,13 @@ namespace CardWar.Managers
 
         private void SetupAudioSources()
         {
-            GameObject musicObject = new GameObject("MusicSource");
+            var musicObject = new GameObject("MusicSource");
             musicObject.transform.SetParent(transform);
             _musicSource = musicObject.AddComponent<AudioSource>();
             _musicSource.loop = true;
             _musicSource.playOnAwake = false;
 
-            GameObject sfxObject = new GameObject("SfxSource");
+            var sfxObject = new GameObject("SfxSource");
             sfxObject.transform.SetParent(transform);
             _sfxSource = sfxObject.AddComponent<AudioSource>();
             _sfxSource.loop = false;
@@ -83,7 +83,7 @@ namespace CardWar.Managers
 
         private void UpdateVolumes()
         {
-            float effectiveMasterVolume = _isMuted ? 0f : _masterVolume;
+            var effectiveMasterVolume = _isMuted ? 0f : _masterVolume;
             
             if (_musicSource != null)
             {
@@ -100,7 +100,7 @@ namespace CardWar.Managers
         {
             if (_sfxSource == null || _isMuted) return;
             
-            AudioClip clip = GetSoundClip(sound);
+            var clip = GetSoundClip(sound);
             if (clip != null)
             {
                 _sfxSource.PlayOneShot(clip);
@@ -110,7 +110,7 @@ namespace CardWar.Managers
 
         private AudioClip GetSoundClip(SoundEffect sound)
         {
-            string clipPath = $"Audio/SFX/{sound}";
+            var clipPath = $"Audio/SFX/{sound}";
             return Resources.Load<AudioClip>(clipPath);
         }
 
@@ -118,7 +118,7 @@ namespace CardWar.Managers
         {
             if (_musicSource == null) return;
             
-            AudioClip clip = Resources.Load<AudioClip>($"Audio/Music/{musicKey}");
+            var clip = Resources.Load<AudioClip>($"Audio/Music/{musicKey}");
             if (clip != null)
             {
                 _musicSource.clip = clip;
