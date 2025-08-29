@@ -154,12 +154,8 @@ namespace CardWar.Infrastructure.Installers
             if (gameSettings != null)
             {
                 var prefabPath = gameSettings.cardPrefabPath;
-                if (prefabPath.StartsWith("Prefabs/"))
-                {
-                    prefabPath = prefabPath.Substring("Prefabs/".Length);
-                }
+                var prefab = Resources.Load<GameObject>(prefabPath);
                 
-                var prefab = Resources.Load<GameObject>($"Prefabs/{prefabPath}");
                 if (prefab != null)
                 {
                     return prefab;

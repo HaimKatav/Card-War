@@ -6,6 +6,8 @@ namespace CardWar.Configuration
     [CreateAssetMenu(fileName = "GameSettings", menuName = "CardWar/Game Settings", order = 1)]
     public class GameSettings : ScriptableObject
     {
+        public static readonly string CARD_PREFAB_NAME = "CardPrefab";
+        
         [Header("═══════════ ASSET PATHS ═══════════")]
         
         [Header("Card Assets")]

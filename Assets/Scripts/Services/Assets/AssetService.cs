@@ -134,25 +134,16 @@ namespace CardWar.Services.Assets
             if (_prefabCache.TryGetValue(prefabName, out var cachedPrefab))
                 return cachedPrefab;
             
-            var paths = new[]
-            {
-                $"{_settings.prefabsPath}/{prefabName}",
-                $"Prefabs/{prefabName}",
-                $"Prefabs/Cards/{prefabName}",
-                prefabName
-            };
+            var path = $"{_settings.prefabsPath}/{prefabName}";
+            var prefab = Resources.Load<GameObject>(path);
             
-            foreach (var path in paths)
+            if (prefab != null)
             {
-                var prefab = Resources.Load<GameObject>(path);
-                if (prefab != null)
-                {
-                    _prefabCache[prefabName] = prefab;
-                    Debug.Log($"[AssetService] Loaded prefab from: {path}");
-                    return prefab;
-                }
+                _prefabCache[prefabName] = prefab;
+                Debug.Log($"[AssetService] Loaded prefab from: {path}");
+                return prefab;
             }
-            
+           
             Debug.LogError($"[AssetService] Prefab not found: {prefabName}");
             return null;
         }

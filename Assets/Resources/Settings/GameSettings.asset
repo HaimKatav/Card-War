@@ -23,7 +23,7 @@ MonoBehaviour:
   musicPath: Audio/Music
   cardSoundPath: Audio/SFX/Cards
   prefabsPath: Prefabs
-  cardPrefabPath: Resources/Prefabs/Cards
+  cardPrefabPath: Prefabs
   uiPrefabPath: Prefabs/UI
   effectsPrefabPath: Prefabs/Effects
   canvasReferenceResolution: {x: 1080, y: 1920}
