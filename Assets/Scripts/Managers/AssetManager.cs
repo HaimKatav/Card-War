@@ -30,7 +30,7 @@ namespace CardWar.Managers
 
             await UniTask.Delay(100);
             
-            T asset = Resources.Load<T>(assetPath);
+            var asset = Resources.Load<T>(assetPath);
             if (asset != null)
             {
                 _loadedAssets[assetPath] = asset;
@@ -46,7 +46,7 @@ namespace CardWar.Managers
                 return cachedAsset as T;
             }
 
-            T asset = Resources.Load<T>(assetPath);
+            var asset = Resources.Load<T>(assetPath);
             if (asset != null)
             {
                 _loadedAssets[assetPath] = asset;
@@ -80,9 +80,9 @@ namespace CardWar.Managers
             {
                 foreach (var rank in ranks)
                 {
-                    string cardKey = $"{rank}_{suit}";
-                    string path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}{cardKey}";
-                    Sprite sprite = await LoadAssetAsync<Sprite>(path);
+                    var cardKey = $"{rank}_{suit}";
+                    var path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}{cardKey}";
+                    var sprite = await LoadAssetAsync<Sprite>(path);
                     
                     if (sprite != null)
                     {
@@ -94,7 +94,7 @@ namespace CardWar.Managers
 
         public Sprite GetCardSprite(string cardKey)
         {
-            _cardSprites.TryGetValue(cardKey, out Sprite sprite);
+            _cardSprites.TryGetValue(cardKey, out var sprite);
             return sprite;
         }
 

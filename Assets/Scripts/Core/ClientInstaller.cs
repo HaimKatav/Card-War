@@ -25,9 +25,8 @@ namespace CardWar.Core
         [SerializeField] private GameSettings _gameSettings;
         [SerializeField] private NetworkSettingsData _networkSettings;
         
-        private readonly Dictionary<Type, object> _services = new Dictionary<Type, object>();
-        private readonly List<(Type Interface, Type Implementation, string Name)> _serviceRegistry = 
-            new List<(Type, Type, string)>();
+        private readonly Dictionary<Type, object> _services = new ();
+        private readonly List<(Type Interface, Type Implementation, string Name)> _serviceRegistry = new();
         
         private bool _isInitialized;
 
@@ -121,10 +120,10 @@ namespace CardWar.Core
 
         private void CreateService(Type interfaceType, Type implementationType, string name)
         {
-            GameObject serviceObject = new GameObject(name);
+            var serviceObject = new GameObject(name);
             serviceObject.transform.SetParent(transform);
             
-            Component component = serviceObject.AddComponent(implementationType);
+            var component = serviceObject.AddComponent(implementationType);
             
             _services[interfaceType] = component;
             _services[implementationType] = component;
@@ -148,14 +147,14 @@ namespace CardWar.Core
 
         private void InjectServiceDependencies(object service)
         {
-            Type serviceType = service.GetType();
+            var serviceType = service.GetType();
             
             var fields = serviceType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
                 .Where(f => f.GetCustomAttribute<InjectAttribute>() != null);
             
             foreach (var field in fields)
             {
-                object dependency = GetServiceForType(field.FieldType);
+                var dependency = GetServiceForType(field.FieldType);
                 if (dependency != null)
                 {
                     field.SetValue(service, dependency);
@@ -168,7 +167,7 @@ namespace CardWar.Core
             
             foreach (var property in properties)
             {
-                object dependency = GetServiceForType(property.PropertyType);
+                var dependency = GetServiceForType(property.PropertyType);
                 if (dependency != null)
                 {
                     property.SetValue(service, dependency);
@@ -184,7 +183,7 @@ namespace CardWar.Core
             if (type == typeof(NetworkSettingsData))
                 return _networkSettings;
             
-            return _services.TryGetValue(type, out object service) ? service : null;
+            return _services.TryGetValue(type, out var service) ? service : null;
         }
 
         private void InitializeServices()
@@ -220,8 +219,8 @@ namespace CardWar.Core
 
         public T GetService<T>() where T : class
         {
-            Type serviceType = typeof(T);
-            if (_services.TryGetValue(serviceType, out object service))
+            var serviceType = typeof(T);
+            if (_services.TryGetValue(serviceType, out var service))
             {
                 return service as T;
             }
@@ -232,7 +231,7 @@ namespace CardWar.Core
 
         public void RegisterService<T>(T service) where T : class
         {
-            Type serviceType = typeof(T);
+            var serviceType = typeof(T);
             
             if (_services.ContainsKey(serviceType))
             {
@@ -248,7 +247,7 @@ namespace CardWar.Core
 
         public void UnregisterService<T>() where T : class
         {
-            Type serviceType = typeof(T);
+            var serviceType = typeof(T);
             if (_services.Remove(serviceType))
             {
                 Debug.Log($"[{GetType().Name}] Service {serviceType.Name} unregistered");
@@ -269,7 +268,7 @@ namespace CardWar.Core
 
         private void NotifyStartupComplete()
         {
-            IGameStateService gameStateService = GetService<IGameStateService>();
+            var gameStateService = GetService<IGameStateService>();
             if (gameStateService != null)
             {
                 gameStateService.NotifyStartupComplete();
