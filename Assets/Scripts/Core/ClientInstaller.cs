@@ -1,19 +1,34 @@
 using System;
 using System.Collections.Generic;
-using CardWar.Game;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using CardWar.Services;
 using CardWar.Managers;
+using CardWar.Game;
 using Cysharp.Threading.Tasks;
 
 namespace CardWar.Core
 {
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public class InjectAttribute : Attribute { }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public class InitializeAttribute : Attribute 
+    {
+        public int Order { get; set; }
+        public InitializeAttribute(int order = 0) => Order = order;
+    }
+
     public class ClientInstaller : MonoBehaviour, IDIService
     {
         [SerializeField] private GameSettings _gameSettings;
         [SerializeField] private NetworkSettingsData _networkSettings;
         
-        private Dictionary<Type, object> _services;
+        private readonly Dictionary<Type, object> _services = new Dictionary<Type, object>();
+        private readonly List<(Type Interface, Type Implementation, string Name)> _serviceRegistry = 
+            new List<(Type, Type, string)>();
+        
         private bool _isInitialized;
 
         #region Initialization
@@ -30,17 +45,19 @@ namespace CardWar.Core
         {
             Debug.Log($"[{GetType().Name}] Starting initialization");
             
-            _services = new Dictionary<Type, object>();
-            
             ValidateSettings();
+            RegisterServiceDefinitions();
             RegisterSelf();
             
             await UniTask.DelayFrame(1);
             
-            CreateCoreServices();
+            CreateAllServices();
+            
             await UniTask.DelayFrame(1);
             
+            InjectDependencies();
             InitializeServices();
+            
             await UniTask.DelayFrame(1);
             
             NotifyStartupComplete();
@@ -66,114 +83,134 @@ namespace CardWar.Core
             Debug.Log($"[{GetType().Name}] Settings validated");
         }
 
+        private void RegisterServiceDefinitions()
+        {
+            RegisterServiceType<IGameStateService, GameManager>();
+            RegisterServiceType<IAssetService, AssetManager>();
+            RegisterServiceType<IAudioService, AudioManager>();
+            RegisterServiceType<IUIService, UIManager>();
+            RegisterServiceType<IGameControllerService, GameController>();
+        }
+
+        private void RegisterServiceType<TInterface, TImplementation>()
+            where TInterface : class
+            where TImplementation : Component
+        {
+            _serviceRegistry.Add((typeof(TInterface), typeof(TImplementation), typeof(TImplementation).Name));
+        }
+
         private void RegisterSelf()
         {
             RegisterService<IDIService>(this);
+            RegisterService<ClientInstaller>(this);
         }
 
         #endregion
 
         #region Service Creation
 
-        private void CreateCoreServices()
+        private void CreateAllServices()
         {
-            Debug.Log($"[{GetType().Name}] Creating core services");
+            Debug.Log($"[{GetType().Name}] Creating all services");
             
-            CreateGameManager();
-            CreateAssetManager();
-            CreateAudioManager();
-            CreateUIManager();
-            CreateGameController();
+            foreach (var (interfaceType, implementationType, name) in _serviceRegistry)
+            {
+                CreateService(interfaceType, implementationType, name);
+            }
         }
 
-        private void CreateGameManager()
+        private void CreateService(Type interfaceType, Type implementationType, string name)
         {
-            GameObject managerObject = new GameObject("GameManager");
-            managerObject.transform.SetParent(transform);
-            GameManager gameManager = managerObject.AddComponent<GameManager>();
-            RegisterService<IGameStateService>(gameManager);
-            Debug.Log($"[{GetType().Name}] GameManager created and registered");
-        }
-
-        private void CreateAssetManager()
-        {
-            GameObject managerObject = new GameObject("AssetManager");
-            managerObject.transform.SetParent(transform);
-            AssetManager assetManager = managerObject.AddComponent<AssetManager>();
-            RegisterService<IAssetService>(assetManager);
-            Debug.Log($"[{GetType().Name}] AssetManager created and registered");
-        }
-
-        private void CreateAudioManager()
-        {
-            GameObject managerObject = new GameObject("AudioManager");
-            managerObject.transform.SetParent(transform);
-            AudioManager audioManager = managerObject.AddComponent<AudioManager>();
-            RegisterService<IAudioService>(audioManager);
-            Debug.Log($"[{GetType().Name}] AudioManager created and registered");
-        }
-
-        private void CreateUIManager()
-        {
-            GameObject managerObject = new GameObject("UIManager");
-            managerObject.transform.SetParent(transform);
-            UIManager uiManager = managerObject.AddComponent<UIManager>();
-            RegisterService<IUIService>(uiManager);
-            Debug.Log($"[{GetType().Name}] UIManager created and registered");
-        }
-
-        private void CreateGameController()
-        {
-            GameObject controllerObject = new GameObject("GameController");
-            controllerObject.transform.SetParent(transform);
-            GameController gameController = controllerObject.AddComponent<GameController>();
-            RegisterService<IGameControllerService>(gameController);
-            Debug.Log($"[{GetType().Name}] GameController created and registered");
+            GameObject serviceObject = new GameObject(name);
+            serviceObject.transform.SetParent(transform);
+            
+            Component component = serviceObject.AddComponent(implementationType);
+            
+            _services[interfaceType] = component;
+            _services[implementationType] = component;
+            
+            Debug.Log($"[{GetType().Name}] {name} created and registered");
         }
 
         #endregion
 
-        #region Service Initialization
+        #region Dependency Injection
+
+        private void InjectDependencies()
+        {
+            Debug.Log($"[{GetType().Name}] Injecting dependencies");
+            
+            foreach (var service in _services.Values.Distinct())
+            {
+                InjectServiceDependencies(service);
+            }
+        }
+
+        private void InjectServiceDependencies(object service)
+        {
+            Type serviceType = service.GetType();
+            
+            var fields = serviceType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(f => f.GetCustomAttribute<InjectAttribute>() != null);
+            
+            foreach (var field in fields)
+            {
+                object dependency = GetServiceForType(field.FieldType);
+                if (dependency != null)
+                {
+                    field.SetValue(service, dependency);
+                    Debug.Log($"[{GetType().Name}] Injected {field.FieldType.Name} into {serviceType.Name}.{field.Name}");
+                }
+            }
+            
+            var properties = serviceType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.GetCustomAttribute<InjectAttribute>() != null && p.CanWrite);
+            
+            foreach (var property in properties)
+            {
+                object dependency = GetServiceForType(property.PropertyType);
+                if (dependency != null)
+                {
+                    property.SetValue(service, dependency);
+                    Debug.Log($"[{GetType().Name}] Injected {property.PropertyType.Name} into {serviceType.Name}.{property.Name}");
+                }
+            }
+        }
+
+        private object GetServiceForType(Type type)
+        {
+            if (type == typeof(GameSettings))
+                return _gameSettings;
+            if (type == typeof(NetworkSettingsData))
+                return _networkSettings;
+            
+            return _services.TryGetValue(type, out object service) ? service : null;
+        }
 
         private void InitializeServices()
         {
             Debug.Log($"[{GetType().Name}] Initializing services");
             
-            GameManager gameManager = GetService<IGameStateService>() as GameManager;
-            AssetManager assetManager = GetService<IAssetService>() as AssetManager;
-            AudioManager audioManager = GetService<IAudioService>() as AudioManager;
-            UIManager uiManager = GetService<IUIService>() as UIManager;
-            GameController gameController = GetService<IGameControllerService>() as GameController;
+            var servicesWithInit = _services.Values.Distinct()
+                .Select(s => new 
+                {
+                    Service = s,
+                    Methods = s.GetType()
+                        .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                        .Where(m => m.GetCustomAttribute<InitializeAttribute>() != null)
+                        .OrderBy(m => m.GetCustomAttribute<InitializeAttribute>().Order)
+                        .ToList()
+                })
+                .Where(x => x.Methods.Any())
+                .ToList();
             
-            if (gameManager != null)
-                gameManager.Initialize(this, _gameSettings);
-            
-            if (assetManager != null)
-                assetManager.Initialize(this, _gameSettings);
-            
-            if (audioManager != null)
-                audioManager.Initialize(this);
-            
-            if (uiManager != null)
-                uiManager.Initialize(this, gameManager);
-            
-            if (gameController != null)
-                gameController.Initialize(this, gameManager, uiManager, assetManager);
-            
-            Debug.Log($"[{GetType().Name}] All services initialized");
-        }
-
-        private void NotifyStartupComplete()
-        {
-            IGameStateService gameStateService = GetService<IGameStateService>();
-            if (gameStateService != null)
+            foreach (var serviceInfo in servicesWithInit)
             {
-                gameStateService.NotifyStartupComplete();
-                Debug.Log($"[{GetType().Name}] Startup complete notification sent");
-            }
-            else
-            {
-                Debug.LogError($"[{GetType().Name}] GameStateService not found!");
+                foreach (var method in serviceInfo.Methods)
+                {
+                    method.Invoke(serviceInfo.Service, null);
+                    Debug.Log($"[{GetType().Name}] Called {method.Name} on {serviceInfo.Service.GetType().Name}");
+                }
             }
         }
 
@@ -229,6 +266,20 @@ namespace CardWar.Core
 
         public GameSettings GetGameSettings() => _gameSettings;
         public NetworkSettingsData GetNetworkSettings() => _networkSettings;
+
+        private void NotifyStartupComplete()
+        {
+            IGameStateService gameStateService = GetService<IGameStateService>();
+            if (gameStateService != null)
+            {
+                gameStateService.NotifyStartupComplete();
+                Debug.Log($"[{GetType().Name}] Startup complete notification sent");
+            }
+            else
+            {
+                Debug.LogError($"[{GetType().Name}] GameStateService not found!");
+            }
+        }
 
         #endregion
 

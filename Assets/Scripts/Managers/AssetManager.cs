@@ -4,23 +4,19 @@ using CardWar.Core;
 using UnityEngine;
 using CardWar.Services;
 using Cysharp.Threading.Tasks;
-using Zenject;
 
 namespace CardWar.Managers
 {
     public class AssetManager : MonoBehaviour, IAssetService, IDisposable
     {
-        private IDIService _diService;
+        [Inject] private IDIService _diService;
         private Dictionary<string, UnityEngine.Object> _loadedAssets;
         private Dictionary<string, Sprite> _cardSprites;
         private Sprite _cardBackSprite;
-
-        [Inject]
-        public void Initialize(IDIService diService)
+        
+        [Initialize(order: 2)]
+        public void Initialize()
         {
-            _diService = diService;
-            _diService.RegisterService<IAssetService>(this);
-
             _loadedAssets = new Dictionary<string, UnityEngine.Object>();
             _cardSprites = new Dictionary<string, Sprite>();
         }

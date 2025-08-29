@@ -8,8 +8,9 @@ namespace CardWar.Managers
 {
     public class GameManager : MonoBehaviour, IGameStateService, IDisposable
     {
-        private IDIService _diService;
-        private GameSettings _gameSettings;
+        [Inject] private IDIService _diService;
+        [Inject] private GameSettings _gameSettings;
+        
         private GameStateMachine _stateMachine;
         private bool _isInitialized;
 
@@ -22,17 +23,24 @@ namespace CardWar.Managers
 
         #region Initialization
 
-        public void Initialize(IDIService diService, GameSettings gameSettings)
+        [Initialize(order: 1)]
+        public void Initialize()
         {
             if (_isInitialized) return;
             
-            _diService = diService ?? throw new ArgumentNullException(nameof(diService));
-            _gameSettings = gameSettings ?? throw new ArgumentNullException(nameof(gameSettings));
-            
+            ValidateDependencies();
             SetupStateMachine();
             _isInitialized = true;
             
             Debug.Log($"[{GetType().Name}] Initialized");
+        }
+
+        private void ValidateDependencies()
+        {
+            if (_diService == null)
+                throw new InvalidOperationException($"[{GetType().Name}] DIService not injected");
+            if (_gameSettings == null)
+                throw new InvalidOperationException($"[{GetType().Name}] GameSettings not injected");
         }
 
         private void SetupStateMachine()
