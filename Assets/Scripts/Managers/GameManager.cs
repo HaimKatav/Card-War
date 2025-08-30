@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using CardWar.Services;
 using CardWar.Core;
+using CardWar.Game;
 using Cysharp.Threading.Tasks;
 using Zenject;
 
@@ -9,13 +10,15 @@ namespace CardWar.Managers
 {
     public class GameManager : MonoBehaviour, IGameStateService, IDisposable
     {
+        private DiContainer _container;
         private IDIService _diService;
         private GameSettings _gameSettings;
+        private IAssetService _assetService;
         
         private GameStateMachine _stateMachine;
-        private bool _isInitialized;
         private IUIService _uiService;
-        private IAssetService _assetService;
+        private IGameControllerService _gameController;
+        private bool _isInitialized;
 
         public GameState CurrentState => _stateMachine?.CurrentStateType ?? GameState.FirstLoad;
         public GameState PreviousState => _stateMachine?.PreviousStateType ?? GameState.FirstLoad;
@@ -27,124 +30,115 @@ namespace CardWar.Managers
         #region Initialization
 
         [Inject]
-        public void Initialize(IDIService diService, GameSettings gameSettings, IAssetService assetService)
+        public void Construct(DiContainer container, IDIService diService, GameSettings gameSettings, IAssetService assetService)
         {
-            _diService = diService ?? throw new ArgumentNullException(nameof(diService));
-            _gameSettings = gameSettings ?? throw new ArgumentNullException(nameof(gameSettings));
-            _assetService = assetService ?? throw new ArgumentNullException(nameof(assetService));
-
-            LoadUIAsync().Forget();
+            _container = container;
+            _diService = diService;
+            _gameSettings = gameSettings;
+            _assetService = assetService;
+            
+            Debug.Log($"[GameManager] Constructed with dependencies");
         }
 
-        private async UniTask LoadUIAsync()
+        private void Start()
         {
-            var uiManager = await _assetService.LoadAssetAsync<UIManager>(GameSettings.UI_MANAGER_ASSET_PATH);
-            _diService.RegisterService<IUIService>(uiManager);
+            CreateUIAndGameController().Forget();
+        }
 
+        private async UniTaskVoid CreateUIAndGameController()
+        {
+            Debug.Log($"[GameManager] Creating UI and GameController");
+            
+            await CreateUIManager();
+            CreateGameController();
+            
             SetupStateMachine();
             
             _isInitialized = true;
+            OnClientStartupComplete?.Invoke();
             
-            Debug.Log($"[{GetType().Name}] Initialized");
+            await UniTask.DelayFrame(1);
+            ChangeState(GameState.MainMenu);
+            
+            Debug.Log($"[GameManager] Initialization complete");
+        }
+
+        private async UniTask CreateUIManager()
+        {
+            var uiPrefab = await _assetService.LoadAssetAsync<GameObject>(GameSettings.UI_MANAGER_ASSET_PATH);
+            if (uiPrefab != null)
+            {
+                var uiManagerObject = _container.InstantiatePrefab(uiPrefab);
+                _uiService = uiManagerObject.GetComponent<UIManager>();
+                
+                _container.Bind<IUIService>().FromInstance(_uiService).AsSingle();
+                _diService.RegisterService<IUIService>(_uiService);
+                
+                Debug.Log($"[GameManager] UIManager created and registered");
+            }
+            else
+            {
+                Debug.LogError($"[GameManager] Failed to load UIManager prefab");
+            }
+        }
+
+        private void CreateGameController()
+        {
+            var gameControllerObject = new GameObject("GameController");
+            gameControllerObject.transform.SetParent(transform);
+            
+            _gameController = gameControllerObject.AddComponent<GameController>();
+            var gameControllerComponent = _gameController as GameController;
+            
+            _container.Inject(gameControllerComponent);
+            
+            _container.Bind<IGameControllerService>().FromInstance(_gameController).AsSingle();
+            _diService.RegisterService<IGameControllerService>(_gameController);
+            
+            Debug.Log($"[GameManager] GameController created and registered");
         }
         
         private void SetupStateMachine()
         {
             _stateMachine = new GameStateMachine();
             
-            var uiService = _diService.GetService<IUIService>();
             var audioService = _diService.GetService<IAudioService>();
             
-            // _stateMachine.RegisterState(new FirstLoadState(uiService, gameController, audioService));
-            // _stateMachine.RegisterState(new MainMenuState(uiService, gameController, audioService));
-            // _stateMachine.RegisterState(new LoadingGameState(uiService, gameController, audioService, UpdateLoadingProgress));
-            // _stateMachine.RegisterState(new PlayingState(uiService, gameController, audioService));
-            // _stateMachine.RegisterState(new PausedState(uiService, gameController, audioService));
-            // _stateMachine.RegisterState(new GameEndedState(uiService, gameController, audioService));
-            // _stateMachine.RegisterState(new ReturnToMenuState(uiService, gameController, audioService, 
-            //     () => ChangeState(GameState.MainMenu)));
-            //
-            // _stateMachine.OnStateChanged += HandleStateChanged;
-            //
-            Debug.Log($"[{GetType().Name}] State machine configured");
+            _stateMachine.RegisterState(new FirstLoadState(_uiService, _gameController, audioService));
+            _stateMachine.RegisterState(new MainMenuState(_uiService, _gameController, audioService));
+            _stateMachine.RegisterState(new LoadingGameState(_uiService, _gameController, audioService, UpdateLoadingProgress));
+            _stateMachine.RegisterState(new PlayingState(_uiService, _gameController, audioService));
+            _stateMachine.RegisterState(new PausedState(_uiService, _gameController, audioService));
+            _stateMachine.RegisterState(new GameEndedState(_uiService, _gameController, audioService));
+            
+            _stateMachine.ChangeState(GameState.FirstLoad);
+            
+            Debug.Log($"[GameManager] State machine initialized");
         }
 
         #endregion
 
-        #region Unity Lifecycle
-        
-        private async UniTaskVoid TransitionToMainMenu()
-        {
-            await UniTask.Delay(100);
-            ChangeState(GameState.MainMenu);
-        }
-
-        private void Update()
-        {
-            _stateMachine?.Update();
-        }
-
-        private void OnApplicationPause(bool pauseStatus)
-        {
-            if (pauseStatus && CurrentState == GameState.Playing)
-            {
-                ChangeState(GameState.Paused);
-            }
-        }
-
-        private void OnApplicationFocus(bool hasFocus)
-        {
-            if (!hasFocus && CurrentState == GameState.Playing)
-            {
-                ChangeState(GameState.Paused);
-            }
-        }
-
-        #endregion
-
-        #region IGameStateService Implementation
+        #region State Management
 
         public void ChangeState(GameState newState)
         {
-            if (_stateMachine == null)
-            {
-                Debug.LogError($"[{GetType().Name}] State machine not initialized");
-                return;
-            }
+            if (!_isInitialized) return;
             
+            var previousState = CurrentState;
             _stateMachine.ChangeState(newState);
-        }
-
-        public void UpdateLoadingProgress(float progress)
-        {
-            progress = Mathf.Clamp01(progress);
-            OnLoadingProgress?.Invoke(progress);
             
-            if (progress >= 1f && CurrentState == GameState.LoadingGame)
-            {
-                DelayedStateChange(GameState.Playing, 500).Forget();
-            }
-        }
-
-        private async UniTaskVoid DelayedStateChange(GameState newState, int delayMs)
-        {
-            await UniTask.Delay(delayMs);
-            ChangeState(newState);
+            OnGameStateChanged?.Invoke(newState, previousState);
+            Debug.Log($"[GameManager] State changed: {previousState} -> {newState}");
         }
 
         public void NotifyStartupComplete()
         {
-            Debug.Log($"[{GetType().Name}] Client startup complete");
-            OnClientStartupComplete?.Invoke();
+            throw new NotImplementedException();
         }
 
-        #endregion
-
-        #region Event Handlers
-
-        private void HandleStateChanged(GameState newState, GameState previousState)
+        private void UpdateLoadingProgress(float progress)
         {
-            OnGameStateChanged?.Invoke(newState, previousState);
+            OnLoadingProgress?.Invoke(progress);
         }
 
         #endregion
@@ -153,16 +147,17 @@ namespace CardWar.Managers
 
         public void Dispose()
         {
-            if (_stateMachine != null)
+            if (_gameController != null && _gameController is IDisposable disposableController)
             {
-                _stateMachine.OnStateChanged -= HandleStateChanged;
+                disposableController.Dispose();
             }
             
-            OnGameStateChanged = null;
-            OnLoadingProgress = null;
-            OnClientStartupComplete = null;
+            if (_uiService != null && _uiService is IDisposable disposableUI)
+            {
+                disposableUI.Dispose();
+            }
             
-            Debug.Log($"[{GetType().Name}] Disposed");
+            Debug.Log($"[GameManager] Disposed");
         }
 
         private void OnDestroy()

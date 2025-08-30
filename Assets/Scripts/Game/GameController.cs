@@ -1,8 +1,10 @@
 using System;
+using CardWar.Common;
 using UnityEngine;
 using CardWar.Services;
+using CardWar.Core;
 using CardWar.Game.Logic;
-using CardWar.Common;
+using Cysharp.Threading.Tasks;
 using Zenject;
 
 namespace CardWar.Game
@@ -12,8 +14,10 @@ namespace CardWar.Game
         private IDIService _diService;
         private IGameStateService _gameStateService;
         private IUIService _uiService;
+        private IAssetService _assetService;
+        private GameSettings _gameSettings;
         
-        private bool _isPaused;
+        private bool _isInitialized;
         private bool _isGameActive;
 
         public event Action<RoundData> OnRoundStarted;
@@ -25,82 +29,94 @@ namespace CardWar.Game
         public event Action OnGameResumed;
         public event Action<bool> OnGameOver;
 
+        #region Initialization
+
         [Inject]
-        public void Initialize(IDIService diService, IGameStateService gameStateService, IUIService uiService)
+        public void Construct(IDIService diService, IGameStateService gameStateService, 
+            IUIService uiService, IAssetService assetService, GameSettings gameSettings)
         {
             _diService = diService;
             _gameStateService = gameStateService;
             _uiService = uiService;
+            _assetService = assetService;
+            _gameSettings = gameSettings;
             
-            _diService.RegisterService<IGameControllerService>(this);
-
-            RegisterResetCallback();
+            _uiService.RegisterResetCallback(ResetGame);
+            
+            _isInitialized = true;
+            Debug.Log($"[GameController] Initialized with all dependencies");
         }
 
-        private void RegisterResetCallback()
-        {
-            _uiService?.RegisterResetCallback(ResetGame);
-        }
+        #endregion
+
+        #region Game Control
 
         public void StartNewGame()
         {
-            Debug.Log("Starting new game");
+            Debug.Log($"[GameController] Starting new game");
             _isGameActive = true;
-            _isPaused = false;
-            InitializeGame();
-        }
-
-        private void InitializeGame()
-        {
-            Debug.Log("Game initialized - Ready to play");
+            
+            SimulateGameStart().Forget();
         }
 
         public void DrawNextCards()
         {
-            if (!_isGameActive || _isPaused)
-            {
-                Debug.LogWarning("[GameController] Cannot draw cards - game not active or paused");
-                return;
-            }
+            throw new NotImplementedException();
+        }
+
+        private async UniTaskVoid SimulateGameStart()
+        {
+            await UniTask.Delay(1000);
+            Debug.Log($"[GameController] Game started - ready to play");
             
-            Debug.Log("[GameController] Drawing next cards");
-            OnCardsDrawn?.Invoke();
+            _gameStateService.ChangeState(GameState.Playing);
         }
 
         public void PauseGame()
         {
-            if (!_isGameActive || _isPaused) return;
+            if (!_isGameActive) return;
             
-            _isPaused = true;
-            Debug.Log("Game paused");
+            Debug.Log($"[GameController] Game paused");
             OnGamePaused?.Invoke();
+            _gameStateService.ChangeState(GameState.Paused);
         }
 
         public void ResumeGame()
         {
-            if (!_isGameActive || !_isPaused) return;
+            if (!_isGameActive) return;
             
-            _isPaused = false;
-            Debug.Log("Game resumed");
+            Debug.Log($"[GameController] Game resumed");
             OnGameResumed?.Invoke();
+            _gameStateService.ChangeState(GameState.Playing);
         }
 
         public void ReturnToMenu()
         {
-            ResetGame();
-            Debug.Log("Returned to menu");
+            throw new NotImplementedException();
+        }
+
+        public void EndGame(bool playerWon)
+        {
+            _isGameActive = false;
+            Debug.Log($"[GameController] Game ended - Player {(playerWon ? "won" : "lost")}");
+            
+            OnGameOver?.Invoke(playerWon);
+            _gameStateService.ChangeState(GameState.GameEnded);
         }
 
         private void ResetGame()
         {
+            Debug.Log($"[GameController] Resetting game");
             _isGameActive = false;
-            _isPaused = false;
-            Debug.Log("Game reset");
         }
+
+        #endregion
+
+        #region Unity Lifecycle
 
         private void OnApplicationPause(bool pauseStatus)
         {
-            if (pauseStatus && _isGameActive && !_isPaused)
+            if (pauseStatus && _isGameActive)
             {
                 PauseGame();
             }
@@ -108,27 +124,27 @@ namespace CardWar.Game
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus && _isGameActive && !_isPaused)
+            if (!hasFocus && _isGameActive)
             {
                 PauseGame();
             }
         }
 
+        #endregion
+
+        #region Cleanup
+
         public void Dispose()
         {
-            OnRoundStarted = null;
-            OnCardsDrawn = null;
-            OnRoundCompleted = null;
-            OnWarStarted = null;
-            OnWarCompleted = null;
-            OnGamePaused = null;
-            OnGameResumed = null;
-            OnGameOver = null;
+            _isGameActive = false;
+            Debug.Log($"[GameController] Disposed");
         }
 
         private void OnDestroy()
         {
             Dispose();
         }
+
+        #endregion
     }
 }

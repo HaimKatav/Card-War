@@ -23,7 +23,7 @@ namespace CardWar.Services
         event Action OnClientStartupComplete;
         
         void ChangeState(GameState newState);
-        void UpdateLoadingProgress(float progress);
+       // void UpdateLoadingProgress(float progress);
         void NotifyStartupComplete();
     }
 }

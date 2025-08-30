@@ -71,7 +71,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 517466265649244844}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d3df6d1f35f2413d9760547932b6a8e6, type: 3}
+  m_Script: {fileID: 11500000, guid: 5e56db45873e47a38467640b00cba618, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _gameSettings: {fileID: 11400000, guid: cfd21a68f491944faaeb694bd9a1273a, type: 2}
+  _networkSettings: {fileID: 11400000, guid: e4436907a35f04d0a8aae37780f1c3ef, type: 2}

@@ -7,7 +7,6 @@ namespace CardWar.Managers
 {
     public class AudioManager : MonoBehaviour, IAudioService, IDisposable
     {
-        private IDIService _diService;
         private AudioSource _musicSource;
         private AudioSource _sfxSource;
         
@@ -57,11 +56,10 @@ namespace CardWar.Managers
         }
 
         [Inject]
-        public void Initialize(IDIService diService)
+        public void Construct()
         {
-            _diService = diService;
-            _diService.RegisterService<IAudioService>(this);
             SetupAudioSources();
+            Debug.Log($"[AudioManager] Initialized");
         }
 
         private void SetupAudioSources()
@@ -83,7 +81,7 @@ namespace CardWar.Managers
 
         private void UpdateVolumes()
         {
-            var effectiveMasterVolume = _isMuted ? 0f : _masterVolume;
+            var effectiveMasterVolume = _isMuted ? 0 : _masterVolume;
             
             if (_musicSource != null)
             {
@@ -96,36 +94,14 @@ namespace CardWar.Managers
             }
         }
 
-        public void PlaySound(SoundEffect sound)
+        public void PlaySound(SoundEffect soundEffect)
         {
-            if (_sfxSource == null || _isMuted) return;
-            
-            var clip = GetSoundClip(sound);
-            if (clip != null)
-            {
-                _sfxSource.PlayOneShot(clip);
-                Debug.Log($"[AudioManager] Playing sound: {sound}");
-            }
-        }
-
-        private AudioClip GetSoundClip(SoundEffect sound)
-        {
-            var clipPath = $"Audio/SFX/{sound}";
-            return Resources.Load<AudioClip>(clipPath);
+            Debug.Log($"[AudioManager] Playing sound: {soundEffect}");
         }
 
         public void PlayMusic(string musicKey, bool loop = true)
         {
-            if (_musicSource == null) return;
-            
-            var clip = Resources.Load<AudioClip>($"Audio/Music/{musicKey}");
-            if (clip != null)
-            {
-                _musicSource.clip = clip;
-                _musicSource.loop = loop;
-                _musicSource.Play();
-                Debug.Log($"[AudioManager] Playing music: {musicKey}");
-            }
+            Debug.Log($"[AudioManager] Playing music: {musicKey}, loop: {loop}");
         }
 
         public void StopMusic()
@@ -134,27 +110,31 @@ namespace CardWar.Managers
             {
                 _musicSource.Stop();
             }
+            Debug.Log($"[AudioManager] Music stopped");
         }
 
         public void PauseMusic()
         {
-            if (_musicSource != null && _musicSource.isPlaying)
+            if (_musicSource != null)
             {
                 _musicSource.Pause();
             }
+            Debug.Log($"[AudioManager] Music paused");
         }
 
         public void ResumeMusic()
         {
-            if (_musicSource != null && !_musicSource.isPlaying && _musicSource.clip != null)
+            if (_musicSource != null)
             {
                 _musicSource.UnPause();
             }
+            Debug.Log($"[AudioManager] Music resumed");
         }
 
         public void Dispose()
         {
             StopMusic();
+            Debug.Log($"[AudioManager] Disposed");
         }
 
         private void OnDestroy()

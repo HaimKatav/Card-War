@@ -14,15 +14,12 @@ namespace CardWar.Services
     {
         UIState CurrentUIState { get; }
         
-        event Action<string> OnAnimationStarted;
-        event Action<string> OnAnimationCompleted;
         event Action<UIState> OnUIStateChanged;
         
-        void ShowLoadingScreen(bool show);
+        void ToggleLoadingScreen(bool show);
         void ShowMainMenu(bool show);
         void ShowGameUI(bool show);
         void ToggleGameOverScreen(bool show, bool playerWon);
-        void SetUIState(UIState state);
         void RegisterResetCallback(Action callback);
     }
 }
