@@ -89,27 +89,17 @@ namespace CardWar.Managers
                 return;
             }
             
-            var uiPrefab = await _assetManager.LoadAssetAsync<GameObject>("Prefabs/GameCanvas");
+            var uiPrefab = await _assetManager.LoadAssetAsync<UIManager>("Prefabs/GameCanvas");
             if (uiPrefab != null)
             {
                 var uiObject = Instantiate(uiPrefab);
-                _uiManager = uiObject.GetComponent<UIManager>();
                 
-                if (_uiManager == null)
-                {
-                    _uiManager = uiObject.GetComponentInChildren<UIManager>();
-                    if (_uiManager == null)
-                        _uiManager = uiObject.AddComponent<UIManager>();
-                }
-                    
                 ServiceLocator.Instance.Register<IUIService>(_uiManager);
                 Debug.Log("[GameManager] UIManager loaded");
             }
             else
             {
                 Debug.LogWarning("[GameManager] UIManager prefab not found, creating new");
-                _uiManager = CreateService<UIManager>("UIManager");
-                ServiceLocator.Instance.Register<IUIService>(_uiManager);
             }
         }
 

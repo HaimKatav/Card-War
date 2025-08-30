@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using CardWar.Services;
 using CardWar.Core;
 using CardWar.Common;
+using TMPro;
 
 namespace CardWar.Managers
 {
@@ -19,13 +20,13 @@ namespace CardWar.Managers
         [SerializeField] private Button _startButton;
         
         [Header("Game Over Elements")]
-        [SerializeField] private Text _gameOverText;
+        [SerializeField] private TMP_Text _gameOverText;
         [SerializeField] private Button _restartButton;
         [SerializeField] private Button _menuButton;
         
         [Header("Loading Elements")]
         [SerializeField] private Slider _loadingSlider;
-        [SerializeField] private Text _loadingText;
+        [SerializeField] private TMP_Text _loadingText;
         
         private UIState _currentUIState = UIState.FirstEntry;
         private Action _resetCallback;

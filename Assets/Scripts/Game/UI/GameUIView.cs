@@ -1,208 +1,262 @@
-using System;
-using CardWar.Common;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using CardWar.Services;
-using UnityEngine.Events;
+using CardWar.Core;
+using CardWar.Common;
+using CardWar.Game.Logic;
 
 namespace CardWar.Game.UI
 {
     public class GameUIView : MonoBehaviour
     {
-        [Header("Card Counts")]
-        [SerializeField] private TextMeshProUGUI _playerCardCount;
-        [SerializeField] private TextMeshProUGUI _opponentCardCount;
+        [Header("Game Info")]
+        [SerializeField] private Text _roundText;
+        [SerializeField] private Text _playerCardCountText;
+        [SerializeField] private Text _opponentCardCountText;
         
-        [Header("Round Info")]
-        [SerializeField] private TextMeshProUGUI _roundNumber;
-        [SerializeField] private TextMeshProUGUI _warIndicator;
-        [SerializeField] private TextMeshProUGUI _resultText;
-        
-        [Header("Control Buttons")]
+        [Header("Buttons")]
         [SerializeField] private Button _pauseButton;
-
-        [Header("Panels")]
-        [SerializeField] private GameObject _gameOverPanel;
-        [SerializeField] private Button _restartButton;
-        [SerializeField] private Button _backToMainButton;
-        [Space]
-        [SerializeField] private GameObject _pausePanel;
-        [SerializeField] private Button _resumeButton;
-        [SerializeField] private Button _quitButton;
-
-        public Action OnPauseClicked;
-        public Action OnResumeClicked;
-        public Action OnRestartClicked;
-        public Action OnBackToMainClicked;
-
-        private IGameControllerService _gameController;
-        private IAudioService _audioService;
+        [SerializeField] private Button _drawButton;
         
-        private int _currentRound = 0;
+        [Header("War Indicator")]
+        [SerializeField] private GameObject _warIndicator;
+        [SerializeField] private Text _warText;
+        
+        private IGameStateService _gameStateService;
+        private IGameControllerService _gameControllerService;
 
-        public void Initialize()
+        private void Start()
         {
-            _audioService = ServiceLocator.Instance.Get<IAudioService>();
-            _gameController = ServiceLocator.Instance.Get<IGameControllerService>();
+            Initialize();
+        }
+
+        private void Initialize()
+        {
+            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
+            _gameControllerService = ServiceLocator.Instance.Get<IGameControllerService>();
             
             SetupButtons();
             SubscribeToEvents();
-            ResetUI();
+            
+            ResetDisplay();
+            
+            Debug.Log("[GameUIView] Initialized");
         }
 
         private void SetupButtons()
         {
-            AddButtonListener(_pauseButton, HandlePauseButtonClick);
-            AddButtonListener(_resumeButton, HandleResumeButtonClick);
-            AddButtonListener(_quitButton, HandleQuitButtonClick);
-        }
-
-        private void AddButtonListener(Button button, UnityAction onClick)
-        {
-            if (button == null)
+            if (_pauseButton != null)
             {
-                Debug.LogError("[GameUIView] Button is null - cannot add listener.");
-                return;
+                _pauseButton.onClick.RemoveAllListeners();
+                _pauseButton.onClick.AddListener(OnPauseButtonClicked);
             }
             
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(onClick);
+            if (_drawButton != null)
+            {
+                _drawButton.onClick.RemoveAllListeners();
+                _drawButton.onClick.AddListener(OnDrawButtonClicked);
+            }
         }
 
         private void SubscribeToEvents()
         {
-            if (_gameController == null)
+            if (_gameControllerService != null)
             {
-                Debug.LogError("[GameUIView] Game controller is null - cannot subscribe to events.");
-                return;
+                _gameControllerService.OnRoundStarted += HandleRoundStarted;
+                _gameControllerService.OnWarStarted += HandleWarStarted;
+                _gameControllerService.OnWarCompleted += HandleWarCompleted;
+                _gameControllerService.OnGamePaused += HandleGamePaused;
+                _gameControllerService.OnGameResumed += HandleGameResumed;
             }
             
-            _gameController.OnRoundStarted += HandleRoundStarted;
-            _gameController.OnWarStarted += HandleWarStarted;
-            _gameController.OnGamePaused += HandleGamePaused;
-            _gameController.OnGameResumed += HandleGameResumed;
+            if (_gameStateService != null)
+            {
+                _gameStateService.OnGameStateChanged += HandleGameStateChanged;
+            }
         }
 
-        private void HandlePauseButtonClick()
+        #region UI Updates
+
+        public void UpdateRoundNumber(int round)
         {
-            _audioService?.PlaySound(SoundEffect.ButtonClick);
-            OnPauseClicked?.Invoke();
+            if (_roundText != null)
+            {
+                _roundText.text = $"Round: {round}";
+            }
         }
 
-        private void HandleResumeButtonClick()
+        public void UpdateCardCounts(int playerCount, int opponentCount)
         {
-            _audioService?.PlaySound(SoundEffect.ButtonClick);
-            OnResumeClicked?.Invoke();
-        }
-
-        private void HandleQuitButtonClick()
-        {
-            _audioService?.PlaySound(SoundEffect.ButtonClick);
-            OnBackToMainClicked?.Invoke();
-        }
-
-        private void HandleRoundStarted(Game.Logic.RoundData roundData)
-        {
-            _currentRound++;
-            UpdateRoundNumber(_currentRound);
-            UpdateCardCounts(roundData.PlayerCardsRemaining, roundData.OpponentCardsRemaining);
+            if (_playerCardCountText != null)
+            {
+                _playerCardCountText.text = $"Player: {playerCount}";
+            }
             
+            if (_opponentCardCountText != null)
+            {
+                _opponentCardCountText.text = $"Opponent: {opponentCount}";
+            }
+        }
+
+        public void ShowWarIndicator(bool show)
+        {
+            if (_warIndicator != null)
+            {
+                _warIndicator.SetActive(show);
+            }
+        }
+
+        public void SetDrawButtonEnabled(bool enabled)
+        {
+            if (_drawButton != null)
+            {
+                _drawButton.interactable = enabled;
+            }
+        }
+
+        private void ResetDisplay()
+        {
+            UpdateRoundNumber(0);
+            UpdateCardCounts(26, 26);
+            ShowWarIndicator(false);
+            SetDrawButtonEnabled(false);
+        }
+
+        #endregion
+
+        #region Event Handlers
+
+        private void HandleGameStateChanged(GameState newState, GameState previousState)
+        {
+            switch (newState)
+            {
+                case GameState.Playing:
+                    gameObject.SetActive(true);
+                    SetDrawButtonEnabled(true);
+                    break;
+                    
+                case GameState.Paused:
+                    SetDrawButtonEnabled(false);
+                    break;
+                    
+                case GameState.GameEnded:
+                    SetDrawButtonEnabled(false);
+                    break;
+                    
+                default:
+                    gameObject.SetActive(false);
+                    break;
+            }
+        }
+
+        private void HandleRoundStarted(RoundData roundData)
+        {
             if (roundData.IsWar)
             {
-                ShowWarIndicator(true, roundData.WarDepth);
-            }
-            else
-            {
-                ShowWarIndicator(false, 0);
+                ShowWarIndicator(true);
             }
         }
 
         private void HandleWarStarted(int warDepth)
         {
-            ShowWarIndicator(true, warDepth);
-            _audioService?.PlaySound(SoundEffect.WarStart);
+            ShowWarIndicator(true);
+            
+            if (_warText != null)
+            {
+                _warText.text = warDepth > 1 ? $"WAR x{warDepth}!" : "WAR!";
+            }
+        }
+
+        private void HandleWarCompleted()
+        {
+            ShowWarIndicator(false);
         }
 
         private void HandleGamePaused()
         {
-            TogglePausePanel(true);
-        }
-
-        private void HandleGameResumed()
-        {
-            TogglePausePanel(false);
-        }
-
-        public void UpdateCardCounts(int playerCards, int opponentCards)
-        {
-            if (_playerCardCount != null)
-                _playerCardCount.text = playerCards.ToString();
+            SetDrawButtonEnabled(false);
             
-            if (_opponentCardCount != null)
-                _opponentCardCount.text = opponentCards.ToString();
-        }
-
-        public void UpdateRoundNumber(int round)
-        {
-            if (_roundNumber != null)
-                _roundNumber.text = $"Round {round}";
-        }
-
-        public void ShowWarIndicator(bool show, int depth = 0)
-        {
-            if (_warIndicator != null)
+            if (_pauseButton != null)
             {
-                _warIndicator.gameObject.SetActive(show);
-                if (show)
+                Text buttonText = _pauseButton.GetComponentInChildren<Text>();
+                if (buttonText != null)
                 {
-                    _warIndicator.text = depth > 1 ? $"WAR x{depth}!" : "WAR!";
+                    buttonText.text = "Resume";
                 }
             }
         }
 
-        public void ShowResultText(string text, float duration = 2f)
+        private void HandleGameResumed()
         {
-            if (_resultText != null)
+            SetDrawButtonEnabled(true);
+            
+            if (_pauseButton != null)
             {
-                _resultText.text = text;
-                _resultText.gameObject.SetActive(true);
-                CancelInvoke(nameof(HideResultText));
-                Invoke(nameof(HideResultText), duration);
+                Text buttonText = _pauseButton.GetComponentInChildren<Text>();
+                if (buttonText != null)
+                {
+                    buttonText.text = "Pause";
+                }
             }
         }
 
-        private void HideResultText()
+        #endregion
+
+        #region Button Handlers
+
+        private void OnPauseButtonClicked()
         {
-            if (_resultText != null)
-                _resultText.gameObject.SetActive(false);
+            if (_gameStateService == null) return;
+            
+            if (_gameStateService.CurrentState == GameState.Playing)
+            {
+                _gameStateService.ChangeState(GameState.Paused);
+            }
+            else if (_gameStateService.CurrentState == GameState.Paused)
+            {
+                _gameStateService.ChangeState(GameState.Playing);
+            }
         }
 
-        public void TogglePausePanel(bool show)
+        private void OnDrawButtonClicked()
         {
-            if (_pausePanel != null)
-                _pausePanel.SetActive(show);
+            if (_gameControllerService != null)
+            {
+                _gameControllerService.DrawNextCards();
+            }
         }
 
-        public void ResetUI()
-        {
-            _currentRound = 0;
-            UpdateRoundNumber(0);
-            UpdateCardCounts(26, 26);
-            ShowWarIndicator(false);
-            TogglePausePanel(false);
-            HideResultText();
-        }
+        #endregion
+
+        #region Cleanup
 
         private void OnDestroy()
         {
-            if (_gameController != null)
+            if (_pauseButton != null)
             {
-                _gameController.OnRoundStarted -= HandleRoundStarted;
-                _gameController.OnWarStarted -= HandleWarStarted;
-                _gameController.OnGamePaused -= HandleGamePaused;
-                _gameController.OnGameResumed -= HandleGameResumed;
+                _pauseButton.onClick.RemoveAllListeners();
+            }
+            
+            if (_drawButton != null)
+            {
+                _drawButton.onClick.RemoveAllListeners();
+            }
+            
+            if (_gameControllerService != null)
+            {
+                _gameControllerService.OnRoundStarted -= HandleRoundStarted;
+                _gameControllerService.OnWarStarted -= HandleWarStarted;
+                _gameControllerService.OnWarCompleted -= HandleWarCompleted;
+                _gameControllerService.OnGamePaused -= HandleGamePaused;
+                _gameControllerService.OnGameResumed -= HandleGameResumed;
+            }
+            
+            if (_gameStateService != null)
+            {
+                _gameStateService.OnGameStateChanged -= HandleGameStateChanged;
             }
         }
+
+        #endregion
     }
 }
