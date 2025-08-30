@@ -3,16 +3,19 @@ using UnityEngine;
 using CardWar.Services;
 using CardWar.Core;
 using Cysharp.Threading.Tasks;
+using Zenject;
 
 namespace CardWar.Managers
 {
     public class GameManager : MonoBehaviour, IGameStateService, IDisposable
     {
-        [Inject] private IDIService _diService;
-        [Inject] private GameSettings _gameSettings;
+        private IDIService _diService;
+        private GameSettings _gameSettings;
         
         private GameStateMachine _stateMachine;
         private bool _isInitialized;
+        private IUIService _uiService;
+        private IAssetService _assetService;
 
         public GameState CurrentState => _stateMachine?.CurrentStateType ?? GameState.FirstLoad;
         public GameState PreviousState => _stateMachine?.PreviousStateType ?? GameState.FirstLoad;
@@ -23,60 +26,53 @@ namespace CardWar.Managers
 
         #region Initialization
 
-        [Initialize(order: 1)]
-        public void Initialize()
+        [Inject]
+        public void Initialize(IDIService diService, GameSettings gameSettings, IAssetService assetService)
         {
-            if (_isInitialized) return;
-            
-            ValidateDependencies();
+            _diService = diService ?? throw new ArgumentNullException(nameof(diService));
+            _gameSettings = gameSettings ?? throw new ArgumentNullException(nameof(gameSettings));
+            _assetService = assetService ?? throw new ArgumentNullException(nameof(assetService));
+
+            LoadUIAsync().Forget();
+        }
+
+        private async UniTask LoadUIAsync()
+        {
+            var uiManager = await _assetService.LoadAssetAsync<UIManager>(GameSettings.UI_MANAGER_ASSET_PATH);
+            _diService.RegisterService<IUIService>(uiManager);
+
             SetupStateMachine();
+            
             _isInitialized = true;
             
             Debug.Log($"[{GetType().Name}] Initialized");
         }
-
-        private void ValidateDependencies()
-        {
-            if (_diService == null)
-                throw new InvalidOperationException($"[{GetType().Name}] DIService not injected");
-            if (_gameSettings == null)
-                throw new InvalidOperationException($"[{GetType().Name}] GameSettings not injected");
-        }
-
+        
         private void SetupStateMachine()
         {
             _stateMachine = new GameStateMachine();
             
             var uiService = _diService.GetService<IUIService>();
-            var gameController = _diService.GetService<IGameControllerService>();
             var audioService = _diService.GetService<IAudioService>();
             
-            _stateMachine.RegisterState(new FirstLoadState(uiService, gameController, audioService));
-            _stateMachine.RegisterState(new MainMenuState(uiService, gameController, audioService));
-            _stateMachine.RegisterState(new LoadingGameState(uiService, gameController, audioService, UpdateLoadingProgress));
-            _stateMachine.RegisterState(new PlayingState(uiService, gameController, audioService));
-            _stateMachine.RegisterState(new PausedState(uiService, gameController, audioService));
-            _stateMachine.RegisterState(new GameEndedState(uiService, gameController, audioService));
-            _stateMachine.RegisterState(new ReturnToMenuState(uiService, gameController, audioService, 
-                () => ChangeState(GameState.MainMenu)));
-            
-            _stateMachine.OnStateChanged += HandleStateChanged;
-            
+            // _stateMachine.RegisterState(new FirstLoadState(uiService, gameController, audioService));
+            // _stateMachine.RegisterState(new MainMenuState(uiService, gameController, audioService));
+            // _stateMachine.RegisterState(new LoadingGameState(uiService, gameController, audioService, UpdateLoadingProgress));
+            // _stateMachine.RegisterState(new PlayingState(uiService, gameController, audioService));
+            // _stateMachine.RegisterState(new PausedState(uiService, gameController, audioService));
+            // _stateMachine.RegisterState(new GameEndedState(uiService, gameController, audioService));
+            // _stateMachine.RegisterState(new ReturnToMenuState(uiService, gameController, audioService, 
+            //     () => ChangeState(GameState.MainMenu)));
+            //
+            // _stateMachine.OnStateChanged += HandleStateChanged;
+            //
             Debug.Log($"[{GetType().Name}] State machine configured");
         }
 
         #endregion
 
         #region Unity Lifecycle
-
-        private void Start()
-        {
-            if (_isInitialized)
-            {
-                TransitionToMainMenu().Forget();
-            }
-        }
-
+        
         private async UniTaskVoid TransitionToMainMenu()
         {
             await UniTask.Delay(100);

@@ -21,7 +21,7 @@ namespace CardWar.Services
         void ShowLoadingScreen(bool show);
         void ShowMainMenu(bool show);
         void ShowGameUI(bool show);
-        void ShowGameOverScreen(bool show, bool playerWon);
+        void ToggleGameOverScreen(bool show, bool playerWon);
         void SetUIState(UIState state);
         void RegisterResetCallback(Action callback);
     }

@@ -6,6 +6,7 @@ namespace CardWar.Core
     public class GameSettings : ScriptableObject
     {
         // ASSET PATHS
+        public static readonly string UI_MANAGER_ASSET_PATH = "Assets/Resources/Prefabs/GameCanvas";
         public static readonly string MAIN_MENU_ASSET_PATH = "Assets/Resources/MainMenu";
         public static readonly string GAME_SETTINGS_ASSET_PATH = "Settings/GameSettings";
         public static readonly string NETWORK_SETTINGS_ASSET_PATH = "Settings/NetworkSettings";

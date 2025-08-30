@@ -10,16 +10,6 @@ using Cysharp.Threading.Tasks;
 
 namespace CardWar.Core
 {
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-    public class InjectAttribute : Attribute { }
-
-    [AttributeUsage(AttributeTargets.Method)]
-    public class InitializeAttribute : Attribute 
-    {
-        public int Order { get; set; }
-        public InitializeAttribute(int order = 0) => Order = order;
-    }
-
     public class ClientInstaller : MonoBehaviour, IDIService
     {
         [SerializeField] private GameSettings _gameSettings;
@@ -42,8 +32,6 @@ namespace CardWar.Core
 
         private async UniTaskVoid InitializeContainer()
         {
-            Debug.Log($"[{GetType().Name}] Starting initialization");
-            
             ValidateSettings();
             RegisterServiceDefinitions();
             RegisterSelf();
@@ -51,11 +39,6 @@ namespace CardWar.Core
             await UniTask.DelayFrame(1);
             
             CreateAllServices();
-            
-            await UniTask.DelayFrame(1);
-            
-            InjectDependencies();
-            InitializeServices();
             
             await UniTask.DelayFrame(1);
             
@@ -78,22 +61,21 @@ namespace CardWar.Core
                 Debug.LogWarning($"[{GetType().Name}] NetworkSettings not assigned, using defaults");
                 _networkSettings = ScriptableObject.CreateInstance<NetworkSettingsData>();
             }
-            
-            Debug.Log($"[{GetType().Name}] Settings validated");
         }
 
         private void RegisterServiceDefinitions()
         {
-            RegisterServiceType<IGameStateService, GameManager>();
+            RegisterServiceType<GameSettings, GameSettings>();
             RegisterServiceType<IAssetService, AssetManager>();
             RegisterServiceType<IAudioService, AudioManager>();
+            RegisterServiceType<IGameStateService, GameManager>();
             RegisterServiceType<IUIService, UIManager>();
             RegisterServiceType<IGameControllerService, GameController>();
         }
 
         private void RegisterServiceType<TInterface, TImplementation>()
             where TInterface : class
-            where TImplementation : Component
+            where TImplementation : UnityEngine.Object
         {
             _serviceRegistry.Add((typeof(TInterface), typeof(TImplementation), typeof(TImplementation).Name));
         }
@@ -101,7 +83,6 @@ namespace CardWar.Core
         private void RegisterSelf()
         {
             RegisterService<IDIService>(this);
-            RegisterService<ClientInstaller>(this);
         }
 
         #endregion
@@ -114,7 +95,8 @@ namespace CardWar.Core
             
             foreach (var (interfaceType, implementationType, name) in _serviceRegistry)
             {
-                CreateService(interfaceType, implementationType, name);
+                if (interfaceType != typeof(GameSettings)) 
+                    CreateService(interfaceType, implementationType, name);
             }
         }
 
@@ -129,88 +111,6 @@ namespace CardWar.Core
             _services[implementationType] = component;
             
             Debug.Log($"[{GetType().Name}] {name} created and registered");
-        }
-
-        #endregion
-
-        #region Dependency Injection
-
-        private void InjectDependencies()
-        {
-            Debug.Log($"[{GetType().Name}] Injecting dependencies");
-            
-            foreach (var service in _services.Values.Distinct())
-            {
-                InjectServiceDependencies(service);
-            }
-        }
-
-        private void InjectServiceDependencies(object service)
-        {
-            var serviceType = service.GetType();
-            
-            var fields = serviceType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(f => f.GetCustomAttribute<InjectAttribute>() != null);
-            
-            foreach (var field in fields)
-            {
-                var dependency = GetServiceForType(field.FieldType);
-                if (dependency != null)
-                {
-                    field.SetValue(service, dependency);
-                    Debug.Log($"[{GetType().Name}] Injected {field.FieldType.Name} into {serviceType.Name}.{field.Name}");
-                }
-            }
-            
-            var properties = serviceType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(p => p.GetCustomAttribute<InjectAttribute>() != null && p.CanWrite);
-            
-            foreach (var property in properties)
-            {
-                var dependency = GetServiceForType(property.PropertyType);
-                if (dependency != null)
-                {
-                    property.SetValue(service, dependency);
-                    Debug.Log($"[{GetType().Name}] Injected {property.PropertyType.Name} into {serviceType.Name}.{property.Name}");
-                }
-            }
-        }
-
-        private object GetServiceForType(Type type)
-        {
-            if (type == typeof(GameSettings))
-                return _gameSettings;
-            if (type == typeof(NetworkSettingsData))
-                return _networkSettings;
-            
-            return _services.TryGetValue(type, out var service) ? service : null;
-        }
-
-        private void InitializeServices()
-        {
-            Debug.Log($"[{GetType().Name}] Initializing services");
-            
-            var servicesWithInit = _services.Values.Distinct()
-                .Select(s => new 
-                {
-                    Service = s,
-                    Methods = s.GetType()
-                        .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                        .Where(m => m.GetCustomAttribute<InitializeAttribute>() != null)
-                        .OrderBy(m => m.GetCustomAttribute<InitializeAttribute>().Order)
-                        .ToList()
-                })
-                .Where(x => x.Methods.Any())
-                .ToList();
-            
-            foreach (var serviceInfo in servicesWithInit)
-            {
-                foreach (var method in serviceInfo.Methods)
-                {
-                    method.Invoke(serviceInfo.Service, null);
-                    Debug.Log($"[{GetType().Name}] Called {method.Name} on {serviceInfo.Service.GetType().Name}");
-                }
-            }
         }
 
         #endregion

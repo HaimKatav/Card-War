@@ -124,7 +124,7 @@ namespace CardWar.Core
             _uiService?.ShowMainMenu(true);
             _uiService?.ShowLoadingScreen(false);
             _uiService?.ShowGameUI(false);
-            _uiService?.ShowGameOverScreen(false, false);
+            _uiService?.ToggleGameOverScreen(false, false);
         }
 
         public override void Exit()
@@ -221,13 +221,13 @@ namespace CardWar.Core
         {
             Debug.Log($"[{GetType().Name}] Entering GameEnded state");
             var playerWon = UnityEngine.Random.value > 0.5f;
-            _uiService?.ShowGameOverScreen(true, playerWon);
+            _uiService?.ToggleGameOverScreen(true, playerWon);
         }
 
         public override void Exit()
         {
             Debug.Log($"[{GetType().Name}] Exiting GameEnded state");
-            _uiService?.ShowGameOverScreen(false, false);
+            _uiService?.ToggleGameOverScreen(false, false);
         }
     }
 

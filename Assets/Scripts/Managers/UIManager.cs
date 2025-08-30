@@ -6,6 +6,7 @@ using CardWar.Services;
 using CardWar.Core;
 using CardWar.Game.UI;
 using Cysharp.Threading.Tasks;
+using Zenject;
 
 namespace CardWar.Managers
 {
@@ -29,14 +30,13 @@ namespace CardWar.Managers
         [SerializeField] private TextMeshProUGUI _loadingPercentage;
         
         [Header("Game Over Screen")]
-        [SerializeField] private TextMeshProUGUI _gameOverTitle;
         [SerializeField] private TextMeshProUGUI _gameOverMessage;
         [SerializeField] private Button _playAgainButton;
         [SerializeField] private Button _mainMenuButton;
         
-        [Inject] private IDIService _diService;
-        [Inject] private IGameStateService _gameStateService;
-        [Inject] private GameSettings _gameSettings;
+        private IDIService _diService;
+        private IGameStateService _gameStateService;
+        private GameSettings _gameSettings;
         
         private IGameControllerService _gameController;
         private IAudioService _audioService;
@@ -59,147 +59,25 @@ namespace CardWar.Managers
 
         #region Initialization
 
-        [Initialize]
-        public void Initialize()
+        [Inject]
+        public void Initialize(IAudioService audioService, IAssetService assetService)
         {
             if (_isInitialized) return;
+
+            _audioService = audioService;
+            _assetService = assetService;
             
             SetUIState(UIState.FirstEntry);
             
-            GetServices();
-            FindOrLoadUICanvas();
             SetupButtons();
             SubscribeToEvents();
             InitializeUI();
             
             _isInitialized = true;
+            
             SetUIState(UIState.Idle);
             
             Debug.Log($"[{GetType().Name}] Initialized successfully");
-        }
-        
-        private void GetServices()
-        {
-            _audioService = _diService.GetService<IAudioService>();
-            _assetService = _diService.GetService<IAssetService>();
-            _gameController = _diService.GetService<IGameControllerService>();
-            
-            Debug.Log($"[{GetType().Name}] Services retrieved - Audio: {_audioService != null}, Asset: {_assetService != null}, GameController: {_gameController != null}");
-        }
-
-        private void FindOrLoadUICanvas()
-        {
-            if (_mainMenuLayer != null && _loadingLayer != null && _gameLayer != null && _gameOverLayer != null)
-            {
-                Debug.Log($"[{GetType().Name}] UI layers already assigned via Inspector");
-                return;
-            }
-            
-            var gameCanvas = GameObject.Find("GameCanvas");
-            if (gameCanvas == null)
-            {
-                Debug.LogWarning($"[{GetType().Name}] GameCanvas not found, attempting to load from Resources");
-                LoadGameCanvasFromResources();
-            }
-            else
-            {
-                FindUIElementsFromCanvas(gameCanvas);
-            }
-        }
-
-        private void LoadGameCanvasFromResources()
-        {
-            var canvasPrefab = Resources.Load<GameObject>("Prefabs/GameCanvas");
-            if (canvasPrefab == null)
-            {
-                Debug.LogError($"[{GetType().Name}] Failed to load GameCanvas from Resources/Prefabs/GameCanvas");
-                return;
-            }
-            
-            var canvasInstance = Instantiate(canvasPrefab);
-            canvasInstance.name = "GameCanvas";
-            DontDestroyOnLoad(canvasInstance);
-            
-            FindUIElementsFromCanvas(canvasInstance);
-        }
-
-        private void FindUIElementsFromCanvas(GameObject gameCanvas)
-        {
-            var transform = gameCanvas.transform;
-            
-            if (_mainMenuLayer == null)
-                _mainMenuLayer = transform.Find("MainMenuLayer")?.gameObject;
-            if (_loadingLayer == null)
-                _loadingLayer = transform.Find("LoadingLayer")?.gameObject;
-            if (_gameLayer == null)
-                _gameLayer = transform.Find("GameLayer")?.gameObject;
-            if (_gameOverLayer == null)
-                _gameOverLayer = transform.Find("GameOverLayer")?.gameObject;
-            
-            if (_mainMenuLayer != null && _startButton == null)
-            {
-                _startButton = _mainMenuLayer.GetComponentInChildren<Button>();
-            }
-            
-            if (_loadingLayer != null)
-            {
-                if (_loadingProgressBar == null)
-                    _loadingProgressBar = _loadingLayer.GetComponentInChildren<Slider>();
-                
-                var texts = _loadingLayer.GetComponentsInChildren<TextMeshProUGUI>();
-                foreach (var text in texts)
-                {
-                    if (_loadingText == null && text.name.Contains("Loading") && !text.name.Contains("Percentage"))
-                        _loadingText = text;
-                    else if (_loadingPercentage == null && text.name.Contains("Percentage"))
-                        _loadingPercentage = text;
-                }
-            }
-            
-            if (_gameLayer != null)
-            {
-                if (_playAreaParent == null)
-                {
-                    _playAreaParent = _gameLayer.transform.Find("PlayAreaParent");
-                    if (_playAreaParent == null)
-                    {
-                        var parentGO = new GameObject("PlayAreaParent");
-                        parentGO.transform.SetParent(_gameLayer.transform, false);
-                        _playAreaParent = parentGO.transform;
-                        
-                        var rectTransform = parentGO.AddComponent<RectTransform>();
-                        rectTransform.anchorMin = Vector2.zero;
-                        rectTransform.anchorMax = Vector2.one;
-                        rectTransform.sizeDelta = Vector2.zero;
-                        rectTransform.anchoredPosition = Vector2.zero;
-                    }
-                }
-                
-                _gameUIView = _gameLayer.GetComponentInChildren<GameUIView>();
-            }
-            
-            if (_gameOverLayer != null)
-            {
-                var texts = _gameOverLayer.GetComponentsInChildren<TextMeshProUGUI>();
-                foreach (var text in texts)
-                {
-                    if (_gameOverTitle == null && text.name.Contains("Title"))
-                        _gameOverTitle = text;
-                    else if (_gameOverMessage == null && text.name.Contains("Message"))
-                        _gameOverMessage = text;
-                }
-                
-                var buttons = _gameOverLayer.GetComponentsInChildren<Button>();
-                foreach (var button in buttons)
-                {
-                    if (_playAgainButton == null && button.name.Contains("PlayAgain"))
-                        _playAgainButton = button;
-                    else if (_mainMenuButton == null && button.name.Contains("MainMenu"))
-                        _mainMenuButton = button;
-                }
-            }
-            
-            Debug.Log($"[{GetType().Name}] UI Elements found - Menu: {_mainMenuLayer != null}, Loading: {_loadingLayer != null}, Game: {_gameLayer != null}, GameOver: {_gameOverLayer != null}");
         }
 
         #endregion
@@ -208,28 +86,14 @@ namespace CardWar.Managers
 
         private void SetupButtons()
         {
-            if (_startButton != null)
-            {
-                _startButton.onClick.RemoveAllListeners();
-                _startButton.onClick.AddListener(HandleStartButtonClick);
-                Debug.Log($"[{GetType().Name}] Start button configured");
-            }
-            else
-            {
-                Debug.LogWarning($"[{GetType().Name}] Start button not assigned");
-            }
+            _startButton.onClick.RemoveAllListeners();
+            _startButton.onClick.AddListener(HandleStartButtonClick);
 
-            if (_playAgainButton != null)
-            {
-                _playAgainButton.onClick.RemoveAllListeners();
-                _playAgainButton.onClick.AddListener(HandlePlayAgainButtonClick);
-            }
-
-            if (_mainMenuButton != null)
-            {
-                _mainMenuButton.onClick.RemoveAllListeners();
-                _mainMenuButton.onClick.AddListener(HandleMainMenuButtonClick);
-            }
+            _playAgainButton.onClick.RemoveAllListeners();
+            _playAgainButton.onClick.AddListener(HandlePlayAgainButtonClick);
+            
+            _mainMenuButton.onClick.RemoveAllListeners();
+            _mainMenuButton.onClick.AddListener(HandleMainMenuButtonClick);
         }
 
         #endregion
@@ -238,16 +102,14 @@ namespace CardWar.Managers
 
         private void SubscribeToEvents()
         {
-            if (_gameStateService != null)
-            {
-                _gameStateService.OnGameStateChanged += HandleGameStateChanged;
-                _gameStateService.OnLoadingProgress += HandleLoadingProgress;
-                Debug.Log($"[{GetType().Name}] Subscribed to game state events");
-            }
-            else
+            if (_gameStateService == null)
             {
                 Debug.LogError($"[{GetType().Name}] Cannot subscribe to events - GameStateService is null");
+                return;
             }
+            
+            _gameStateService.OnGameStateChanged += HandleGameStateChanged;
+            _gameStateService.OnLoadingProgress += HandleLoadingProgress;
         }
 
         private void UnsubscribeFromEvents()
@@ -267,7 +129,6 @@ namespace CardWar.Managers
         {
             HideAllLayers();
             ShowMainMenu(true);
-            Debug.Log($"[{GetType().Name}] Initial UI state set to Main Menu");
         }
 
         public void SetUIState(UIState state)
@@ -283,16 +144,13 @@ namespace CardWar.Managers
 
         public void ShowLoadingScreen(bool show)
         {
-            if (_loadingLayer != null)
+            _loadingLayer.SetActive(show);
+            if (show)
             {
-                _loadingLayer.SetActive(show);
-                if (show)
-                {
-                    SetUIState(UIState.Loading);
-                    ResetLoadingProgress();
-                }
-                Debug.Log($"[{GetType().Name}] Loading screen: {show}");
+                SetUIState(UIState.Loading);
+                ResetLoadingProgress();
             }
+            Debug.Log($"[{GetType().Name}] Loading screen: {show}");
         }
 
         public void ShowMainMenu(bool show)
@@ -300,7 +158,6 @@ namespace CardWar.Managers
             if (_mainMenuLayer != null)
             {
                 _mainMenuLayer.SetActive(show);
-                Debug.Log($"[{GetType().Name}] Main menu: {show}");
             }
         }
 
@@ -318,22 +175,22 @@ namespace CardWar.Managers
             }
         }
 
-        public void ShowGameOverScreen(bool show, bool playerWon)
+        public void ToggleGameOverScreen(bool show, bool playerWon)
         {
-            if (_gameOverLayer != null)
+            if (_gameOverLayer == null)
             {
-                _gameOverLayer.SetActive(show);
-                
-                if (show && _gameOverTitle != null && _gameOverMessage != null)
-                {
-                    _gameOverTitle.text = playerWon ? "Victory!" : "Defeat!";
-                    _gameOverMessage.text = playerWon 
-                        ? "Congratulations! You've won the war!" 
-                        : "Better luck next time!";
-                }
-                
-                Debug.Log($"[{GetType().Name}] Game over screen: {show}, Player won: {playerWon}");
+                Debug.LogError($"[{GetType().Name}] _gameOverLayer is null");
+                return;
             }
+            
+            _gameOverLayer.SetActive(show);
+
+            if (!show) return;
+            
+            _gameOverMessage.text = playerWon ? "Victory!" : "Defeat!";
+            _gameOverMessage.text = playerWon 
+                ? "Congratulations! You've won the war!" 
+                : "Better luck next time!";
         }
 
         public void RegisterResetCallback(Action callback)
@@ -346,7 +203,7 @@ namespace CardWar.Managers
             ShowMainMenu(false);
             ShowLoadingScreen(false);
             ShowGameUI(false);
-            ShowGameOverScreen(false, false);
+            ToggleGameOverScreen(false, false);
         }
 
         #endregion
@@ -440,7 +297,7 @@ namespace CardWar.Managers
                     ShowMainMenu(false);
                     ShowLoadingScreen(true);
                     ShowGameUI(false);
-                    ShowGameOverScreen(false, false);
+                    ToggleGameOverScreen(false, false);
                     break;
                     
                 case GameState.Playing:
@@ -468,7 +325,7 @@ namespace CardWar.Managers
         private void DetermineWinnerAndShowGameOver()
         {
             var playerWon = UnityEngine.Random.value > 0.5f;
-            ShowGameOverScreen(true, playerWon);
+            ToggleGameOverScreen(true, playerWon);
         }
 
         #endregion
