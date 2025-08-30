@@ -8,6 +8,14 @@ using TMPro;
 
 namespace CardWar.Managers
 {
+    public enum UIState
+    {
+        FirstEntry,
+        Idle,
+        Animating,
+        Loading
+    }
+    
     public class UIManager : MonoBehaviour
     {
         [Header("UI Layers")]

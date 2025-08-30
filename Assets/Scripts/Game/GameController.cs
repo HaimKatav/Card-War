@@ -10,7 +10,6 @@ namespace CardWar.Game
     public class GameController : MonoBehaviour, IGameControllerService
     {
         private IGameStateService _gameStateService;
-        private IUIService _uiService;
         
         private bool _isPaused;
         private bool _isGameActive;
@@ -34,18 +33,10 @@ namespace CardWar.Game
         private void Initialize()
         {
             _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
-            _uiService = ServiceLocator.Instance.Get<IUIService>();
-            
-            RegisterResetCallback();
             
             Debug.Log("[GameController] Initialized");
         }
-
-        private void RegisterResetCallback()
-        {
-            _uiService?.RegisterResetCallback(ResetGame);
-        }
-
+        
         #endregion
 
         #region IGameControllerService Implementation
