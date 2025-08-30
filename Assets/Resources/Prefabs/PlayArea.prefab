@@ -61,10 +61,12 @@ MonoBehaviour:
   - {fileID: 4207985764047106705}
   - {fileID: 446090330162017530}
   - {fileID: 5864506382919213683}
+  - {fileID: 2338491312080051468}
   _opponentWarPositions:
   - {fileID: 3807607091930488601}
   - {fileID: 613129957402532210}
   - {fileID: 6904154309626351611}
+  - {fileID: 2338491312080051468}
   _cardMoveSpeed: 0.5
   _cardFlipDelay: 0.3
   _roundEndDelay: 1
@@ -614,6 +616,11 @@ PrefabInstance:
 --- !u!224 &613129957402532210 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 4025728176248235908, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+  m_PrefabInstance: {fileID: 4565528523844779766}
+  m_PrefabAsset: {fileID: 0}
+--- !u!224 &2338491312080051468 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2247289022360593402, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
   m_PrefabInstance: {fileID: 4565528523844779766}
   m_PrefabAsset: {fileID: 0}
 --- !u!224 &3807607091930488601 stripped

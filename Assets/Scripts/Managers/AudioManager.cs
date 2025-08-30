@@ -162,7 +162,7 @@ namespace CardWar.Managers
                 return null;
             }
             
-            var path = $"{_gameSettings.AudioClipsPath}/{clipName}";
+            var path = $"{GameSettings.AUDIO_ASSETS_PATH}/{clipName}";
             clip = Resources.Load<AudioClip>(path);
             
             if (clip != null)

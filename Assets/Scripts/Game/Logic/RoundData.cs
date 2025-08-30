@@ -5,6 +5,7 @@ namespace CardWar.Game.Logic
 {
     public class RoundData
     {
+        public int RoundNumber { get; set; }
         public CardData PlayerCard { get; set; }
         public CardData OpponentCard { get; set; }
         public bool IsWar { get; set; }

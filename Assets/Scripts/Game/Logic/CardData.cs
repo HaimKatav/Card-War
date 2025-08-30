@@ -21,9 +21,5 @@ namespace CardWar.Game.Logic
         {
             return Suit.ToString().ToLower();
         }
-            public string GetCardKey()
-        {
-            return $"{Rank.ToString().ToLower()}_{Suit.ToString().ToLower()}";
-        }
     }
 }

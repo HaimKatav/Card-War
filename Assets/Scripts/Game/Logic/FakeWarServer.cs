@@ -76,6 +76,7 @@ namespace CardWar.Game.Logic
             
             var roundData = new RoundData
             {
+                RoundNumber = _roundNumber,
                 PlayerCard = playerCard,
                 OpponentCard = opponentCard,
                 PlayerCardsRemaining = _playerDeck.Count,
@@ -128,6 +129,7 @@ namespace CardWar.Game.Logic
             
             var roundData = new RoundData
             {
+                RoundNumber = _roundNumber,
                 IsWar = true,
                 PlayerWarCards = new List<CardData>(),
                 OpponentWarCards = new List<CardData>()
@@ -294,6 +296,7 @@ namespace CardWar.Game.Logic
         {
             return new RoundData
             {
+                RoundNumber = _roundNumber,
                 Result = _gameStatus == GameStatus.PlayerWon ? RoundResult.PlayerWins : RoundResult.OpponentWins,
                 PlayerCardsRemaining = _playerDeck.Count,
                 OpponentCardsRemaining = _opponentDeck.Count

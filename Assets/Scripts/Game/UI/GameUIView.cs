@@ -150,13 +150,15 @@ namespace CardWar.Game.UI
             ShowWarIndicator(false);
         }
 
-        #endregion
+        #endregion UI Updates
 
         
         #region Event Handlers
 
         private void HandleRoundStarted(RoundData roundData)
         {
+            UpdateCardCounts(roundData.PlayerCardsRemaining, roundData.OpponentCardsRemaining);
+            UpdateRoundNumber(roundData.RoundNumber);
             if (roundData.IsWar)
             {
                 ShowWarIndicator(true);
@@ -177,9 +179,8 @@ namespace CardWar.Game.UI
         {
             ShowWarIndicator(false);
         }
-        
 
-        #endregion
+        #endregion Event Handlers
         
         
         #region Cleanup
@@ -206,6 +207,6 @@ namespace CardWar.Game.UI
             UnregisterBoardEvents();
         }
 
-        #endregion
+        #endregion Cleanup
     }
 }

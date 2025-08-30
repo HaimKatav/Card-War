@@ -164,7 +164,7 @@ namespace CardWar.Game.UI
         {
             if (_assetService != null && cardData != null)
             {
-                var sprite = _assetService.GetCardSprite(cardData.GetCardKey());
+                var sprite = _assetService.GetCardSprite(cardData.CardKey);
                 if (sprite != null)
                 {
                     card.SetCardSprite(sprite);
