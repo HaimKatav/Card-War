@@ -1455,6 +1455,7 @@ MonoBehaviour:
   _menuLayer: {fileID: 3060652212113419763}
   _gameLayer: {fileID: 2470489429811347207}
   _gameOverLayer: {fileID: 6815831945615899705}
+  _gameAreaParent: {fileID: 7217985731843420913}
   _startButton: {fileID: 3254233776301454767}
   _gameOverText: {fileID: 6349742461909027753}
   _restartButton: {fileID: 3347332009971020058}

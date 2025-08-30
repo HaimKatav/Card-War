@@ -322,13 +322,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bc7a1dc685f9471da355ec3cf0af0934, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _roundText: {fileID: 0}
-  _playerCardCountText: {fileID: 0}
-  _opponentCardCountText: {fileID: 0}
+  _roundText: {fileID: 8958908582981771929}
+  _playerCardCountText: {fileID: 923894610483042411}
+  _opponentCardCountText: {fileID: 6438153197013931817}
   _pauseButton: {fileID: 3413206633781928708}
-  _drawButton: {fileID: 0}
-  _warIndicator: {fileID: 0}
-  _warText: {fileID: 0}
+  _warIndicator: {fileID: 6007408988205233198}
+  _warText: {fileID: 6151576887192695324}
 --- !u!1 &4417339410809175195
 GameObject:
   m_ObjectHideFlags: 0

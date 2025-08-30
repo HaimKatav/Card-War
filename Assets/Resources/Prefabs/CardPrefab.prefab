@@ -135,13 +135,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 4303328162288877190}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2edeb582e07f4745b5a2e36c7541a214, type: 3}
+  m_Script: {fileID: 11500000, guid: b6170bb6cad34a9b9ca5af16b6d97d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   _cardFront: {fileID: 4211857253857739341}
   _cardBack: {fileID: 8935665566877725659}
-  _canvasGroup: {fileID: 5292461724782543811}
-  _rectTransform: {fileID: 6024498099475701970}
 --- !u!1 &4716434634626679404
 GameObject:
   m_ObjectHideFlags: 0
@@ -207,7 +205,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: b6d1f212877e1498789733d6207a2b7c, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

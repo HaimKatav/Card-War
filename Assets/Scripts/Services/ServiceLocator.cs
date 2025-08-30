@@ -8,7 +8,7 @@ namespace CardWar.Services
     public class ServiceLocator
     {
         private static ServiceLocator _instance;
-        private readonly Dictionary<Type, object> _services = new Dictionary<Type, object>();
+        private readonly Dictionary<Type, object> _services = new ();
         
         public static ServiceLocator Instance
         {

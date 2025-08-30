@@ -4,6 +4,8 @@ using CardWar.Services;
 using CardWar.Game.Logic;
 using CardWar.Common;
 using CardWar.Core;
+using CardWar.Game.UI;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Game
 {
@@ -19,9 +21,15 @@ namespace CardWar.Game
         public event Action<RoundResult> OnRoundCompleted;
         public event Action<int> OnWarStarted;
         public event Action OnWarCompleted;
+        public event Action OnGameCreated;
         public event Action OnGamePaused;
         public event Action OnGameResumed;
         public event Action<bool> OnGameOver;
+
+        private GameAnimationController _animationController;
+        private GameObject _playAreaParent;
+        private IAssetService _assetService;
+
 
         #region Unity Lifecycle
 
@@ -33,20 +41,37 @@ namespace CardWar.Game
         private void Initialize()
         {
             _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
+            _assetService = ServiceLocator.Instance.Get<IAssetService>();
             
-            Debug.Log("[GameController] Initialized");
+            var uiService = ServiceLocator.Instance.Get<IUIService>();
+
+            _playAreaParent = uiService.GetGameAreaParent();
         }
         
         #endregion
 
         #region IGameControllerService Implementation
 
-        public void StartNewGame()
+        public async UniTask CreateNewGame()
         {
-            Debug.Log("[GameController] Starting new game");
+            Debug.Log("[GameController] Creating new game");
+
+            var playAreaPrefab =
+                await _assetService.LoadAssetAsync<GameAnimationController>(GameSettings.PLAY_AREA_ASSET_PATH);
+
+            if (playAreaPrefab == null || _playAreaParent == null)
+            {
+                Debug.LogError("[GameController] Failed to load play area asset");
+                return;
+            }
+            
+            _animationController = Instantiate(playAreaPrefab, _playAreaParent.transform);
+            _animationController.Initialize();
+            
             _isGameActive = true;
-            _isPaused = false;
-            InitializeGame();
+            _isPaused = true;
+            
+            OnGameCreated?.Invoke();
         }
 
         private void InitializeGame()
@@ -54,7 +79,7 @@ namespace CardWar.Game
             Debug.Log("[GameController] Game initialized - Ready to play");
         }
 
-        public void DrawNextCards()
+        public async UniTask DrawNextCards()
         {
             if (!_isGameActive || _isPaused)
             {
@@ -66,6 +91,13 @@ namespace CardWar.Game
             OnCardsDrawn?.Invoke();
         }
 
+        public void StartGame()
+        {
+            _isGameActive = true;
+            _isPaused = false;
+            Debug.Log("[GameController] Starting game");
+        }
+        
         public void PauseGame()
         {
             if (!_isGameActive || _isPaused) return;
@@ -93,8 +125,6 @@ namespace CardWar.Game
             
             Debug.Log($"[GameController] Game ended - Player won: {playerWon}");
             OnGameOver?.Invoke(playerWon);
-            
-            _gameStateService?.ChangeState(GameState.GameEnded);
         }
 
         public void ResetGame()
@@ -107,6 +137,25 @@ namespace CardWar.Game
         #endregion
 
         #region Private Methods
+        
+        private async UniTask PlayRoundWithAnimation(RoundData roundData)
+        {
+            if (_animationController != null)
+            {
+                if (roundData.IsWar)
+                {
+                    await _animationController.PlayWarSequence(roundData);
+                }
+                else
+                {
+                    await _animationController.PlayRound(roundData);
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[GameController] Animation controller not available");
+            }
+        }
 
         private void OnApplicationPause(bool pauseStatus)
         {

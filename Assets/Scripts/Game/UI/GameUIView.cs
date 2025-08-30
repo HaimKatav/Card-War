@@ -4,25 +4,24 @@ using CardWar.Services;
 using CardWar.Core;
 using CardWar.Common;
 using CardWar.Game.Logic;
+using TMPro;
 
 namespace CardWar.Game.UI
 {
     public class GameUIView : MonoBehaviour
     {
         [Header("Game Info")]
-        [SerializeField] private Text _roundText;
-        [SerializeField] private Text _playerCardCountText;
-        [SerializeField] private Text _opponentCardCountText;
+        [SerializeField] private TMP_Text _roundText;
+        [SerializeField] private TMP_Text _playerCardCountText;
+        [SerializeField] private TMP_Text _opponentCardCountText;
         
         [Header("Buttons")]
         [SerializeField] private Button _pauseButton;
-        [SerializeField] private Button _drawButton;
         
         [Header("War Indicator")]
         [SerializeField] private GameObject _warIndicator;
-        [SerializeField] private Text _warText;
+        [SerializeField] private TMP_Text _warText;
         
-        private IGameStateService _gameStateService;
         private IGameControllerService _gameControllerService;
 
         private void Start()
@@ -32,7 +31,6 @@ namespace CardWar.Game.UI
 
         private void Initialize()
         {
-            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
             _gameControllerService = ServiceLocator.Instance.Get<IGameControllerService>();
             
             SetupButtons();
@@ -50,12 +48,6 @@ namespace CardWar.Game.UI
                 _pauseButton.onClick.RemoveAllListeners();
                 _pauseButton.onClick.AddListener(OnPauseButtonClicked);
             }
-            
-            if (_drawButton != null)
-            {
-                _drawButton.onClick.RemoveAllListeners();
-                _drawButton.onClick.AddListener(OnDrawButtonClicked);
-            }
         }
 
         private void SubscribeToEvents()
@@ -65,53 +57,28 @@ namespace CardWar.Game.UI
                 _gameControllerService.OnRoundStarted += HandleRoundStarted;
                 _gameControllerService.OnWarStarted += HandleWarStarted;
                 _gameControllerService.OnWarCompleted += HandleWarCompleted;
-                _gameControllerService.OnGamePaused += HandleGamePaused;
-                _gameControllerService.OnGameResumed += HandleGameResumed;
-            }
-            
-            if (_gameStateService != null)
-            {
-                _gameStateService.OnGameStateChanged += HandleGameStateChanged;
             }
         }
 
         #region UI Updates
 
-        public void UpdateRoundNumber(int round)
+        private void OnPauseButtonClicked() => _gameControllerService?.PauseGame();
+
+
+        private void UpdateRoundNumber(int round)
         {
-            if (_roundText != null)
-            {
-                _roundText.text = $"Round: {round}";
-            }
+            _roundText.text = $"Round: {round}";
         }
 
-        public void UpdateCardCounts(int playerCount, int opponentCount)
+        private void UpdateCardCounts(int playerCount, int opponentCount)
         {
-            if (_playerCardCountText != null)
-            {
-                _playerCardCountText.text = $"Player: {playerCount}";
-            }
-            
-            if (_opponentCardCountText != null)
-            {
-                _opponentCardCountText.text = $"Opponent: {opponentCount}";
-            }
+            _playerCardCountText.text = $"Player: {playerCount}";
+            _opponentCardCountText.text = $"Opponent: {opponentCount}";
         }
 
-        public void ShowWarIndicator(bool show)
+        private void ShowWarIndicator(bool show)
         {
-            if (_warIndicator != null)
-            {
-                _warIndicator.SetActive(show);
-            }
-        }
-
-        public void SetDrawButtonEnabled(bool enabled)
-        {
-            if (_drawButton != null)
-            {
-                _drawButton.interactable = enabled;
-            }
+            _warIndicator.SetActive(show);
         }
 
         private void ResetDisplay()
@@ -119,35 +86,11 @@ namespace CardWar.Game.UI
             UpdateRoundNumber(0);
             UpdateCardCounts(26, 26);
             ShowWarIndicator(false);
-            SetDrawButtonEnabled(false);
         }
 
         #endregion
 
         #region Event Handlers
-
-        private void HandleGameStateChanged(GameState newState, GameState previousState)
-        {
-            switch (newState)
-            {
-                case GameState.Playing:
-                    gameObject.SetActive(true);
-                    SetDrawButtonEnabled(true);
-                    break;
-                    
-                case GameState.Paused:
-                    SetDrawButtonEnabled(false);
-                    break;
-                    
-                case GameState.GameEnded:
-                    SetDrawButtonEnabled(false);
-                    break;
-                    
-                default:
-                    gameObject.SetActive(false);
-                    break;
-            }
-        }
 
         private void HandleRoundStarted(RoundData roundData)
         {
@@ -171,63 +114,11 @@ namespace CardWar.Game.UI
         {
             ShowWarIndicator(false);
         }
-
-        private void HandleGamePaused()
-        {
-            SetDrawButtonEnabled(false);
-            
-            if (_pauseButton != null)
-            {
-                Text buttonText = _pauseButton.GetComponentInChildren<Text>();
-                if (buttonText != null)
-                {
-                    buttonText.text = "Resume";
-                }
-            }
-        }
-
-        private void HandleGameResumed()
-        {
-            SetDrawButtonEnabled(true);
-            
-            if (_pauseButton != null)
-            {
-                Text buttonText = _pauseButton.GetComponentInChildren<Text>();
-                if (buttonText != null)
-                {
-                    buttonText.text = "Pause";
-                }
-            }
-        }
+        
 
         #endregion
-
-        #region Button Handlers
-
-        private void OnPauseButtonClicked()
-        {
-            if (_gameStateService == null) return;
-            
-            if (_gameStateService.CurrentState == GameState.Playing)
-            {
-                _gameStateService.ChangeState(GameState.Paused);
-            }
-            else if (_gameStateService.CurrentState == GameState.Paused)
-            {
-                _gameStateService.ChangeState(GameState.Playing);
-            }
-        }
-
-        private void OnDrawButtonClicked()
-        {
-            if (_gameControllerService != null)
-            {
-                _gameControllerService.DrawNextCards();
-            }
-        }
-
-        #endregion
-
+        
+        
         #region Cleanup
 
         private void OnDestroy()
@@ -237,23 +128,11 @@ namespace CardWar.Game.UI
                 _pauseButton.onClick.RemoveAllListeners();
             }
             
-            if (_drawButton != null)
-            {
-                _drawButton.onClick.RemoveAllListeners();
-            }
-            
             if (_gameControllerService != null)
             {
                 _gameControllerService.OnRoundStarted -= HandleRoundStarted;
                 _gameControllerService.OnWarStarted -= HandleWarStarted;
                 _gameControllerService.OnWarCompleted -= HandleWarCompleted;
-                _gameControllerService.OnGamePaused -= HandleGamePaused;
-                _gameControllerService.OnGameResumed -= HandleGameResumed;
-            }
-            
-            if (_gameStateService != null)
-            {
-                _gameStateService.OnGameStateChanged -= HandleGameStateChanged;
             }
         }
 

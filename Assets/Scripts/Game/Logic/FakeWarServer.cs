@@ -142,7 +142,7 @@ namespace CardWar.Game.Logic
                 return CreateGameOverRound();
             }
             
-            for (int i = 0; i < playerWarCardCount; i++)
+            for (var i = 0; i < playerWarCardCount; i++)
             {
                 var card = _playerDeck[0];
                 _playerDeck.RemoveAt(0);
@@ -150,7 +150,7 @@ namespace CardWar.Game.Logic
                 _warPot.Add(card);
             }
             
-            for (int i = 0; i < opponentWarCardCount; i++)
+            for (var i = 0; i < opponentWarCardCount; i++)
             {
                 var card = _opponentDeck[0];
                 _opponentDeck.RemoveAt(0);
@@ -228,9 +228,9 @@ namespace CardWar.Game.Logic
 
         private void ShuffleDeck(List<CardData> deck)
         {
-            for (int i = deck.Count - 1; i > 0; i--)
+            for (var i = deck.Count - 1; i > 0; i--)
             {
-                int j = _random.Next(i + 1);
+                var j = _random.Next(i + 1);
                 var temp = deck[i];
                 deck[i] = deck[j];
                 deck[j] = temp;
@@ -239,7 +239,7 @@ namespace CardWar.Game.Logic
 
         private void DealCards(List<CardData> fullDeck)
         {
-            for (int i = 0; i < fullDeck.Count; i++)
+            for (var i = 0; i < fullDeck.Count; i++)
             {
                 if (i % 2 == 0)
                     _playerDeck.Add(fullDeck[i]);

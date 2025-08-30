@@ -51,6 +51,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e6dbde57ddd4e1186c68059ea3c11ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _poolContainer: {fileID: 5613449236567947183}
   _playerDeckPosition: {fileID: 7206598110540325767}
   _opponentDeckPosition: {fileID: 6467885751801385697}
   _playerBattlePosition: {fileID: 1308609081067508281}
@@ -63,7 +64,6 @@ MonoBehaviour:
   - {fileID: 3807607091930488601}
   - {fileID: 613129957402532210}
   - {fileID: 6904154309626351611}
-  _cardPrefab: {fileID: 0}
   _cardMoveSpeed: 0.5
   _cardFlipDelay: 0.3
   _roundEndDelay: 1

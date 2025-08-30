@@ -1,6 +1,7 @@
 using System;
 using CardWar.Common;
 using CardWar.Game.Logic;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Services
 {
@@ -11,12 +12,13 @@ namespace CardWar.Services
         event Action<RoundResult> OnRoundCompleted;
         event Action<int> OnWarStarted;
         event Action OnWarCompleted;
+        event Action OnGameCreated;
         event Action OnGamePaused;
         event Action OnGameResumed;
         event Action<bool> OnGameOver;
         
-        void StartNewGame();
-        void DrawNextCards();
+        UniTask CreateNewGame();
+        UniTask DrawNextCards();
         void PauseGame();
         void ResumeGame();
         void EndGame(bool playerWon);

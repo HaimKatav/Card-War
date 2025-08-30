@@ -98,19 +98,13 @@ namespace CardWar.Managers
 
         public Sprite GetCardSprite(string cardKey)
         {
-            if (_gameSettings == null)
-            {
-                Debug.LogError("[AssetManager] GameSettings not found");
-                return null;
-            }
-
             var path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}/{cardKey}";
             return LoadAsset<Sprite>(path);
         }
 
         public Sprite GetCardBackSprite()
         {
-            throw new NotImplementedException();
+            return LoadAsset<Sprite>(GameSettings.CARD_BACK_SPRITE_ASSET_PATH);
         }
 
         #endregion
@@ -122,7 +116,7 @@ namespace CardWar.Managers
             if (asset == null)
                 return false;
             
-            Type assetType = asset.GetType();
+            var assetType = asset.GetType();
             
             return !typeof(GameObject).IsAssignableFrom(assetType) &&
                    !typeof(Component).IsAssignableFrom(assetType) &&
