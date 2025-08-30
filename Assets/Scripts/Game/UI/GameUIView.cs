@@ -20,29 +20,31 @@ namespace CardWar.Game.UI
         [SerializeField] private TextMeshProUGUI _resultText;
         
         [Header("Control Buttons")]
-        [SerializeField] private Button _drawButton;
         [SerializeField] private Button _pauseButton;
 
         [Header("Panels")]
         [SerializeField] private GameObject _gameOverPanel;
         [SerializeField] private Button _restartButton;
         [SerializeField] private Button _backToMainButton;
-        
+        [Space]
         [SerializeField] private GameObject _pausePanel;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private Button _quitButton;
-        
+
+        public Action OnPauseClicked;
+        public Action OnResumeClicked;
+        public Action OnRestartClicked;
+        public Action OnBackToMainClicked;
+
         private IGameControllerService _gameController;
-        private IGameStateService _gameStateService;
         private IAudioService _audioService;
         
         private int _currentRound = 0;
 
-        public void Initialize(IGameControllerService gameController, IGameStateService gameStateService, IAudioService audioService)
+        public void Initialize()
         {
-            _gameController = gameController;
-            _gameStateService = gameStateService;
-            _audioService = audioService;
+            _audioService = ServiceLocator.Instance.Get<IAudioService>();
+            _gameController = ServiceLocator.Instance.Get<IGameControllerService>();
             
             SetupButtons();
             SubscribeToEvents();
@@ -51,7 +53,6 @@ namespace CardWar.Game.UI
 
         private void SetupButtons()
         {
-            AddButtonListener(_drawButton, HandleDrawButtonClick);
             AddButtonListener(_pauseButton, HandlePauseButtonClick);
             AddButtonListener(_resumeButton, HandleResumeButtonClick);
             AddButtonListener(_quitButton, HandleQuitButtonClick);
@@ -83,29 +84,22 @@ namespace CardWar.Game.UI
             _gameController.OnGameResumed += HandleGameResumed;
         }
 
-        private void HandleDrawButtonClick()
-        {
-            _audioService?.PlaySound(SoundEffect.ButtonClick);
-            _gameController?.DrawNextCards();
-            SetDrawButtonInteractable(false);
-        }
-
         private void HandlePauseButtonClick()
         {
             _audioService?.PlaySound(SoundEffect.ButtonClick);
-            _gameStateService?.ChangeState(GameState.Paused);
+            OnPauseClicked?.Invoke();
         }
 
         private void HandleResumeButtonClick()
         {
             _audioService?.PlaySound(SoundEffect.ButtonClick);
-            _gameStateService?.ChangeState(GameState.Playing);
+            OnResumeClicked?.Invoke();
         }
 
         private void HandleQuitButtonClick()
         {
             _audioService?.PlaySound(SoundEffect.ButtonClick);
-            _gameStateService?.ChangeState(GameState.ReturnToMenu);
+            OnBackToMainClicked?.Invoke();
         }
 
         private void HandleRoundStarted(Game.Logic.RoundData roundData)
@@ -132,12 +126,12 @@ namespace CardWar.Game.UI
 
         private void HandleGamePaused()
         {
-            ShowPausePanel(true);
+            TogglePausePanel(true);
         }
 
         private void HandleGameResumed()
         {
-            ShowPausePanel(false);
+            TogglePausePanel(false);
         }
 
         public void UpdateCardCounts(int playerCards, int opponentCards)
@@ -184,16 +178,10 @@ namespace CardWar.Game.UI
                 _resultText.gameObject.SetActive(false);
         }
 
-        public void ShowPausePanel(bool show)
+        public void TogglePausePanel(bool show)
         {
             if (_pausePanel != null)
                 _pausePanel.SetActive(show);
-        }
-
-        public void SetDrawButtonInteractable(bool interactable)
-        {
-            if (_drawButton != null)
-                _drawButton.interactable = interactable;
         }
 
         public void ResetUI()
@@ -202,8 +190,7 @@ namespace CardWar.Game.UI
             UpdateRoundNumber(0);
             UpdateCardCounts(26, 26);
             ShowWarIndicator(false);
-            ShowPausePanel(false);
-            SetDrawButtonInteractable(true);
+            TogglePausePanel(false);
             HideResultText();
         }
 

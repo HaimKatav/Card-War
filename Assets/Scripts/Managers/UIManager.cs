@@ -43,7 +43,7 @@ namespace CardWar.Managers
         private void Initialize()
         {
             _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
-            
+                
             SetupUIElements();
             HideAllLayers();
             
