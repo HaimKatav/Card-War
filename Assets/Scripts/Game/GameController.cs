@@ -15,18 +15,17 @@ namespace CardWar.Game
         
         private bool _isPaused;
         private bool _isGameActive;
+        
+        public event Action<RoundData> RoundStartedEvent;
+        public event Action CardsDrawnEvent;
+        public event Action<RoundResult> RoundCompletedEvent;
+        public event Action<int> WarStartedEvent;
+        public event Action WarCompletedEvent;
+        public event Action GamePausedEvent;
+        public event Action GameResumedEvent;
+        public event Action<GameStatus> GameOverEvent;
 
-        public event Action<RoundData> OnRoundStarted;
-        public event Action OnCardsDrawn;
-        public event Action<RoundResult> OnRoundCompleted;
-        public event Action<int> OnWarStarted;
-        public event Action OnWarCompleted;
-        public event Action OnGameCreated;
-        public event Action OnGamePaused;
-        public event Action OnGameResumed;
-        public event Action<bool> OnGameOver;
-
-        private GameAnimationController _animationController;
+        private GameBoardController _boardController;
         private GameObject _playAreaParent;
         private IAssetService _assetService;
 
@@ -50,14 +49,15 @@ namespace CardWar.Game
         
         #endregion
 
-        #region IGameControllerService Implementation
+        
+        #region Game Creation
 
         public async UniTask CreateNewGame()
         {
             Debug.Log("[GameController] Creating new game");
 
             var playAreaPrefab =
-                await _assetService.LoadAssetAsync<GameAnimationController>(GameSettings.PLAY_AREA_ASSET_PATH);
+                await _assetService.LoadAssetAsync<GameBoardController>(GameSettings.PLAY_AREA_ASSET_PATH);
 
             if (playAreaPrefab == null || _playAreaParent == null)
             {
@@ -65,19 +65,73 @@ namespace CardWar.Game
                 return;
             }
             
-            _animationController = Instantiate(playAreaPrefab, _playAreaParent.transform);
-            _animationController.Initialize();
+            _boardController = Instantiate(playAreaPrefab, _playAreaParent.transform);
+            
+            //TODO: Get Game Entry Data from FakeServer 
+            
+            if (_boardController == null)
+            {
+                Debug.LogError("[GameController] Failed to load play area asset - Try again later.");
+                return;
+            }
+            
+            _boardController.Initialize();
             
             _isGameActive = true;
             _isPaused = true;
             
-            OnGameCreated?.Invoke();
+            RegisterDrawButton();
+            RegisterGameEvents();
         }
 
-        private void InitializeGame()
+        private void RegisterDrawButton()
         {
-            Debug.Log("[GameController] Game initialized - Ready to play");
+            _boardController.OnDrawButtonPressed += OnDrawButtonPressed;
         }
+
+        private void RegisterGameEvents()
+        {
+            _gameStateService.GameStateChanged += HandleGameStateChanged;
+        }
+
+        #endregion Game Creation
+        
+        
+        #region Event Handlers
+        
+        private void HandleGameStateChanged(GameState state)
+        {
+            switch (state)
+            {
+                case GameState.Playing:
+                    
+                    if (_isGameActive) 
+                        ResumeGame();
+                    else
+                        StartGame();
+                    
+                    break;
+                
+                case GameState.Paused:
+                    PauseGame();
+                    break;
+                
+                case GameState.MainMenu:
+                    UnregisterDrawButton();
+                    DestroyGame();
+                    break;
+            }
+        }
+
+        private void OnDrawButtonPressed()
+        {
+            DrawNextCards().Forget();
+        }
+
+        #endregion Event Handlers
+
+
+        #region Public Methods
 
         public async UniTask DrawNextCards()
         {
@@ -88,43 +142,43 @@ namespace CardWar.Game
             }
             
             Debug.Log("[GameController] Drawing next cards");
-            OnCardsDrawn?.Invoke();
+            CardsDrawnEvent?.Invoke();
         }
 
-        public void StartGame()
+        private void StartGame()
         {
             _isGameActive = true;
             _isPaused = false;
             Debug.Log("[GameController] Starting game");
         }
         
-        public void PauseGame()
+        private void PauseGame()
         {
             if (!_isGameActive || _isPaused) return;
             
             _isPaused = true;
             Debug.Log("[GameController] Game paused");
-            OnGamePaused?.Invoke();
+            GamePausedEvent?.Invoke();
         }
 
-        public void ResumeGame()
+        private void ResumeGame()
         {
             if (!_isGameActive || !_isPaused) return;
             
             _isPaused = false;
             Debug.Log("[GameController] Game resumed");
-            OnGameResumed?.Invoke();
+            GameResumedEvent?.Invoke();
         }
 
-        public void EndGame(bool playerWon)
+        private void EndGame(GameStatus playerWon)
         {
             if (!_isGameActive) return;
             
             _isGameActive = false;
             _isPaused = false;
             
-            Debug.Log($"[GameController] Game ended - Player won: {playerWon}");
-            OnGameOver?.Invoke(playerWon);
+            Debug.Log($"[GameController] Game ended - Winner: {playerWon}");
+            GameOverEvent?.Invoke(playerWon);
         }
 
         public void ResetGame()
@@ -132,23 +186,33 @@ namespace CardWar.Game
             Debug.Log("[GameController] Resetting game");
             _isGameActive = false;
             _isPaused = false;
+            
+            // TODO: Restart Game
         }
 
-        #endregion
+        private void DestroyGame()
+        {
+            Debug.Log("[GameController] Destroying game");
+            if (_boardController != null)
+                Destroy(_boardController);
+        }
 
+        #endregion Public Methods
+
+  
         #region Private Methods
         
         private async UniTask PlayRoundWithAnimation(RoundData roundData)
         {
-            if (_animationController != null)
+            if (_boardController != null)
             {
                 if (roundData.IsWar)
                 {
-                    await _animationController.PlayWarSequence(roundData);
+                    await _boardController.PlayWarSequence(roundData);
                 }
                 else
                 {
-                    await _animationController.PlayRound(roundData);
+                    await _boardController.PlayRound(roundData);
                 }
             }
             else
@@ -157,36 +221,29 @@ namespace CardWar.Game
             }
         }
 
-        private void OnApplicationPause(bool pauseStatus)
-        {
-            if (pauseStatus && _isGameActive && !_isPaused)
-            {
-                PauseGame();
-            }
-        }
-
-        private void OnApplicationFocus(bool hasFocus)
-        {
-            if (!hasFocus && _isGameActive && !_isPaused)
-            {
-                PauseGame();
-            }
-        }
-
         #endregion
 
+        
         #region Cleanup
+
+        private void UnregisterDrawButton()
+        {
+            if (_gameStateService != null) 
+                _gameStateService.GameStateChanged -= HandleGameStateChanged;
+        }
 
         private void OnDestroy()
         {
-            OnRoundStarted = null;
-            OnCardsDrawn = null;
-            OnRoundCompleted = null;
-            OnWarStarted = null;
-            OnWarCompleted = null;
-            OnGamePaused = null;
-            OnGameResumed = null;
-            OnGameOver = null;
+            UnregisterDrawButton();
+            
+            RoundStartedEvent = null;
+            CardsDrawnEvent = null;
+            RoundCompletedEvent = null;
+            WarStartedEvent = null;
+            WarCompletedEvent = null;
+            GamePausedEvent = null;
+            GameResumedEvent = null;
+            GameOverEvent = null;
         }
 
         #endregion

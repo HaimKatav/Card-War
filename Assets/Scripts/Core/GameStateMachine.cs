@@ -63,12 +63,6 @@ namespace CardWar.Core
             OnStateChanged?.Invoke(_currentState, _previousState);
         }
         
-        public void Update()
-        {
-            if (_states.TryGetValue(_currentState, out var currentState))
-                currentState.OnUpdate?.Invoke();
-        }
-        
         public bool HasState(GameState state)
         {
             return _states.ContainsKey(state);

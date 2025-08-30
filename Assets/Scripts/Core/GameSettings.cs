@@ -12,7 +12,7 @@ namespace CardWar.Core
         public static readonly string CARD_SPRITE_ASSET_PATH = "GameplaySprites/Cards/";
         public static readonly string CARD_PREFAB_ASSET_PATH = "Prefabs/CardPrefab";
         
-           [Header("Asset Paths")]
+        [Header("Asset Paths")]
         [SerializeField] private string _uiManagerAssetPath = "Assets/Resources/Prefabs/GameCanvas";
         [SerializeField] private string _cardSpritesPath = "GameplaySprites/Cards";
         [SerializeField] private string _audioClipsPath = "Audio";

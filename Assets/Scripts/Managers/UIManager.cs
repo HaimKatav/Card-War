@@ -4,7 +4,9 @@ using UnityEngine.UI;
 using CardWar.Services;
 using CardWar.Core;
 using CardWar.Common;
+using CardWar.Game.UI;
 using TMPro;
+using UnityEditor;
 
 namespace CardWar.Managers
 {
@@ -39,19 +41,17 @@ namespace CardWar.Managers
         [SerializeField] private Slider _loadingSlider;
         [SerializeField] private TMP_Text _loadingText;
         
-        private UIState _currentUIState = UIState.FirstEntry;
+        [Header("Game Area UI Elements")]
+        [SerializeField] private GameUIView _gameUIView;
+        
         private Action _resetCallback;
         private IGameStateService _gameStateService;
 
-        public UIState CurrentUIState => _currentUIState;
-        
-        public event Action<string> OnAnimationStarted;
-        public event Action<string> OnAnimationCompleted;
-        public event Action<UIState> OnUIStateChanged;
-        
-        public event Action OnStartButtonPressed;
-        public event Action OnRestartButtonPressed;
-        public event Action OnMenuButtonPressed;
+        public event Action StartButtonPressedEvent;
+        public event Action RestartButtonPressedEvent;
+        public event Action MenuButtonPressedEvent;
+        public event Action ResumeButtonPressedEvent;
+        public event Action PauseButtonPressedEvent;
 
         #region Unity Lifecycle
 
@@ -64,22 +64,19 @@ namespace CardWar.Managers
         {
             SetupUIElements();
             HideAllLayers();
-            
+            SubscribeToEvents();
+
             Debug.Log("[UIManager] Initialized");
         }
         
-        private void Start()
-        {
-            SubscribeToEvents();
-        }
-
         private void SubscribeToEvents()
         {
             _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
             
             if (_gameStateService != null)
             {
-                _gameStateService.OnGameStateChanged += HandleGameStateChanged;
+                Debug.Log("[UIManager] Subscribed to events");
+                _gameStateService.GameStateChanged += HandleGameStateChanged;
                 _gameStateService.OnLoadingProgress += HandleLoadingProgress;
             }
         }
@@ -94,10 +91,15 @@ namespace CardWar.Managers
 
             _menuButton.onClick.RemoveAllListeners();
             _menuButton.onClick.AddListener(OnMenuButtonClicked);
+            
+            _gameUIView.OnPauseButtonPressed += OnPauseButtonClicked;
+            _gameUIView.OnResumeButtonPressed += OnResumeButtonPressed;
+            _gameUIView.OnBackToMainMenuButtonPressed += OnBackToMainMenuButtonPressed;
         }
 
-        #endregion
+        #endregion Unity Lifecycle
 
+        
         #region IUIService Implementation
 
         public GameObject GetGameAreaParent()
@@ -107,9 +109,10 @@ namespace CardWar.Managers
         
         #endregion
 
+        
         #region Public Methods
         
-        public void ToggleLoadingScreen(bool show)
+        private void ToggleLoadingScreen(bool show)
         {
             if (_loadingLayer != null)
             {
@@ -118,34 +121,32 @@ namespace CardWar.Managers
                 if (show)
                 {
                     ResetLoadingProgress();
-                    SetUIState(UIState.Loading);
                 }
             }
         }
 
-        public void ToggleMainMenu(bool show)
+        private void ToggleMainMenu(bool show)
         {
             if (_menuLayer != null)
             {
                 _menuLayer.SetActive(show);
-                
-                if (show)
-                    SetUIState(UIState.Idle);
             }
         }
 
-        public void ToggleGameUI(bool show)
+        private void ToggleGameUI(bool show)
         {
             if (_gameLayer != null)
             {
                 _gameLayer.SetActive(show);
-                
-                if (show)
-                    SetUIState(UIState.Idle);
             }
         }
 
-        public void ToggleGameOverScreen(bool show, bool playerWon)
+        private void TogglePauseMenu(bool show)
+        {
+            _gameUIView.TogglePauseMenu(show);
+        }
+
+        private void ToggleGameOverScreen(bool show)
         {
             if (_gameOverLayer != null)
             {
@@ -153,27 +154,14 @@ namespace CardWar.Managers
                 
                 if (show && _gameOverText != null)
                 {
-                    _gameOverText.text = playerWon ? "You Win!" : "You Lose!";
+                    _gameOverText.text = _gameStateService.MatchStatus == GameStatus.PlayerWon ? "You Win!" : "You Lose!";
                 }
             }
         }
-
-        private void SetUIState(UIState state)
-        {
-            if (_currentUIState != state)
-            {
-                _currentUIState = state;
-                OnUIStateChanged?.Invoke(state);
-            }
-        }
-
-        public void RegisterResetCallback(Action callback)
-        {
-            _resetCallback = callback;
-        }
-
+        
         #endregion
 
+        
         #region Private Methods
 
         private void HideAllLayers()
@@ -181,7 +169,7 @@ namespace CardWar.Managers
             ToggleLoadingScreen(false);
             ToggleMainMenu(false);
             ToggleGameUI(false);
-            ToggleGameOverScreen(false, false);
+            ToggleGameOverScreen(false);
         }
         
         private void ResetLoadingProgress()
@@ -193,74 +181,95 @@ namespace CardWar.Managers
                 _loadingText.text = "Loading... 0%";
         }
 
+        #endregion Private Methods
+
+
+        #region UI Input Handling
+
+        private void OnPauseButtonClicked()
+        {
+            Debug.Log("[UIManager] Pause button clicked");
+            PauseButtonPressedEvent?.Invoke();
+        }
+        
         private void OnStartButtonClicked()
         {
             Debug.Log("[UIManager] Start button clicked");
-            OnStartButtonPressed?.Invoke();
+            StartButtonPressedEvent?.Invoke();
         }
 
+        private void OnBackToMainMenuButtonPressed()
+        {
+            Debug.Log("[UIManager] Back button clicked");
+            MenuButtonPressedEvent?.Invoke();
+        }
+
+        private void OnResumeButtonPressed()
+        {
+            Debug.Log("[UIManager] Resume button clicked");
+            ResumeButtonPressedEvent?.Invoke();
+        }
+        
         private void OnRestartButtonClicked()
         {
             Debug.Log("[UIManager] Restart button clicked");
             _resetCallback?.Invoke();
-            OnRestartButtonPressed?.Invoke();
+            RestartButtonPressedEvent?.Invoke();
         }
 
         private void OnMenuButtonClicked()
         {
             Debug.Log("[UIManager] Menu button clicked");
-            OnMenuButtonPressed?.Invoke();
+            MenuButtonPressedEvent?.Invoke();
         }
 
-        #endregion
+        #endregion UI Input Handling
+        
         
         #region Event Handlers
-        
-        private void HandleGameStateChanged(GameState newState, GameState previousState)
-        {
-            Debug.Log($"[UIManager] Game state changed: {previousState} -> {newState}");
 
+        private void HandleGameStateChanged(GameState newState)
+        {
             switch (newState)
             {
                 case GameState.FirstLoad:
                     HideAllLayers();
                     break;
-                    
+
                 case GameState.LoadingGame:
                     ToggleMainMenu(false);
                     ToggleGameUI(false);
-                    ToggleGameOverScreen(false, false);
+                    ToggleGameOverScreen(false);
                     ToggleLoadingScreen(true);
+                    TogglePauseMenu(false);
                     break;
-                    
+                
                 case GameState.MainMenu:
                     ToggleLoadingScreen(false);
                     ToggleGameUI(false);
-                    ToggleGameOverScreen(false, false);
+                    ToggleGameOverScreen(false);
                     ToggleMainMenu(true);
+                    TogglePauseMenu(false);
                     break;
-                    
+
                 case GameState.Playing:
                     ToggleLoadingScreen(false);
                     ToggleMainMenu(false);
-                    ToggleGameOverScreen(false, false);
+                    ToggleGameOverScreen(false);
                     ToggleGameUI(true);
+                    TogglePauseMenu(false);
                     break;
-                    
+
                 case GameState.Paused:
+                    TogglePauseMenu(true);
                     break;
-                    
+
                 case GameState.GameEnded:
-                    ToggleGameUI(false);
-                    break;
-                    
-                case GameState.ReturnToMenu:
-                    ToggleGameUI(false);
-                    ToggleGameOverScreen(false, false);
+                    ToggleGameOverScreen(false);
                     break;
             }
         }
-        
+
         private void HandleLoadingProgress(float progress)
         {
             if (_loadingSlider != null)
@@ -272,6 +281,7 @@ namespace CardWar.Managers
         
         #endregion
 
+        
         #region Cleanup
 
         private void OnDestroy()
@@ -287,13 +297,20 @@ namespace CardWar.Managers
                 
             if (_gameStateService != null)
             {
-                _gameStateService.OnGameStateChanged -= HandleGameStateChanged;
+                _gameStateService.GameStateChanged -= HandleGameStateChanged;
                 _gameStateService.OnLoadingProgress -= HandleLoadingProgress;
             }
+
+            if (_gameUIView != null)
+            {
+                _gameUIView.OnPauseButtonPressed -= OnPauseButtonClicked;
+                _gameUIView.OnResumeButtonPressed -= OnResumeButtonPressed;
+                _gameUIView.OnBackToMainMenuButtonPressed -= OnBackToMainMenuButtonPressed;
+            }
             
-            OnStartButtonPressed = null;
-            OnRestartButtonPressed = null;
-            OnMenuButtonPressed = null;
+            StartButtonPressedEvent = null;
+            RestartButtonPressedEvent = null;
+            MenuButtonPressedEvent = null;
         }
 
         #endregion

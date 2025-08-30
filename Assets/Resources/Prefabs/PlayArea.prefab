@@ -56,6 +56,7 @@ MonoBehaviour:
   _opponentDeckPosition: {fileID: 6467885751801385697}
   _playerBattlePosition: {fileID: 1308609081067508281}
   _opponentBattlePosition: {fileID: 3452409442523308895}
+  _drawButton: {fileID: 4796879114378378121}
   _playerWarPositions:
   - {fileID: 4207985764047106705}
   - {fileID: 446090330162017530}
@@ -737,6 +738,17 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8747406755786226383, guid: 26e58ab226bed44e4800199671a67dde, type: 3}
   m_PrefabInstance: {fileID: 5121660146299008960}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &4796879114378378121 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 396944484386868297, guid: 26e58ab226bed44e4800199671a67dde, type: 3}
+  m_PrefabInstance: {fileID: 5121660146299008960}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &7206598110540325767 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 2526853680367178823, guid: 26e58ab226bed44e4800199671a67dde, type: 3}

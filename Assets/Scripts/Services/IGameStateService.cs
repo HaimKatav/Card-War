@@ -5,14 +5,8 @@ namespace CardWar.Services
 {
     public interface IGameStateService : IBaseServiceProvider
     {
-        GameState CurrentState { get; }
-        GameState PreviousState { get; }
-        
-        event Action<GameState, GameState> OnGameStateChanged;
+        GameStatus MatchStatus { get; }
+        event Action<GameState> GameStateChanged;
         event Action<float> OnLoadingProgress;
-        event Action OnClientStartupComplete;
-        
-        void UpdateLoadingProgress(float progress);
-        void NotifyStartupComplete();
     }
 }

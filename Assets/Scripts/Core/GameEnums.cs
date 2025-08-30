@@ -8,7 +8,6 @@ namespace CardWar.Common
         Playing,
         Paused,
         GameEnded,
-        ReturnToMenu
     }
     
     public enum Suit

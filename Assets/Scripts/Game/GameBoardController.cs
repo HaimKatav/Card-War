@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using CardWar.Common;
 using UnityEngine;
@@ -6,10 +7,11 @@ using CardWar.Services;
 using CardWar.Core;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using UnityEngine.UI;
 
 namespace CardWar.Game.UI
 {
-    public class GameAnimationController : MonoBehaviour
+    public class GameBoardController : MonoBehaviour
     {
         [Header("Pool Container")]
         [SerializeField] private Transform _poolContainer;
@@ -22,6 +24,9 @@ namespace CardWar.Game.UI
         [SerializeField] private Transform _playerBattlePosition;
         [SerializeField] private Transform _opponentBattlePosition;
         
+        [Header("Draw Button")]
+        [SerializeField] private Button _drawButton;
+        
         [Header("War Positions")]
         [SerializeField] private Transform[] _playerWarPositions = new Transform[4];
         [SerializeField] private Transform[] _opponentWarPositions = new Transform[4];
@@ -31,16 +36,15 @@ namespace CardWar.Game.UI
         [SerializeField] private float _cardFlipDelay = 0.3f;
         [SerializeField] private float _roundEndDelay = 1f;
         
+        public event Action OnDrawButtonPressed;
+        
         private IGameControllerService _gameController;
         private IAssetService _assetService;
         
         private GenericPool<CardView> _cardPool;
         private CardView _playerBattleCard;
         private CardView _opponentBattleCard;
-        private List<CardView> _warCards = new List<CardView>();
-        
-        private bool _isPaused;
-
+        private List<CardView> _warCards = new();
         
         #region Initialization
 
@@ -69,8 +73,13 @@ namespace CardWar.Game.UI
         {
             if (_gameController != null)
             {
-                _gameController.OnGamePaused += HandleGamePaused;
-                _gameController.OnGameResumed += HandleGameResumed;
+                _gameController.GamePausedEvent += HandleGamePaused;
+                _gameController.GameResumedEvent += HandleGameResumed;
+            }
+
+            if (_drawButton != null)
+            {
+                _drawButton.onClick.AddListener(() => OnDrawButtonPressed?.Invoke());
             }
         }
 
@@ -126,13 +135,11 @@ namespace CardWar.Game.UI
 
         public void PauseAnimations()
         {
-            _isPaused = true;
             DOTween.PauseAll();
         }
 
         public void ResumeAnimations()
         {
-            _isPaused = false;
             DOTween.PlayAll();
         }
 
@@ -211,7 +218,7 @@ namespace CardWar.Game.UI
                         var shouldFlip = (i == warRound.PlayerWarCards.Count - 1);
                         if (shouldFlip)
                         {
-                            warCard.FlipCard(true, 0.3f);
+                            warCard.FlipCard(true);
                         }
                     }
                 }
@@ -324,6 +331,7 @@ namespace CardWar.Game.UI
 
         #endregion
 
+        
         #region Event Handlers
 
         private void HandleGamePaused()
@@ -340,19 +348,23 @@ namespace CardWar.Game.UI
 
         #region Cleanup
 
-        private void OnDestroy()
-        {
-            UnsubscribeFromEvents();
-            _cardPool?.ReturnAll();
-        }
-
         private void UnsubscribeFromEvents()
         {
             if (_gameController != null)
             {
-                _gameController.OnGamePaused -= HandleGamePaused;
-                _gameController.OnGameResumed -= HandleGameResumed;
+                _gameController.GamePausedEvent -= HandleGamePaused;
+                _gameController.GameResumedEvent -= HandleGameResumed;
             }
+        }
+        
+        private void OnDestroy()
+        {
+            UnsubscribeFromEvents();
+            
+            OnDrawButtonPressed = null;
+            
+            _cardPool?.ReturnAll();
+            _warCards?.Clear();
         }
 
         #endregion
