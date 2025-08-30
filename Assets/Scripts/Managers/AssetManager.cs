@@ -35,6 +35,10 @@ namespace CardWar.Managers
             {
                 _loadedAssets[assetPath] = asset;
             }
+            else
+            {
+                Debug.LogError($"Asset path {assetPath} not found");
+            }
             
             return asset;
         }
