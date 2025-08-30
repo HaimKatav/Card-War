@@ -1,10 +1,10 @@
 using System;
+using CardWar.Common;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using CardWar.Services;
 using UnityEngine.Events;
-using Zenject;
 
 namespace CardWar.Game.UI
 {
@@ -22,8 +22,12 @@ namespace CardWar.Game.UI
         [Header("Control Buttons")]
         [SerializeField] private Button _drawButton;
         [SerializeField] private Button _pauseButton;
-        
+
         [Header("Panels")]
+        [SerializeField] private GameObject _gameOverPanel;
+        [SerializeField] private Button _restartButton;
+        [SerializeField] private Button _backToMainButton;
+        
         [SerializeField] private GameObject _pausePanel;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private Button _quitButton;
@@ -34,7 +38,6 @@ namespace CardWar.Game.UI
         
         private int _currentRound = 0;
 
-        [Inject]
         public void Initialize(IGameControllerService gameController, IGameStateService gameStateService, IAudioService audioService)
         {
             _gameController = gameController;

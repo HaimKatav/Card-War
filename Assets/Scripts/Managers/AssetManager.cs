@@ -1,114 +1,132 @@
 using System;
 using System.Collections.Generic;
-using CardWar.Core;
 using UnityEngine;
-using CardWar.Services;
 using Cysharp.Threading.Tasks;
-using Zenject;
+using CardWar.Services;
+using CardWar.Core;
 
 namespace CardWar.Managers
 {
-    public class AssetManager : MonoBehaviour, IAssetService, IDisposable
+    public class AssetManager : MonoBehaviour, IAssetService
     {
-        private Dictionary<string, UnityEngine.Object> _loadedAssets = new();
-        private Dictionary<string, Sprite> _cardSprites = new ();
-        private Sprite _cardBackSprite;
+        private readonly Dictionary<string, UnityEngine.Object> _loadedAssets = new Dictionary<string, UnityEngine.Object>();
+        private GameSettings _gameSettings;
 
-        public async UniTask<T> LoadAssetAsync<T>(string assetPath) where T : UnityEngine.Object
+        #region Unity Lifecycle
+
+        private void Awake()
         {
-            if (_loadedAssets.TryGetValue(assetPath, out var cachedAsset))
+            Initialize();
+        }
+
+        private void Initialize()
+        {
+            _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
+            Debug.Log("[AssetManager] Initialized");
+        }
+
+        #endregion
+
+        #region IAssetService Implementation
+
+        public async UniTask<T> LoadAssetAsync<T>(string path) where T : UnityEngine.Object
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                Debug.LogError("[AssetManager] Asset path is null or empty");
+                return null;
+            }
+
+            if (_loadedAssets.TryGetValue(path, out var cachedAsset))
             {
                 return cachedAsset as T;
             }
 
-            await UniTask.Delay(100);
-            
-            var asset = Resources.Load<T>(assetPath);
-            if (asset != null)
+            var request = Resources.LoadAsync<T>(path);
+            await request;
+
+            if (request.asset != null)
             {
-                _loadedAssets[assetPath] = asset;
+                _loadedAssets[path] = request.asset;
+                Debug.Log($"[AssetManager] Asset loaded: {path}");
+                return request.asset as T;
             }
-            else
-            {
-                Debug.LogError($"Asset path {assetPath} not found");
-            }
-            
-            return asset;
+
+            Debug.LogWarning($"[AssetManager] Failed to load asset: {path}");
+            return null;
         }
 
-        public T LoadAsset<T>(string assetPath) where T : UnityEngine.Object
+        public T LoadAsset<T>(string path) where T : UnityEngine.Object
         {
-            if (_loadedAssets.TryGetValue(assetPath, out var cachedAsset))
+            if (string.IsNullOrEmpty(path))
+            {
+                Debug.LogError("[AssetManager] Asset path is null or empty");
+                return null;
+            }
+
+            if (_loadedAssets.TryGetValue(path, out var cachedAsset))
             {
                 return cachedAsset as T;
             }
 
-            var asset = Resources.Load<T>(assetPath);
+            var asset = Resources.Load<T>(path);
             if (asset != null)
             {
-                _loadedAssets[assetPath] = asset;
+                _loadedAssets[path] = asset;
+                Debug.Log($"[AssetManager] Asset loaded: {path}");
+                return asset;
             }
-            
-            return asset;
+
+            Debug.LogWarning($"[AssetManager] Failed to load asset: {path}");
+            return null;
         }
 
-        public void UnloadAsset(string assetPath)
+        public void UnloadAsset(string path)
         {
-            if (_loadedAssets.Remove(assetPath))
+            if (_loadedAssets.TryGetValue(path, out var asset))
             {
-                Debug.Log($"[AssetManager] Asset unloaded: {assetPath}");
+                _loadedAssets.Remove(path);
+                Resources.UnloadAsset(asset);
+                Debug.Log($"[AssetManager] Asset unloaded: {path}");
             }
         }
 
-        public async UniTask PreloadCardAssets()
+        public UniTask PreloadCardAssets()
         {
-            await LoadCardSprites();
-            Debug.Log($"[AssetManager] Preloaded {_cardSprites.Count} card sprites");
-        }
-
-        private async UniTask LoadCardSprites()
-        {
-            _cardBackSprite = await LoadAssetAsync<Sprite>(GameSettings.CARD_BACK_SPRITE_ASSET_PATH);
-            
-            string[] suits = { "hearts", "diamonds", "clubs", "spades" };
-            string[] ranks = { "2", "3", "4", "5", "6", "7", "8", "9", "10", "jack", "queen", "king", "ace" };
-            
-            foreach (var suit in suits)
-            {
-                foreach (var rank in ranks)
-                {
-                    var cardKey = $"{rank}_{suit}";
-                    var path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}{cardKey}";
-                    var sprite = await LoadAssetAsync<Sprite>(path);
-                    
-                    if (sprite != null)
-                    {
-                        _cardSprites[cardKey] = sprite;
-                    }
-                }
-            }
+            throw new NotImplementedException();
         }
 
         public Sprite GetCardSprite(string cardKey)
         {
-            _cardSprites.TryGetValue(cardKey, out var sprite);
-            return sprite;
+            if (_gameSettings == null)
+            {
+                Debug.LogError("[AssetManager] GameSettings not found");
+                return null;
+            }
+
+            var path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}/{cardKey}";
+            return LoadAsset<Sprite>(path);
         }
 
         public Sprite GetCardBackSprite()
         {
-            return _cardBackSprite;
+            throw new NotImplementedException();
         }
 
-        public void Dispose()
-        {
-            _loadedAssets.Clear();
-            _cardSprites.Clear();
-        }
+        #endregion
+
+        #region Cleanup
 
         private void OnDestroy()
         {
-            Dispose();
+            foreach (var kvp in _loadedAssets)
+            {
+                if (kvp.Value != null)
+                    Resources.UnloadAsset(kvp.Value);
+            }
+            _loadedAssets.Clear();
         }
+
+        #endregion
     }
 }

@@ -2,40 +2,34 @@ using UnityEngine;
 
 namespace CardWar.Core
 {
-    [CreateAssetMenu(fileName = "NetworkSettings", menuName = "CardWar/NetworkSettings")]
+    [CreateAssetMenu(fileName = "NetworkSettings", menuName = "CardWar/Network Settings")]
     public class NetworkSettingsData : ScriptableObject
     {
         [Header("Network Simulation")]
-        public float MinDelay = 0.1f;
-        public float MaxDelay = 2.0f;
+        [SerializeField] private bool _simulateNetwork = true;
+        [SerializeField] private float _minDelay = 0.05f;
+        [SerializeField] private float _maxDelay = 0.3f;
+        [SerializeField] private float _packetLossChance = 0.01f;
+        [SerializeField] private float _timeoutDuration = 5f;
         
-        [Header("Error Simulation")]
-        [Range(0f, 1f)]
-        public float TimeoutChance = 0.05f;
-        [Range(0f, 1f)]
-        public float ErrorChance = 0.02f;
-        public float TimeoutDuration = 5.0f;
+        [Header("Debug Settings")]
+        [SerializeField] private bool _logNetworkEvents = false;
         
-        [Header("Debug")]
-        public bool EnableNetworkSimulation = true;
-        public bool LogNetworkEvents = false;
+        public bool SimulateNetwork => _simulateNetwork;
+        public float MinDelay => _minDelay;
+        public float MaxDelay => _maxDelay;
+        public float PacketLossChance => _packetLossChance;
+        public float TimeoutDuration => _timeoutDuration;
+        public bool LogNetworkEvents => _logNetworkEvents;
         
         public float GetRandomDelay()
         {
-            if (!EnableNetworkSimulation) return 0f;
-            return Random.Range(MinDelay, MaxDelay);
+            return Random.Range(_minDelay, _maxDelay);
         }
         
-        public bool ShouldSimulateTimeout()
+        public bool ShouldDropPacket()
         {
-            if (!EnableNetworkSimulation) return false;
-            return Random.value < TimeoutChance;
-        }
-        
-        public bool ShouldSimulateError()
-        {
-            if (!EnableNetworkSimulation) return false;
-            return Random.value < ErrorChance;
+            return Random.value < _packetLossChance;
         }
     }
 }

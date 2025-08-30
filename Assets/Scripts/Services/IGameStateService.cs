@@ -1,19 +1,9 @@
 using System;
+using CardWar.Common;
 
 namespace CardWar.Services
 {
-    public enum GameState
-    {
-        FirstLoad,
-        LoadingGame,
-        MainMenu,
-        Playing,
-        Paused,
-        GameEnded,
-        ReturnToMenu
-    }
-
-    public interface IGameStateService
+    public interface IGameStateService : IBaseServiceProvider
     {
         GameState CurrentState { get; }
         GameState PreviousState { get; }
@@ -23,7 +13,7 @@ namespace CardWar.Services
         event Action OnClientStartupComplete;
         
         void ChangeState(GameState newState);
-       // void UpdateLoadingProgress(float progress);
+        void UpdateLoadingProgress(float progress);
         void NotifyStartupComplete();
     }
 }

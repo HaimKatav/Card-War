@@ -1,170 +1,105 @@
 using System;
+using CardWar.Common;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using CardWar.Services;
 using CardWar.Core;
-using Zenject;
 
 namespace CardWar.Managers
 {
-    public class UIManager : MonoBehaviour, IUIService, IDisposable
+    public class UIManager : MonoBehaviour, IUIService
     {
         [Header("UI Layers")]
-        [SerializeField] private GameObject _mainMenuLayer;
         [SerializeField] private GameObject _loadingLayer;
+        [SerializeField] private GameObject _menuLayer;
         [SerializeField] private GameObject _gameLayer;
         [SerializeField] private GameObject _gameOverLayer;
         
-        [Header("Main Menu")]
+        [Header("Menu Elements")]
         [SerializeField] private Button _startButton;
         
-        [Header("Loading Screen")]
-        [SerializeField] private Slider _loadingProgressBar;
-        [SerializeField] private TextMeshProUGUI _loadingText;
-        [SerializeField] private TextMeshProUGUI _loadingPercentage;
+        [Header("Game Over Elements")]
+        [SerializeField] private Text _gameOverText;
+        [SerializeField] private Button _restartButton;
+        [SerializeField] private Button _menuButton;
         
-        [Header("Game Over Screen")]
-        [SerializeField] private TextMeshProUGUI _gameOverMessage;
-        [SerializeField] private Button _playAgainButton;
-        [SerializeField] private Button _mainMenuButton;
-        
-        private IDIService _diService;
-        private IGameStateService _gameStateService;
-        private IAudioService _audioService;
-        private IAssetService _assetService;
-        
-        private UIState _currentUIState;
+        private UIState _currentUIState = UIState.FirstEntry;
         private Action _resetCallback;
-        private bool _isInitialized;
+        private IGameStateService _gameStateService;
 
         public UIState CurrentUIState => _currentUIState;
         
+        public event Action<string> OnAnimationStarted;
+        public event Action<string> OnAnimationCompleted;
         public event Action<UIState> OnUIStateChanged;
 
-        #region Initialization
+        #region Unity Lifecycle
 
-        [Inject]
-        public void Construct(IDIService diService, IGameStateService gameStateService, 
-            IAudioService audioService, IAssetService assetService)
+        private void Awake()
         {
-            _diService = diService;
-            _gameStateService = gameStateService;
-            _audioService = audioService;
-            _assetService = assetService;
-            
-            SetupButtons();
-            SubscribeToEvents();
-            InitializeUI();
-            
-            _isInitialized = true;
-            SetUIState(UIState.Idle);
-            
-            Debug.Log($"[UIManager] Initialized with all dependencies");
+            Initialize();
         }
 
-        private void InitializeUI()
+        private void Initialize()
         {
+            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
+            
+            SetupUIElements();
             HideAllLayers();
             
-            if (_loadingProgressBar != null)
-            {
-                _loadingProgressBar.value = 0;
-            }
-            
-            Debug.Log($"[UIManager] UI initialized");
+            Debug.Log("[UIManager] Initialized");
         }
 
-        #endregion
-
-        #region Button Setup
-
-        private void SetupButtons()
+        private void SetupUIElements()
         {
             if (_startButton != null)
             {
                 _startButton.onClick.RemoveAllListeners();
-                _startButton.onClick.AddListener(HandleStartButtonClick);
-            }
-
-            if (_playAgainButton != null)
-            {
-                _playAgainButton.onClick.RemoveAllListeners();
-                _playAgainButton.onClick.AddListener(HandlePlayAgainButtonClick);
+                _startButton.onClick.AddListener(OnStartButtonClicked);
             }
             
-            if (_mainMenuButton != null)
+            if (_restartButton != null)
             {
-                _mainMenuButton.onClick.RemoveAllListeners();
-                _mainMenuButton.onClick.AddListener(HandleMainMenuButtonClick);
+                _restartButton.onClick.RemoveAllListeners();
+                _restartButton.onClick.AddListener(OnRestartButtonClicked);
+            }
+            
+            if (_menuButton != null)
+            {
+                _menuButton.onClick.RemoveAllListeners();
+                _menuButton.onClick.AddListener(OnMenuButtonClicked);
             }
         }
 
         #endregion
 
-        #region Event Management
-
-        private void SubscribeToEvents()
-        {
-            if (_gameStateService != null)
-            {
-                _gameStateService.OnGameStateChanged += HandleGameStateChanged;
-                _gameStateService.OnLoadingProgress += HandleLoadingProgress;
-            }
-        }
-
-        private void UnsubscribeFromEvents()
-        {
-            if (_gameStateService != null)
-            {
-                _gameStateService.OnGameStateChanged -= HandleGameStateChanged;
-                _gameStateService.OnLoadingProgress -= HandleLoadingProgress;
-            }
-        }
-
-        #endregion
-
-        #region UI State Management
-
-        public void ShowMainMenu(bool show)
-        {
-            if (_mainMenuLayer != null)
-            {
-                _mainMenuLayer.SetActive(show);
-                Debug.Log($"[UIManager] Main menu {(show ? "shown" : "hidden")}");
-            }
-        }
+        #region IUIService Implementation
 
         public void ToggleLoadingScreen(bool show)
         {
             if (_loadingLayer != null)
-            {
                 _loadingLayer.SetActive(show);
-
-                Debug.Log($"[UIManager] Loading screen {(show ? "shown" : "hidden")}");
-            }
+                
+            if (show)
+                SetUIState(UIState.Loading);
         }
 
-        public void UpdateLoadingProgress(float progress)
+        public void ShowMainMenu(bool show)
         {
-            if (_loadingProgressBar != null)
-            {
-                _loadingProgressBar.value = progress;
-            }
-            
-            if (_loadingPercentage != null)
-            {
-                _loadingPercentage.text = $"{(int)(progress * 100)}%";
-            }
+            if (_menuLayer != null)
+                _menuLayer.SetActive(show);
+                
+            if (show)
+                SetUIState(UIState.Idle);
         }
 
         public void ShowGameUI(bool show)
         {
             if (_gameLayer != null)
-            {
                 _gameLayer.SetActive(show);
-                Debug.Log($"[UIManager] Game UI {(show ? "shown" : "hidden")}");
-            }
+                
+            if (show)
+                SetUIState(UIState.Idle);
         }
 
         public void ToggleGameOverScreen(bool show, bool playerWon)
@@ -173,119 +108,72 @@ namespace CardWar.Managers
             {
                 _gameOverLayer.SetActive(show);
                 
-                if (show && _gameOverMessage != null)
+                if (show && _gameOverText != null)
                 {
-                    _gameOverMessage.text = playerWon ? "You Win!" : "You Lose!";
+                    _gameOverText.text = playerWon ? "You Win!" : "You Lose!";
                 }
-                
-                Debug.Log($"[UIManager] Game over screen {(show ? "shown" : "hidden")}");
+            }
+        }
+
+        public void SetUIState(UIState state)
+        {
+            if (_currentUIState != state)
+            {
+                _currentUIState = state;
+                OnUIStateChanged?.Invoke(state);
             }
         }
 
         public void RegisterResetCallback(Action callback)
         {
             _resetCallback = callback;
-            Debug.Log($"[UIManager] Reset callback registered");
-        }
-
-        private void HideAllLayers()
-        {
-            ShowMainMenu(false);
-            ToggleLoadingScreen(false);
-            ShowGameUI(false);
-            ToggleGameOverScreen(false, false);
-        }
-
-        private void SetUIState(UIState newState)
-        {
-            var previousState = _currentUIState;
-            _currentUIState = newState;
-            OnUIStateChanged?.Invoke(newState);
-            
-            if (previousState != newState)
-            {
-                Debug.Log($"[UIManager] UI state changed: {previousState} -> {newState}");
-            }
         }
 
         #endregion
 
-        #region Event Handlers
+        #region Private Methods
 
-        private void HandleStartButtonClick()
+        private void HideAllLayers()
         {
-            Debug.Log($"[UIManager] Start button clicked");
-            _audioService?.PlaySound(SoundEffect.ButtonClick);
+            ToggleLoadingScreen(false);
+            ShowMainMenu(false);
+            ShowGameUI(false);
+            ToggleGameOverScreen(false, false);
+        }
+
+        private void OnStartButtonClicked()
+        {
+            Debug.Log("[UIManager] Start button clicked");
             _gameStateService?.ChangeState(GameState.LoadingGame);
         }
 
-        private void HandlePlayAgainButtonClick()
+        private void OnRestartButtonClicked()
         {
-            Debug.Log($"[UIManager] Play again button clicked");
-            _audioService?.PlaySound(SoundEffect.ButtonClick);
+            Debug.Log("[UIManager] Restart button clicked");
             _resetCallback?.Invoke();
             _gameStateService?.ChangeState(GameState.LoadingGame);
         }
 
-        private void HandleMainMenuButtonClick()
+        private void OnMenuButtonClicked()
         {
-            Debug.Log($"[UIManager] Main menu button clicked");
-            _audioService?.PlaySound(SoundEffect.ButtonClick);
+            Debug.Log("[UIManager] Menu button clicked");
             _gameStateService?.ChangeState(GameState.ReturnToMenu);
-        }
-
-        private void HandleGameStateChanged(GameState newState, GameState previousState)
-        {
-            Debug.Log($"[UIManager] Handling state change: {previousState} -> {newState}");
-            
-            switch (newState)
-            {
-                case GameState.MainMenu:
-                    HideAllLayers();
-                    ShowMainMenu(true);
-                    break;
-                    
-                case GameState.LoadingGame:
-                    ShowMainMenu(false);
-                    ToggleLoadingScreen(true);
-                    ShowGameUI(false);
-                    ToggleGameOverScreen(false, false);
-                    break;
-                    
-                case GameState.Playing:
-                    ToggleLoadingScreen(false);
-                    ShowGameUI(true);
-                    break;
-                    
-                case GameState.GameEnded:
-                    ToggleGameOverScreen(true, false);
-                    break;
-                    
-                case GameState.ReturnToMenu:
-                    HideAllLayers();
-                    ShowMainMenu(true);
-                    break;
-            }
-        }
-
-        private void HandleLoadingProgress(float progress)
-        {
-            UpdateLoadingProgress(progress);
         }
 
         #endregion
 
         #region Cleanup
 
-        public void Dispose()
-        {
-            UnsubscribeFromEvents();
-            Debug.Log($"[UIManager] Disposed");
-        }
-
         private void OnDestroy()
         {
-            Dispose();
+            if (_startButton != null)
+                _startButton.onClick.RemoveAllListeners();
+                
+            if (_restartButton != null)
+                _restartButton.onClick.RemoveAllListeners();
+                
+            if (_menuButton != null)
+                _menuButton.onClick.RemoveAllListeners();
         }
 
         #endregion

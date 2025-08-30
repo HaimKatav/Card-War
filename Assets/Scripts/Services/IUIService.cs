@@ -10,7 +10,7 @@ namespace CardWar.Services
         Loading
     }
 
-    public interface IUIService
+    public interface IUIService : IBaseServiceProvider
     {
         UIState CurrentUIState { get; }
         

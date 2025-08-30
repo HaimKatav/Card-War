@@ -1,10 +1,9 @@
-using System;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 
 namespace CardWar.Services
 {
-    public interface IAssetService
+    public interface IAssetService : IBaseServiceProvider
     {
         UniTask<T> LoadAssetAsync<T>(string assetPath) where T : UnityEngine.Object;
         T LoadAsset<T>(string assetPath) where T : UnityEngine.Object;

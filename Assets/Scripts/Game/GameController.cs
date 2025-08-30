@@ -1,23 +1,18 @@
 using System;
-using CardWar.Common;
 using UnityEngine;
 using CardWar.Services;
-using CardWar.Core;
 using CardWar.Game.Logic;
-using Cysharp.Threading.Tasks;
-using Zenject;
+using CardWar.Common;
+using CardWar.Core;
 
 namespace CardWar.Game
 {
-    public class GameController : MonoBehaviour, IGameControllerService, IDisposable
+    public class GameController : MonoBehaviour, IGameControllerService
     {
-        private IDIService _diService;
         private IGameStateService _gameStateService;
         private IUIService _uiService;
-        private IAssetService _assetService;
-        private GameSettings _gameSettings;
         
-        private bool _isInitialized;
+        private bool _isPaused;
         private bool _isGameActive;
 
         public event Action<RoundData> OnRoundStarted;
@@ -29,94 +24,102 @@ namespace CardWar.Game
         public event Action OnGameResumed;
         public event Action<bool> OnGameOver;
 
-        #region Initialization
+        #region Unity Lifecycle
 
-        [Inject]
-        public void Construct(IDIService diService, IGameStateService gameStateService, 
-            IUIService uiService, IAssetService assetService, GameSettings gameSettings)
+        private void Awake()
         {
-            _diService = diService;
-            _gameStateService = gameStateService;
-            _uiService = uiService;
-            _assetService = assetService;
-            _gameSettings = gameSettings;
+            Initialize();
+        }
+
+        private void Initialize()
+        {
+            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
+            _uiService = ServiceLocator.Instance.Get<IUIService>();
             
-            _uiService.RegisterResetCallback(ResetGame);
+            RegisterResetCallback();
             
-            _isInitialized = true;
-            Debug.Log($"[GameController] Initialized with all dependencies");
+            Debug.Log("[GameController] Initialized");
+        }
+
+        private void RegisterResetCallback()
+        {
+            _uiService?.RegisterResetCallback(ResetGame);
         }
 
         #endregion
 
-        #region Game Control
+        #region IGameControllerService Implementation
 
         public void StartNewGame()
         {
-            Debug.Log($"[GameController] Starting new game");
+            Debug.Log("[GameController] Starting new game");
             _isGameActive = true;
-            
-            SimulateGameStart().Forget();
+            _isPaused = false;
+            InitializeGame();
+        }
+
+        private void InitializeGame()
+        {
+            Debug.Log("[GameController] Game initialized - Ready to play");
         }
 
         public void DrawNextCards()
         {
-            throw new NotImplementedException();
-        }
-
-        private async UniTaskVoid SimulateGameStart()
-        {
-            await UniTask.Delay(1000);
-            Debug.Log($"[GameController] Game started - ready to play");
+            if (!_isGameActive || _isPaused)
+            {
+                Debug.LogWarning("[GameController] Cannot draw cards - game not active or paused");
+                return;
+            }
             
-            _gameStateService.ChangeState(GameState.Playing);
+            Debug.Log("[GameController] Drawing next cards");
+            OnCardsDrawn?.Invoke();
         }
 
         public void PauseGame()
         {
-            if (!_isGameActive) return;
+            if (!_isGameActive || _isPaused) return;
             
-            Debug.Log($"[GameController] Game paused");
+            _isPaused = true;
+            Debug.Log("[GameController] Game paused");
             OnGamePaused?.Invoke();
-            _gameStateService.ChangeState(GameState.Paused);
         }
 
         public void ResumeGame()
         {
-            if (!_isGameActive) return;
+            if (!_isGameActive || !_isPaused) return;
             
-            Debug.Log($"[GameController] Game resumed");
+            _isPaused = false;
+            Debug.Log("[GameController] Game resumed");
             OnGameResumed?.Invoke();
-            _gameStateService.ChangeState(GameState.Playing);
-        }
-
-        public void ReturnToMenu()
-        {
-            throw new NotImplementedException();
         }
 
         public void EndGame(bool playerWon)
         {
-            _isGameActive = false;
-            Debug.Log($"[GameController] Game ended - Player {(playerWon ? "won" : "lost")}");
+            if (!_isGameActive) return;
             
+            _isGameActive = false;
+            _isPaused = false;
+            
+            Debug.Log($"[GameController] Game ended - Player won: {playerWon}");
             OnGameOver?.Invoke(playerWon);
-            _gameStateService.ChangeState(GameState.GameEnded);
+            
+            _gameStateService?.ChangeState(GameState.GameEnded);
         }
 
-        private void ResetGame()
+        public void ResetGame()
         {
-            Debug.Log($"[GameController] Resetting game");
+            Debug.Log("[GameController] Resetting game");
             _isGameActive = false;
+            _isPaused = false;
         }
 
         #endregion
 
-        #region Unity Lifecycle
+        #region Private Methods
 
         private void OnApplicationPause(bool pauseStatus)
         {
-            if (pauseStatus && _isGameActive)
+            if (pauseStatus && _isGameActive && !_isPaused)
             {
                 PauseGame();
             }
@@ -124,7 +127,7 @@ namespace CardWar.Game
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus && _isGameActive)
+            if (!hasFocus && _isGameActive && !_isPaused)
             {
                 PauseGame();
             }
@@ -134,15 +137,16 @@ namespace CardWar.Game
 
         #region Cleanup
 
-        public void Dispose()
-        {
-            _isGameActive = false;
-            Debug.Log($"[GameController] Disposed");
-        }
-
         private void OnDestroy()
         {
-            Dispose();
+            OnRoundStarted = null;
+            OnCardsDrawn = null;
+            OnRoundCompleted = null;
+            OnWarStarted = null;
+            OnWarCompleted = null;
+            OnGamePaused = null;
+            OnGameResumed = null;
+            OnGameOver = null;
         }
 
         #endregion

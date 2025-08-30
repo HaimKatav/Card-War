@@ -13,12 +13,12 @@ namespace CardWar.Services
         ButtonClick
     }
 
-    public interface IAudioService
+    public interface IAudioService : IBaseServiceProvider
     {
-        float MasterVolume { get; set; }
-        float SfxVolume { get; set; }
-        float MusicVolume { get; set; }
-        bool IsMuted { get; set; }
+        float MasterVolume { get; }
+        float SFXVolume { get; }
+        float MusicVolume { get; }
+        bool IsMuted { get; }
         
         void PlaySound(SoundEffect sound);
         void PlayMusic(string musicKey, bool loop = true);

@@ -1,10 +1,10 @@
 using System;
-using CardWar.Game.Logic;
 using CardWar.Common;
+using CardWar.Game.Logic;
 
 namespace CardWar.Services
 {
-    public interface IGameControllerService
+    public interface IGameControllerService : IBaseServiceProvider
     {
         event Action<RoundData> OnRoundStarted;
         event Action OnCardsDrawn;
@@ -19,6 +19,7 @@ namespace CardWar.Services
         void DrawNextCards();
         void PauseGame();
         void ResumeGame();
-        void ReturnToMenu();
+        void EndGame(bool playerWon);
+        void ResetGame();
     }
 }

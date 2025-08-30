@@ -1,4 +1,5 @@
 using System;
+using CardWar.Common;
 using CardWar.Services;
 using UnityEngine;
 
@@ -19,16 +20,16 @@ namespace CardWar.Core
 
         public override void Enter()
         {
-            Debug.Log($"[{GetType().Name}] Entering ReturnToMenu state");
-            _gameController?.ReturnToMenu();
+            Debug.Log($"[ReturnToMenuState] Entering ReturnToMenu state");
             _uiService?.ShowGameUI(false);
+            _uiService?.ToggleGameOverScreen(false, false);
+            _gameController?.ResetGame();
             _onComplete?.Invoke();
         }
 
         public override void Exit()
         {
-            Debug.Log($"[{GetType().Name}] Exiting ReturnToMenu state");
+            Debug.Log($"[ReturnToMenuState] Exiting ReturnToMenu state");
         }
     }
-
 }

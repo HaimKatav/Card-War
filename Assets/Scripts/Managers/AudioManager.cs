@@ -1,145 +1,199 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Services;
-using Zenject;
+using CardWar.Core;
 
 namespace CardWar.Managers
 {
-    public class AudioManager : MonoBehaviour, IAudioService, IDisposable
+    public class AudioManager : MonoBehaviour, IAudioService
     {
         private AudioSource _musicSource;
         private AudioSource _sfxSource;
+        private Dictionary<string, AudioClip> _audioClips;
+        private GameSettings _gameSettings;
         
-        private float _masterVolume = 1.0f;
-        private float _sfxVolume = 1.0f;
-        private float _musicVolume = 0.5f;
+        private float _masterVolume = 1f;
+        private float _musicVolume = 0.7f;
+        private float _sfxVolume = 1f;
         private bool _isMuted = false;
-        
-        public float MasterVolume
+
+        public float MasterVolume => _masterVolume;
+        public float MusicVolume => _musicVolume;
+        public float SFXVolume => _sfxVolume;
+        public bool IsMuted => _isMuted;
+
+        public event Action<float> OnMasterVolumeChanged;
+        public event Action<float> OnMusicVolumeChanged;
+        public event Action<float> OnSFXVolumeChanged;
+        public event Action<bool> OnMuteStateChanged;
+
+        #region Unity Lifecycle
+
+        private void Awake()
         {
-            get => _masterVolume;
-            set
-            {
-                _masterVolume = Mathf.Clamp01(value);
-                UpdateVolumes();
-            }
+            Initialize();
         }
 
-        public float SfxVolume
+        private void Initialize()
         {
-            get => _sfxVolume;
-            set
-            {
-                _sfxVolume = Mathf.Clamp01(value);
-                UpdateVolumes();
-            }
-        }
-
-        public float MusicVolume
-        {
-            get => _musicVolume;
-            set
-            {
-                _musicVolume = Mathf.Clamp01(value);
-                UpdateVolumes();
-            }
-        }
-
-        public bool IsMuted
-        {
-            get => _isMuted;
-            set
-            {
-                _isMuted = value;
-                UpdateVolumes();
-            }
-        }
-
-        [Inject]
-        public void Construct()
-        {
+            _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
+            _audioClips = new Dictionary<string, AudioClip>();
+            
             SetupAudioSources();
-            Debug.Log($"[AudioManager] Initialized");
+            
+            Debug.Log("[AudioManager] Initialized");
         }
 
         private void SetupAudioSources()
         {
-            var musicObject = new GameObject("MusicSource");
-            musicObject.transform.SetParent(transform);
-            _musicSource = musicObject.AddComponent<AudioSource>();
+            _musicSource = gameObject.AddComponent<AudioSource>();
             _musicSource.loop = true;
-            _musicSource.playOnAwake = false;
-
-            var sfxObject = new GameObject("SfxSource");
-            sfxObject.transform.SetParent(transform);
-            _sfxSource = sfxObject.AddComponent<AudioSource>();
+            _musicSource.volume = _musicVolume * _masterVolume;
+            
+            _sfxSource = gameObject.AddComponent<AudioSource>();
             _sfxSource.loop = false;
-            _sfxSource.playOnAwake = false;
-            
-            UpdateVolumes();
+            _sfxSource.volume = _sfxVolume * _masterVolume;
         }
 
-        private void UpdateVolumes()
-        {
-            var effectiveMasterVolume = _isMuted ? 0 : _masterVolume;
-            
-            if (_musicSource != null)
-            {
-                _musicSource.volume = _musicVolume * effectiveMasterVolume;
-            }
-            
-            if (_sfxSource != null)
-            {
-                _sfxSource.volume = _sfxVolume * effectiveMasterVolume;
-            }
-        }
+        #endregion
 
-        public void PlaySound(SoundEffect soundEffect)
-        {
-            Debug.Log($"[AudioManager] Playing sound: {soundEffect}");
-        }
+        #region IAudioService Implementation
 
         public void PlayMusic(string musicKey, bool loop = true)
         {
-            Debug.Log($"[AudioManager] Playing music: {musicKey}, loop: {loop}");
+            if (_isMuted) return;
+            
+            var clip = GetAudioClip(musicKey);
+            if (clip != null && _musicSource != null)
+            {
+                _musicSource.clip = clip;
+                _musicSource.Play();
+                Debug.Log($"[AudioManager] Playing music: {musicKey}");
+            }
+        }
+
+        public void PlaySound(SoundEffect sound)
+        {
+            if (_isMuted) return;
+            
+            var clip = GetAudioClip(sound.ToString());
+            if (clip != null && _sfxSource != null)
+            {
+                _sfxSource.PlayOneShot(clip);
+                Debug.Log($"[AudioManager] Playing SFX: {sound.ToString()}");
+            }
         }
 
         public void StopMusic()
         {
-            if (_musicSource != null)
+            if (_musicSource != null && _musicSource.isPlaying)
             {
                 _musicSource.Stop();
+                Debug.Log("[AudioManager] Music stopped");
             }
-            Debug.Log($"[AudioManager] Music stopped");
         }
 
         public void PauseMusic()
         {
-            if (_musicSource != null)
+            if (_musicSource != null && _musicSource.isPlaying)
             {
                 _musicSource.Pause();
+                Debug.Log("[AudioManager] Music paused");
             }
-            Debug.Log($"[AudioManager] Music paused");
         }
 
         public void ResumeMusic()
         {
-            if (_musicSource != null)
+            if (_musicSource != null && !_musicSource.isPlaying && _musicSource.clip != null)
             {
                 _musicSource.UnPause();
+                Debug.Log("[AudioManager] Music resumed");
             }
-            Debug.Log($"[AudioManager] Music resumed");
         }
 
-        public void Dispose()
+        public void SetMasterVolume(float volume)
         {
-            StopMusic();
-            Debug.Log($"[AudioManager] Disposed");
+            _masterVolume = Mathf.Clamp01(volume);
+            UpdateVolumes();
+            OnMasterVolumeChanged?.Invoke(_masterVolume);
         }
+
+        public void SetMusicVolume(float volume)
+        {
+            _musicVolume = Mathf.Clamp01(volume);
+            UpdateVolumes();
+            OnMusicVolumeChanged?.Invoke(_musicVolume);
+        }
+
+        public void SetSFXVolume(float volume)
+        {
+            _sfxVolume = Mathf.Clamp01(volume);
+            UpdateVolumes();
+            OnSFXVolumeChanged?.Invoke(_sfxVolume);
+        }
+
+        public void SetMute(bool mute)
+        {
+            _isMuted = mute;
+            
+            if (_musicSource != null)
+                _musicSource.mute = mute;
+                
+            if (_sfxSource != null)
+                _sfxSource.mute = mute;
+                
+            OnMuteStateChanged?.Invoke(_isMuted);
+            Debug.Log($"[AudioManager] Mute state: {_isMuted}");
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private AudioClip GetAudioClip(string clipName)
+        {
+            if (_audioClips.TryGetValue(clipName, out var clip))
+                return clip;
+            
+            if (_gameSettings == null)
+            {
+                Debug.LogWarning("[AudioManager] GameSettings not found");
+                return null;
+            }
+            
+            var path = $"{_gameSettings.AudioClipsPath}/{clipName}";
+            clip = Resources.Load<AudioClip>(path);
+            
+            if (clip != null)
+            {
+                _audioClips[clipName] = clip;
+                return clip;
+            }
+            
+            Debug.LogWarning($"[AudioManager] Audio clip not found: {clipName}");
+            return null;
+        }
+
+        private void UpdateVolumes()
+        {
+            if (_musicSource != null)
+                _musicSource.volume = _musicVolume * _masterVolume;
+                
+            if (_sfxSource != null)
+                _sfxSource.volume = _sfxVolume * _masterVolume;
+        }
+
+        #endregion
+
+        #region Cleanup
 
         private void OnDestroy()
         {
-            Dispose();
+            StopMusic();
+            _audioClips?.Clear();
         }
+
+        #endregion
     }
 }

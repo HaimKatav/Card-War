@@ -1,5 +1,16 @@
 namespace CardWar.Common
 {
+    public enum GameState
+    {
+        FirstLoad,
+        LoadingGame,
+        MainMenu,
+        Playing,
+        Paused,
+        GameEnded,
+        ReturnToMenu
+    }
+    
     public enum Suit
     {
         Hearts,
@@ -7,7 +18,7 @@ namespace CardWar.Common
         Clubs,
         Spades
     }
-
+    
     public enum Rank
     {
         Two = 2,
@@ -24,7 +35,14 @@ namespace CardWar.Common
         King = 13,
         Ace = 14
     }
-
+    
+    public enum RoundResult
+    {
+        PlayerWins,
+        OpponentWins,
+        War
+    }
+    
     public enum GameStatus
     {
         NotStarted,
@@ -32,12 +50,5 @@ namespace CardWar.Common
         PlayerWon,
         OpponentWon,
         Draw
-    }
-
-    public enum RoundResult
-    {
-        PlayerWins,
-        OpponentWins,
-        War
     }
 }
