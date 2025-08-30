@@ -73,18 +73,11 @@ namespace CardWar.Managers
         private void SubscribeToEvents()
         {
             _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
-            _gameControllerService = ServiceLocator.Instance.Get<IGameControllerService>();
             
             if (_gameStateService != null)
             {
                 _gameStateService.OnGameStateChanged += HandleGameStateChanged;
                 _gameStateService.OnLoadingProgress += HandleLoadingProgress;
-            }
-            
-            if (_gameControllerService != null)
-            {
-                _gameControllerService.OnGamePaused += HandleGamePaused;
-                _gameControllerService.OnGameResumed += HandleGameResumed;
             }
         }
 
@@ -263,12 +256,6 @@ namespace CardWar.Managers
             {
                 _gameStateService.OnGameStateChanged -= HandleGameStateChanged;
                 _gameStateService.OnLoadingProgress -= HandleLoadingProgress;
-            }
-            
-            if (_gameControllerService != null)
-            {
-                _gameControllerService.OnGamePaused -= HandleGamePaused;
-                _gameControllerService.OnGameResumed -= HandleGameResumed;
             }
         }
 
