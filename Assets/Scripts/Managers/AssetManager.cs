@@ -116,13 +116,26 @@ namespace CardWar.Managers
         #endregion
 
         #region Cleanup
-
+        private bool CanBeUnloaded(UnityEngine.Object asset)
+        {
+            if (asset == null)
+                return false;
+            
+            return asset is not ScriptableObject && 
+                   !(asset is Component) && 
+                   !(asset is MonoBehaviour) &&
+                   !(asset is Transform);
+        }
+        
         private void OnDestroy()
         {
             foreach (var kvp in _loadedAssets)
             {
-                if (kvp.Value != null)
+                if (kvp.Value != null && CanBeUnloaded(kvp.Value))
+                {
+                    Debug.Log($"[AssetManager] Asset unloaded: {kvp.Value}");
                     Resources.UnloadAsset(kvp.Value);
+                }
             }
             _loadedAssets.Clear();
         }

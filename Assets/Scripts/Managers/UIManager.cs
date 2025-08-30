@@ -1,9 +1,9 @@
 using System;
-using CardWar.Common;
 using UnityEngine;
 using UnityEngine.UI;
 using CardWar.Services;
 using CardWar.Core;
+using CardWar.Common;
 
 namespace CardWar.Managers
 {
@@ -23,9 +23,14 @@ namespace CardWar.Managers
         [SerializeField] private Button _restartButton;
         [SerializeField] private Button _menuButton;
         
+        [Header("Loading Elements")]
+        [SerializeField] private Slider _loadingSlider;
+        [SerializeField] private Text _loadingText;
+        
         private UIState _currentUIState = UIState.FirstEntry;
         private Action _resetCallback;
         private IGameStateService _gameStateService;
+        private IGameControllerService _gameControllerService;
 
         public UIState CurrentUIState => _currentUIState;
         
@@ -42,12 +47,33 @@ namespace CardWar.Managers
 
         private void Initialize()
         {
-            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
-                
             SetupUIElements();
             HideAllLayers();
             
             Debug.Log("[UIManager] Initialized");
+        }
+        
+        private void Start()
+        {
+            SubscribeToEvents();
+        }
+
+        private void SubscribeToEvents()
+        {
+            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
+            _gameControllerService = ServiceLocator.Instance.Get<IGameControllerService>();
+            
+            if (_gameStateService != null)
+            {
+                _gameStateService.OnGameStateChanged += HandleGameStateChanged;
+                _gameStateService.OnLoadingProgress += HandleLoadingProgress;
+            }
+            
+            if (_gameControllerService != null)
+            {
+                _gameControllerService.OnGamePaused += HandleGamePaused;
+                _gameControllerService.OnGameResumed += HandleGameResumed;
+            }
         }
 
         private void SetupUIElements()
@@ -78,28 +104,37 @@ namespace CardWar.Managers
         public void ToggleLoadingScreen(bool show)
         {
             if (_loadingLayer != null)
+            {
                 _loadingLayer.SetActive(show);
                 
-            if (show)
-                SetUIState(UIState.Loading);
+                if (show)
+                {
+                    ResetLoadingProgress();
+                    SetUIState(UIState.Loading);
+                }
+            }
         }
 
         public void ShowMainMenu(bool show)
         {
             if (_menuLayer != null)
+            {
                 _menuLayer.SetActive(show);
                 
-            if (show)
-                SetUIState(UIState.Idle);
+                if (show)
+                    SetUIState(UIState.Idle);
+            }
         }
 
         public void ShowGameUI(bool show)
         {
             if (_gameLayer != null)
+            {
                 _gameLayer.SetActive(show);
                 
-            if (show)
-                SetUIState(UIState.Idle);
+                if (show)
+                    SetUIState(UIState.Idle);
+            }
         }
 
         public void ToggleGameOverScreen(bool show, bool playerWon)
@@ -140,6 +175,15 @@ namespace CardWar.Managers
             ShowGameUI(false);
             ToggleGameOverScreen(false, false);
         }
+        
+        private void ResetLoadingProgress()
+        {
+            if (_loadingSlider != null)
+                _loadingSlider.value = 0;
+                
+            if (_loadingText != null)
+                _loadingText.text = "Loading... 0%";
+        }
 
         private void OnStartButtonClicked()
         {
@@ -161,6 +205,34 @@ namespace CardWar.Managers
         }
 
         #endregion
+        
+        #region Event Handlers
+        
+        private void HandleGameStateChanged(GameState newState, GameState previousState)
+        {
+            Debug.Log($"[UIManager] Game state changed: {previousState} -> {newState}");
+        }
+        
+        private void HandleLoadingProgress(float progress)
+        {
+            if (_loadingSlider != null)
+                _loadingSlider.value = progress;
+                
+            if (_loadingText != null)
+                _loadingText.text = $"Loading... {Mathf.RoundToInt(progress * 100)}%";
+        }
+        
+        private void HandleGamePaused()
+        {
+            Debug.Log("[UIManager] Game paused");
+        }
+        
+        private void HandleGameResumed()
+        {
+            Debug.Log("[UIManager] Game resumed");
+        }
+        
+        #endregion
 
         #region Cleanup
 
@@ -174,6 +246,18 @@ namespace CardWar.Managers
                 
             if (_menuButton != null)
                 _menuButton.onClick.RemoveAllListeners();
+                
+            if (_gameStateService != null)
+            {
+                _gameStateService.OnGameStateChanged -= HandleGameStateChanged;
+                _gameStateService.OnLoadingProgress -= HandleLoadingProgress;
+            }
+            
+            if (_gameControllerService != null)
+            {
+                _gameControllerService.OnGamePaused -= HandleGamePaused;
+                _gameControllerService.OnGameResumed -= HandleGameResumed;
+            }
         }
 
         #endregion

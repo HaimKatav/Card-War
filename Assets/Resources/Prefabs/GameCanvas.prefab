@@ -387,7 +387,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &576101894892152820
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1432,6 +1432,8 @@ MonoBehaviour:
   _gameOverText: {fileID: 0}
   _restartButton: {fileID: 0}
   _menuButton: {fileID: 0}
+  _loadingSlider: {fileID: 0}
+  _loadingText: {fileID: 0}
 --- !u!1 &8542175556040300701
 GameObject:
   m_ObjectHideFlags: 0
@@ -1722,7 +1724,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7058115370062520432, guid: aeb49b094c8cc487eac5d2de625d7f4c, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

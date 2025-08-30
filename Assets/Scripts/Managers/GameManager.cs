@@ -1,8 +1,8 @@
 using System;
-using CardWar.Common;
 using UnityEngine;
 using CardWar.Services;
 using CardWar.Core;
+using CardWar.Common;
 using CardWar.Game;
 using Cysharp.Threading.Tasks;
 
@@ -19,6 +19,7 @@ namespace CardWar.Managers
         private GameController _gameController;
         
         private bool _isInitialized;
+        private float _loadingProgress;
 
         public GameState CurrentState => _stateMachine?.CurrentStateType ?? GameState.FirstLoad;
         public GameState PreviousState => _stateMachine?.PreviousStateType ?? GameState.FirstLoad;
@@ -50,6 +51,7 @@ namespace CardWar.Managers
             await LoadUIManager();
             
             SetupStateMachine();
+            SetupEventSubscriptions();
             
             _isInitialized = true;
             
@@ -65,9 +67,11 @@ namespace CardWar.Managers
         {
             _assetManager = CreateService<AssetManager>("AssetManager");
             _audioManager = CreateService<AudioManager>("AudioManager");
+            _gameController = CreateService<GameController>("GameController");
             
             ServiceLocator.Instance.Register<IAssetService>(_assetManager);
             ServiceLocator.Instance.Register<IAudioService>(_audioManager);
+            ServiceLocator.Instance.Register<IGameControllerService>(_gameController);
         }
 
         private T CreateService<T>(string name) where T : Component
@@ -79,11 +83,24 @@ namespace CardWar.Managers
 
         private async UniTask LoadUIManager()
         {
-            var uiPrefab = await _assetManager.LoadAssetAsync<UIManager>(GameSettings.UI_MANAGER_ASSET_PATH);
+            if (_gameSettings == null)
+            {
+                Debug.LogError("[GameManager] GameSettings not assigned!");
+                return;
+            }
             
+            var uiPrefab = await _assetManager.LoadAssetAsync<GameObject>("Prefabs/GameCanvas");
             if (uiPrefab != null)
             {
                 var uiObject = Instantiate(uiPrefab);
+                _uiManager = uiObject.GetComponent<UIManager>();
+                
+                if (_uiManager == null)
+                {
+                    _uiManager = uiObject.GetComponentInChildren<UIManager>();
+                    if (_uiManager == null)
+                        _uiManager = uiObject.AddComponent<UIManager>();
+                }
                     
                 ServiceLocator.Instance.Register<IUIService>(_uiManager);
                 Debug.Log("[GameManager] UIManager loaded");
@@ -91,29 +108,171 @@ namespace CardWar.Managers
             else
             {
                 Debug.LogWarning("[GameManager] UIManager prefab not found, creating new");
+                _uiManager = CreateService<UIManager>("UIManager");
+                ServiceLocator.Instance.Register<IUIService>(_uiManager);
             }
         }
-        
+
+        #endregion
+
+        #region State Machine Setup
+
         private void SetupStateMachine()
         {
             _stateMachine = new GameStateMachine();
             
-            var uiService = ServiceLocator.Instance.Get<IUIService>();
-            var gameControllerService = ServiceLocator.Instance.Get<IGameControllerService>();
-            var audioService = ServiceLocator.Instance.Get<IAudioService>();
-            
-            _stateMachine.RegisterState(new FirstLoadState(uiService, gameControllerService, audioService));
-            _stateMachine.RegisterState(new MainMenuState(uiService, gameControllerService, audioService));
-            _stateMachine.RegisterState(new LoadingGameState(uiService, gameControllerService, audioService, UpdateLoadingProgress));
-            _stateMachine.RegisterState(new PlayingState(uiService, gameControllerService, audioService));
-            _stateMachine.RegisterState(new PausedState(uiService, gameControllerService, audioService));
-            _stateMachine.RegisterState(new GameEndedState(uiService, gameControllerService, audioService));
-            _stateMachine.RegisterState(new ReturnToMenuState(uiService, gameControllerService, audioService, 
-                () => ChangeState(GameState.MainMenu)));
+            RegisterFirstLoadState();
+            RegisterMainMenuState();
+            RegisterLoadingGameState();
+            RegisterPlayingState();
+            RegisterPausedState();
+            RegisterGameEndedState();
+            RegisterReturnToMenuState();
             
             _stateMachine.OnStateChanged += HandleStateChanged;
             
             Debug.Log($"[GameManager] State machine configured");
+        }
+
+        private void RegisterFirstLoadState()
+        {
+            _stateMachine.RegisterState(GameState.FirstLoad,
+                onEnter: () => 
+                {
+                    Debug.Log("[GameManager] Entering FirstLoad state");
+                },
+                onExit: () => 
+                {
+                    Debug.Log("[GameManager] Exiting FirstLoad state");
+                }
+            );
+        }
+
+        private void RegisterMainMenuState()
+        {
+            _stateMachine.RegisterState(GameState.MainMenu,
+                onEnter: () => 
+                {
+                    Debug.Log("[GameManager] Entering MainMenu state");
+                    _uiManager?.ShowMainMenu(true);
+                    _uiManager?.ToggleLoadingScreen(false);
+                    _uiManager?.ShowGameUI(false);
+                    _uiManager?.ToggleGameOverScreen(false, false);
+                },
+                onExit: () => 
+                {
+                    Debug.Log("[GameManager] Exiting MainMenu state");
+                    _uiManager?.ShowMainMenu(false);
+                }
+            );
+        }
+
+        private void RegisterLoadingGameState()
+        {
+            _stateMachine.RegisterState(GameState.LoadingGame,
+                onEnter: () => 
+                {
+                    Debug.Log("[GameManager] Entering LoadingGame state");
+                    _uiManager?.ToggleLoadingScreen(true);
+                    _uiManager?.ShowMainMenu(false);
+                    _gameController?.StartNewGame();
+                    SimulateLoading().Forget();
+                },
+                onExit: () => 
+                {
+                    Debug.Log("[GameManager] Exiting LoadingGame state");
+                    _uiManager?.ToggleLoadingScreen(false);
+                }
+            );
+        }
+
+        private void RegisterPlayingState()
+        {
+            _stateMachine.RegisterState(GameState.Playing,
+                onEnter: () => 
+                {
+                    Debug.Log("[GameManager] Entering Playing state");
+                    _uiManager?.ShowGameUI(true);
+                    _uiManager?.ToggleLoadingScreen(false);
+                },
+                onExit: () => 
+                {
+                    Debug.Log("[GameManager] Exiting Playing state");
+                }
+            );
+        }
+
+        private void RegisterPausedState()
+        {
+            _stateMachine.RegisterState(GameState.Paused,
+                onEnter: () => 
+                {
+                    Debug.Log("[GameManager] Entering Paused state");
+                    _gameController?.PauseGame();
+                },
+                onExit: () => 
+                {
+                    Debug.Log("[GameManager] Exiting Paused state");
+                    _gameController?.ResumeGame();
+                }
+            );
+        }
+
+        private void RegisterGameEndedState()
+        {
+            _stateMachine.RegisterState(GameState.GameEnded,
+                onEnter: () => 
+                {
+                    Debug.Log("[GameManager] Entering GameEnded state");
+                    _uiManager?.ShowGameUI(false);
+                },
+                onExit: () => 
+                {
+                    Debug.Log("[GameManager] Exiting GameEnded state");
+                    _uiManager?.ToggleGameOverScreen(false, false);
+                }
+            );
+        }
+
+        private void RegisterReturnToMenuState()
+        {
+            _stateMachine.RegisterState(GameState.ReturnToMenu,
+                onEnter: () => 
+                {
+                    Debug.Log("[GameManager] Entering ReturnToMenu state");
+                    _gameController?.ResetGame();
+                    _uiManager?.ShowGameUI(false);
+                    _uiManager?.ToggleGameOverScreen(false, false);
+                    DelayedStateChange(GameState.MainMenu, 100).Forget();
+                },
+                onExit: () => 
+                {
+                    Debug.Log("[GameManager] Exiting ReturnToMenu state");
+                }
+            );
+        }
+
+        #endregion
+
+        #region State Management
+
+        private async UniTaskVoid SimulateLoading()
+        {
+            _loadingProgress = 0f;
+            for (var i = 0; i <= 10; i++)
+            {
+                _loadingProgress = i / 10f;
+                UpdateLoadingProgress(_loadingProgress);
+                await UniTask.Delay(200);
+            }
+        }
+
+        private void SetupEventSubscriptions()
+        {
+            if (_gameController != null)
+            {
+                _gameController.OnGameOver += HandleGameOver;
+            }
         }
 
         #endregion
@@ -188,6 +347,12 @@ namespace CardWar.Managers
             OnGameStateChanged?.Invoke(newState, previousState);
         }
 
+        private void HandleGameOver(bool playerWon)
+        {
+            _uiManager?.ToggleGameOverScreen(true, playerWon);
+            ChangeState(GameState.GameEnded);
+        }
+
         #endregion
 
         #region Cleanup
@@ -197,6 +362,12 @@ namespace CardWar.Managers
             if (_stateMachine != null)
             {
                 _stateMachine.OnStateChanged -= HandleStateChanged;
+                _stateMachine.Clear();
+            }
+            
+            if (_gameController != null)
+            {
+                _gameController.OnGameOver -= HandleGameOver;
             }
             
             OnGameStateChanged = null;

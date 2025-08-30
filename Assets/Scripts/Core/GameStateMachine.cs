@@ -1,76 +1,83 @@
 using System;
 using System.Collections.Generic;
-using CardWar.Common;
 using UnityEngine;
-using CardWar.Services;
+using CardWar.Common;
 
 namespace CardWar.Core
 {
-    public interface IGameState
-    {
-        GameState StateType { get; }
-        void Enter();
-        void Exit();
-        void Update();
-    }
-
     public class GameStateMachine
     {
-        private readonly Dictionary<GameState, IGameState> _states;
-        private IGameState _currentState;
-        private GameState _previousStateType;
+        private readonly Dictionary<GameState, StateDefinition> _states = new();
+        private GameState _currentState = GameState.FirstLoad;
+        private GameState _previousState = GameState.FirstLoad;
         
-        public GameState CurrentStateType => _currentState?.StateType ?? GameState.FirstLoad;
-        public GameState PreviousStateType => _previousStateType;
+        public GameState CurrentStateType => _currentState;
+        public GameState PreviousStateType => _previousState;
         
         public event Action<GameState, GameState> OnStateChanged;
-
-        public GameStateMachine()
+        
+        private class StateDefinition
         {
-            _states = new Dictionary<GameState, IGameState>();
+            public Action OnEnter { get; set; }
+            public Action OnExit { get; set; }
+            public Action OnUpdate { get; set; }
         }
-
-        #region Public Methods
-
-        public void RegisterState(IGameState state)
+        
+        public void RegisterState(GameState state, Action onEnter = null, Action onExit = null, Action onUpdate = null)
         {
-            if (state == null) return;
-            
-            _states[state.StateType] = state;
-            Debug.Log($"[GameStateMachine] State registered: {state.StateType}");
-        }
-
-        public void ChangeState(GameState newStateType)
-        {
-            if (_currentState != null && _currentState.StateType == newStateType)
+            _states[state] = new StateDefinition
             {
-                Debug.LogWarning($"[GameStateMachine] Already in state: {newStateType}");
+                OnEnter = onEnter,
+                OnExit = onExit,
+                OnUpdate = onUpdate
+            };
+            
+            Debug.Log($"[GameStateMachine] State registered: {state}");
+        }
+        
+        public void ChangeState(GameState newState)
+        {
+            if (_currentState == newState)
+            {
+                Debug.LogWarning($"[GameStateMachine] Already in state: {newState}");
                 return;
             }
-
-            if (!_states.TryGetValue(newStateType, out var newState))
+            
+            if (!_states.ContainsKey(newState))
             {
-                Debug.LogError($"[GameStateMachine] State not registered: {newStateType}");
+                Debug.LogError($"[GameStateMachine] State not registered: {newState}");
                 return;
             }
-
-            _previousStateType = _currentState?.StateType ?? GameState.FirstLoad;
             
-            _currentState?.Exit();
+            _previousState = _currentState;
+            
+            if (_states.TryGetValue(_currentState, out var oldState))
+                oldState.OnExit?.Invoke();
+                
             _currentState = newState;
-            _currentState.Enter();
             
-            Debug.Log($"[GameStateMachine] State transition: {_previousStateType} -> {newStateType}");
-            OnStateChanged?.Invoke(newStateType, _previousStateType);
+            if (_states.TryGetValue(_currentState, out var currentState))
+                currentState.OnEnter?.Invoke();
+                
+            Debug.Log($"[GameStateMachine] State transition: {_previousState} -> {_currentState}");
+            OnStateChanged?.Invoke(_currentState, _previousState);
         }
-
+        
         public void Update()
         {
-            _currentState?.Update();
+            if (_states.TryGetValue(_currentState, out var currentState))
+                currentState.OnUpdate?.Invoke();
         }
-
-        #endregion
+        
+        public bool HasState(GameState state)
+        {
+            return _states.ContainsKey(state);
+        }
+        
+        public void Clear()
+        {
+            _states.Clear();
+            OnStateChanged = null;
+        }
     }
-    
- 
 }
