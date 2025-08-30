@@ -8,7 +8,7 @@ using TMPro;
 
 namespace CardWar.Managers
 {
-    public class UIManager : MonoBehaviour, IUIService
+    public class UIManager : MonoBehaviour
     {
         [Header("UI Layers")]
         [SerializeField] private GameObject _loadingLayer;
@@ -31,7 +31,6 @@ namespace CardWar.Managers
         private UIState _currentUIState = UIState.FirstEntry;
         private Action _resetCallback;
         private IGameStateService _gameStateService;
-        private IGameControllerService _gameControllerService;
 
         public UIState CurrentUIState => _currentUIState;
         
@@ -57,6 +56,18 @@ namespace CardWar.Managers
         private void Start()
         {
             SubscribeToEvents();
+            
+            if (_startButton == null)
+            {
+                Debug.LogError("[UIManager] Start button not assigned! Looking for it...");
+                _startButton = GameObject.Find("StartButton")?.GetComponent<Button>();
+                if (_startButton != null)
+                {
+                    _startButton.onClick.RemoveAllListeners();
+                    _startButton.onClick.AddListener(OnStartButtonClicked);
+                    Debug.Log("[UIManager] Found and connected Start button");
+                }
+            }
         }
 
         private void SubscribeToEvents()

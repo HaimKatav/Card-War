@@ -13,6 +13,9 @@ namespace CardWar.Game.UI
 {
     public class TableViewController : MonoBehaviour
     {
+        [Header("Card Pool")]
+        [SerializeField] private CardPool _cardPool;
+        
         [Header("Deck Positions")]
         [SerializeField] private Transform _playerDeckPosition;
         [SerializeField] private Transform _opponentDeckPosition;
@@ -22,15 +25,8 @@ namespace CardWar.Game.UI
         [SerializeField] private Transform _opponentBattlePosition;
         
         [Header("War Positions")]
-        [SerializeField] private Transform[] _playerWarPositions;
-        [SerializeField] private Transform[] _opponentWarPositions;
-        
-        [Header("Card Prefab")]
-        [SerializeField] private GameObject _cardPrefab;
-        
-        [Header("UI References")]
-        [SerializeField] private GameUIView _gameUIView;
-        [SerializeField] private Button _drawButton;
+        [SerializeField] private Transform[] _playerWarPositions = new Transform[4];
+        [SerializeField] private Transform[] _opponentWarPositions = new Transform[4];
         
         [Header("Animation Settings")]
         [SerializeField] private float _cardMoveSpeed = 0.5f;
@@ -39,13 +35,13 @@ namespace CardWar.Game.UI
         
         private IGameControllerService _gameController;
         private IAssetService _assetService;
-        private GameSettings _gameSettings;
         
-        private CardPool _cardPool;
+        private CardView _cardPrefab;
         private CardView _playerBattleCard;
         private CardView _opponentBattleCard;
-        private List<CardView> _warCards;
-        private bool _isAnimating;
+        private List<CardView> _warCards = new List<CardView>();
+        
+        private bool _isPaused;
 
         #region Initialization
 
@@ -53,164 +49,94 @@ namespace CardWar.Game.UI
         {
             _gameController = gameController;
             _assetService = ServiceLocator.Instance.Get<IAssetService>();
-            _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
             
             SetupCardPool();
-            SetupUI();
-            
-            _warCards = new List<CardView>();
             
             Debug.Log("[TableViewController] Initialized");
         }
 
+        private async UniTask GetCardPrefab()
+        {
+            _cardPrefab = await _assetService.LoadAssetAsync<CardView>(GameSettings.CARD_SPRITE_ASSET_PATH);
+        }
+
         private void SetupCardPool()
         {
-            _cardPool = gameObject.GetComponent<CardPool>();
-            if (_cardPool == null)
-            {
-                _cardPool = gameObject.AddComponent<CardPool>();
-            }
-            
-            if (_cardPrefab != null)
-            {
-                _cardPool.Initialize(_cardPrefab, 20);
-            }
-            else
-            {
-                Debug.LogWarning("[TableViewController] Card prefab not assigned, creating default");
-                CreateDefaultCardPrefab();
-            }
-        }
-
-        private void CreateDefaultCardPrefab()
-        {
-            _cardPrefab = new GameObject("Card");
-            _cardPrefab.AddComponent<RectTransform>();
-            _cardPrefab.AddComponent<Image>();
-            _cardPrefab.AddComponent<CardView>();
-            _cardPrefab.SetActive(false);
-            
             _cardPool.Initialize(_cardPrefab, 20);
-        }
-
-        private void SetupUI()
-        {
-            if (_gameUIView == null)
-            {
-                _gameUIView = FindObjectOfType<GameUIView>();
-            }
-            
-            if (_drawButton != null)
-            {
-                _drawButton.onClick.RemoveAllListeners();
-                _drawButton.onClick.AddListener(OnDrawButtonClicked);
-            }
         }
 
         public void SetupInitialState(int playerCards, int opponentCards)
         {
-            UpdateCardCounts(playerCards, opponentCards);
-            UpdateRoundNumber(0);
-            SetDrawButtonEnabled(true);
+            Debug.Log($"[TableViewController] Initial state - Player: {playerCards}, Opponent: {opponentCards}");
         }
 
         #endregion
 
-        #region Game Flow
+        #region Round Playing
 
         public async UniTask PlayRound(RoundData roundData)
         {
-            _isAnimating = true;
-            SetDrawButtonEnabled(false);
+            if (roundData == null)
+            {
+                Debug.LogError("[TableViewController] RoundData is null");
+                return;
+            }
             
-            ClearWarCards();
+            Debug.Log($"[TableViewController] Playing round - IsWar: {roundData.IsWar}");
             
-            _playerBattleCard = _cardPool.GetCard();
-            _opponentBattleCard = _cardPool.GetCard();
+            ClearBattleCards();
             
-            SetupCard(_playerBattleCard, roundData.PlayerCard, _playerDeckPosition.position);
-            SetupCard(_opponentBattleCard, roundData.OpponentCard, _opponentDeckPosition.position);
+            _playerBattleCard = SpawnCard(roundData.PlayerCard, _playerDeckPosition.position);
+            _opponentBattleCard = SpawnCard(roundData.OpponentCard, _opponentDeckPosition.position);
             
-            await AnimateCardsToCenter();
-            await FlipCards();
+            await MoveCardsToCenter();
+            await FlipBattleCards();
             
             if (!roundData.IsWar)
             {
                 await UniTask.Delay((int)(_roundEndDelay * 1000));
                 await CollectCards(roundData.Result);
             }
-            
-            _isAnimating = false;
-            
-            if (!roundData.IsWar)
-            {
-                SetDrawButtonEnabled(true);
-            }
         }
 
         public async UniTask PlayWarSequence(RoundData warRound)
         {
-            _isAnimating = true;
-            SetDrawButtonEnabled(false);
+            if (warRound == null)
+            {
+                Debug.LogError("[TableViewController] War round data is null");
+                return;
+            }
+            
+            Debug.Log($"[TableViewController] Playing war sequence - Chained: {warRound.HasChainedWar}");
             
             await DisplayWarCards(warRound);
             await UniTask.Delay((int)(_roundEndDelay * 1000));
             
             if (!warRound.HasChainedWar)
             {
-                await CollectWarCards(warRound.Result);
-                ClearWarCards();
-                SetDrawButtonEnabled(true);
+                await CollectAllCards(warRound.Result);
+                ClearAllCards();
             }
-            
-            _isAnimating = false;
-        }
-
-        private async UniTask DisplayWarCards(RoundData warRound)
-        {
-            ClearWarCards();
-            
-            for (int i = 0; i < warRound.PlayerWarCards.Count && i < 4; i++)
-            {
-                var card = _cardPool.GetCard();
-                _warCards.Add(card);
-                
-                var position = i < _playerWarPositions.Length ? _playerWarPositions[i] : _playerBattlePosition;
-                SetupCard(card, warRound.PlayerWarCards[i], position.position);
-                
-                if (i == warRound.PlayerWarCards.Count - 1)
-                {
-                    card.FlipCard(true);
-                }
-            }
-            
-            for (int i = 0; i < warRound.OpponentWarCards.Count && i < 4; i++)
-            {
-                var card = _cardPool.GetCard();
-                _warCards.Add(card);
-                
-                var position = i < _opponentWarPositions.Length ? _opponentWarPositions[i] : _opponentBattlePosition;
-                SetupCard(card, warRound.OpponentWarCards[i], position.position);
-                
-                if (i == warRound.OpponentWarCards.Count - 1)
-                {
-                    card.FlipCard(true);
-                }
-            }
-            
-            await UniTask.Delay(500);
         }
 
         #endregion
 
-        #region Card Animation
+        #region Card Management
 
-        private void SetupCard(CardView card, CardData cardData, Vector3 position)
+        private CardView SpawnCard(CardData cardData, Vector3 position)
         {
+            var card = _cardPool.GetCard();
             card.transform.position = position;
             card.SetCardData(cardData);
-            card.FlipCard(false);
+            card.FlipCard(false, 0);
             
+            LoadCardSprite(card, cardData);
+            
+            return card;
+        }
+
+        private void LoadCardSprite(CardView card, CardData cardData)
+        {
             if (_assetService != null && cardData != null)
             {
                 var sprite = _assetService.GetCardSprite(cardData.GetCardKey());
@@ -221,25 +147,67 @@ namespace CardWar.Game.UI
             }
         }
 
-        private async UniTask AnimateCardsToCenter()
+        private async UniTask MoveCardsToCenter()
         {
-            var playerMove = _playerBattleCard.transform.DOMove(_playerBattlePosition.position, _cardMoveSpeed);
-            var opponentMove = _opponentBattleCard.transform.DOMove(_opponentBattlePosition.position, _cardMoveSpeed);
+            var tasks = new List<UniTask>();
             
-            await UniTask.WhenAll(
-                playerMove.AsyncWaitForCompletion().AsUniTask(),
-                opponentMove.AsyncWaitForCompletion().AsUniTask()
-            );
+            if (_playerBattleCard != null)
+                tasks.Add(_playerBattleCard.transform.DOMove(_playerBattlePosition.position, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+                
+            if (_opponentBattleCard != null)
+                tasks.Add(_opponentBattleCard.transform.DOMove(_opponentBattlePosition.position, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+            
+            await UniTask.WhenAll(tasks);
         }
 
-        private async UniTask FlipCards()
+        private async UniTask FlipBattleCards()
         {
             await UniTask.Delay((int)(_cardFlipDelay * 1000));
             
-            _playerBattleCard.FlipCard(true);
-            _opponentBattleCard.FlipCard(true);
+            _playerBattleCard?.FlipCard(true);
+            _opponentBattleCard?.FlipCard(true);
             
             await UniTask.Delay(300);
+        }
+
+        private async UniTask DisplayWarCards(RoundData warRound)
+        {
+            ClearWarCards();
+            
+            for (int i = 0; i < warRound.PlayerWarCards.Count && i < 4; i++)
+            {
+                var position = GetWarPosition(_playerWarPositions, i, _playerBattlePosition);
+                var card = SpawnCard(warRound.PlayerWarCards[i], position.position);
+                _warCards.Add(card);
+                
+                bool isLastCard = (i == warRound.PlayerWarCards.Count - 1);
+                if (isLastCard)
+                {
+                    card.FlipCard(true);
+                }
+            }
+            
+            for (int i = 0; i < warRound.OpponentWarCards.Count && i < 4; i++)
+            {
+                var position = GetWarPosition(_opponentWarPositions, i, _opponentBattlePosition);
+                var card = SpawnCard(warRound.OpponentWarCards[i], position.position);
+                _warCards.Add(card);
+                
+                bool isLastCard = (i == warRound.OpponentWarCards.Count - 1);
+                if (isLastCard)
+                {
+                    card.FlipCard(true);
+                }
+            }
+            
+            await UniTask.Delay(500);
+        }
+
+        private Transform GetWarPosition(Transform[] positions, int index, Transform fallback)
+        {
+            if (positions != null && index < positions.Length && positions[index] != null)
+                return positions[index];
+            return fallback;
         }
 
         private async UniTask CollectCards(RoundResult result)
@@ -247,89 +215,75 @@ namespace CardWar.Game.UI
             Vector3 targetPosition = result == RoundResult.PlayerWins ? 
                 _playerDeckPosition.position : _opponentDeckPosition.position;
             
-            var playerMove = _playerBattleCard.transform.DOMove(targetPosition, _cardMoveSpeed);
-            var opponentMove = _opponentBattleCard.transform.DOMove(targetPosition, _cardMoveSpeed);
+            var tasks = new List<UniTask>();
             
-            await UniTask.WhenAll(
-                playerMove.AsyncWaitForCompletion().AsUniTask(),
-                opponentMove.AsyncWaitForCompletion().AsUniTask()
-            );
+            if (_playerBattleCard != null)
+                tasks.Add(_playerBattleCard.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+                
+            if (_opponentBattleCard != null)
+                tasks.Add(_opponentBattleCard.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
             
-            _cardPool.ReturnCard(_playerBattleCard);
-            _cardPool.ReturnCard(_opponentBattleCard);
+            await UniTask.WhenAll(tasks);
             
-            _playerBattleCard = null;
-            _opponentBattleCard = null;
+            ReturnBattleCards();
         }
 
-        private async UniTask CollectWarCards(RoundResult result)
+        private async UniTask CollectAllCards(RoundResult result)
         {
             Vector3 targetPosition = result == RoundResult.PlayerWins ? 
                 _playerDeckPosition.position : _opponentDeckPosition.position;
             
-            List<UniTask> tasks = new List<UniTask>();
+            var tasks = new List<UniTask>();
             
             if (_playerBattleCard != null)
-            {
                 tasks.Add(_playerBattleCard.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+                
+            if (_opponentBattleCard != null)
+                tasks.Add(_opponentBattleCard.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+            
+            foreach (var card in _warCards)
+            {
+                if (card != null)
+                    tasks.Add(card.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+            }
+            
+            await UniTask.WhenAll(tasks);
+        }
+
+        private void ClearBattleCards()
+        {
+            if (_playerBattleCard != null)
+            {
+                _cardPool.ReturnCard(_playerBattleCard);
+                _playerBattleCard = null;
             }
             
             if (_opponentBattleCard != null)
             {
-                tasks.Add(_opponentBattleCard.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+                _cardPool.ReturnCard(_opponentBattleCard);
+                _opponentBattleCard = null;
             }
-            
-            foreach (var card in _warCards)
-            {
-                tasks.Add(card.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
-            }
-            
-            await UniTask.WhenAll(tasks);
+        }
+
+        private void ReturnBattleCards()
+        {
+            ClearBattleCards();
         }
 
         private void ClearWarCards()
         {
             foreach (var card in _warCards)
             {
-                _cardPool.ReturnCard(card);
+                if (card != null)
+                    _cardPool.ReturnCard(card);
             }
             _warCards.Clear();
         }
 
-        #endregion
-
-        #region UI Updates
-
-        public void UpdateCardCounts(int playerCount, int opponentCount)
+        private void ClearAllCards()
         {
-            if (_gameUIView != null)
-            {
-                _gameUIView.UpdateCardCounts(playerCount, opponentCount);
-            }
-        }
-
-        public void UpdateRoundNumber(int round)
-        {
-            if (_gameUIView != null)
-            {
-                _gameUIView.UpdateRoundNumber(round);
-            }
-        }
-
-        private void SetDrawButtonEnabled(bool enabled)
-        {
-            if (_drawButton != null)
-            {
-                _drawButton.interactable = enabled && !_isAnimating;
-            }
-        }
-
-        private void OnDrawButtonClicked()
-        {
-            if (!_isAnimating && _gameController != null)
-            {
-                _gameController.DrawNextCards();
-            }
+            ClearBattleCards();
+            ClearWarCards();
         }
 
         #endregion
@@ -338,18 +292,16 @@ namespace CardWar.Game.UI
 
         public void HandlePause()
         {
+            _isPaused = true;
             DOTween.PauseAll();
-            SetDrawButtonEnabled(false);
+            Debug.Log("[TableViewController] Paused");
         }
 
         public void HandleResume()
         {
+            _isPaused = false;
             DOTween.PlayAll();
-            
-            if (!_isAnimating)
-            {
-                SetDrawButtonEnabled(true);
-            }
+            Debug.Log("[TableViewController] Resumed");
         }
 
         #endregion
@@ -359,11 +311,7 @@ namespace CardWar.Game.UI
         private void OnDestroy()
         {
             DOTween.KillAll();
-            
-            if (_drawButton != null)
-            {
-                _drawButton.onClick.RemoveAllListeners();
-            }
+            ClearAllCards();
         }
 
         #endregion

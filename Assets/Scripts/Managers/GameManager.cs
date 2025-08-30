@@ -93,9 +93,6 @@ namespace CardWar.Managers
             if (uiPrefab != null)
             {
                 var uiObject = Instantiate(uiPrefab);
-                
-                ServiceLocator.Instance.Register<IUIService>(_uiManager);
-                Debug.Log("[GameManager] UIManager loaded");
             }
             else
             {

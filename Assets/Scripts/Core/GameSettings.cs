@@ -7,11 +7,9 @@ namespace CardWar.Core
     {
         // ASSET PATHS
         public static readonly string UI_MANAGER_ASSET_PATH = "Prefabs/GameCanvas";
-        public static readonly string MAIN_MENU_ASSET_PATH = "Assets/Resources/MainMenu";
-        public static readonly string GAME_SETTINGS_ASSET_PATH = "Settings/GameSettings";
-        public static readonly string NETWORK_SETTINGS_ASSET_PATH = "Settings/NetworkSettings";
         public static readonly string CARD_BACK_SPRITE_ASSET_PATH = "GameplaySprites/Cards/card_back";
         public static readonly string CARD_SPRITE_ASSET_PATH = "GameplaySprites/Cards/";
+        public static readonly string CARD_PREFAB_ASSET_PATH = "Prefabs/CardPrefab";
         
            [Header("Asset Paths")]
         [SerializeField] private string _uiManagerAssetPath = "Assets/Resources/Prefabs/GameCanvas";

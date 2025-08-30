@@ -5,18 +5,16 @@ namespace CardWar.Game.UI
 {
     public class CardPool : MonoBehaviour
     {
-        private GameObject _cardPrefab;
+        private CardView _cardPrefab;
         private Queue<CardView> _availableCards;
         private List<CardView> _activeCards;
         private Transform _poolContainer;
 
-        public void Initialize(GameObject cardPrefab, int initialSize = 10)
+        public void Initialize(CardView cardPrefab, int initialSize = 10)
         {
             _cardPrefab = cardPrefab;
             _availableCards = new Queue<CardView>();
             _activeCards = new List<CardView>();
-            
-            CreatePoolContainer();
             
             for (int i = 0; i < initialSize; i++)
             {
@@ -26,28 +24,16 @@ namespace CardWar.Game.UI
             Debug.Log($"[CardPool] Initialized with {initialSize} cards");
         }
 
-        private void CreatePoolContainer()
-        {
-            _poolContainer = new GameObject("CardPoolContainer").transform;
-            _poolContainer.SetParent(transform);
-            _poolContainer.gameObject.SetActive(false);
-        }
-
         private CardView CreateNewCard()
         {
-            GameObject cardObject = Instantiate(_cardPrefab, _poolContainer);
-            CardView cardView = cardObject.GetComponent<CardView>();
-            
-            if (cardView == null)
-            {
-                cardView = cardObject.AddComponent<CardView>();
-            }
-            
-            cardObject.SetActive(false);
+            var cardView = Instantiate(_cardPrefab, _poolContainer);
+           
+            cardView.gameObject.SetActive(false);
             _availableCards.Enqueue(cardView);
             
             return cardView;
         }
+
 
         public CardView GetCard()
         {
@@ -59,7 +45,7 @@ namespace CardWar.Game.UI
             }
             else
             {
-                card = CreateNewCard();
+                card = Instantiate(_cardPrefab, _poolContainer);
                 Debug.Log("[CardPool] Created new card - pool expanded");
             }
             
