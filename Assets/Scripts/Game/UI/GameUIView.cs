@@ -34,7 +34,7 @@ namespace CardWar.Game.UI
         
         private IGameControllerService _gameControllerService;
         private IGameStateService _gameStateService;
-
+        
         private void Start()
         {
             Initialize();

@@ -32,7 +32,6 @@ namespace CardWar.Game
         private IAssetService _assetService;
         private FakeWarServer _warServer;
         private GameSettings _gameSettings;
-        private GameUIView _gameUIView;
 
         #region Unity Lifecycle
 
@@ -51,6 +50,22 @@ namespace CardWar.Game
             _playAreaParent = uiService.GetGameAreaParent();
             
             _warServer = new FakeWarServer(_gameSettings);
+        }
+        
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (pauseStatus && _isGameActive && !_isPaused)
+            {
+                PauseGame();
+            }
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus && _isGameActive && !_isPaused)
+            {
+                PauseGame();
+            }
         }
         
         #endregion
@@ -90,21 +105,43 @@ namespace CardWar.Game
             
             _isGameActive = true;
             _isPaused = true;
+            _isProcessingRound = false;
+            _isInWar = false;
             
             RegisterDrawButton();
             RegisterGameEvents();
+            RegisterBoardEvents();
+            
+            var initialStats = await _warServer.GetGameStats();
+            if (initialStats != null)
+            {
+                var initialRound = new RoundData
+                {
+                    RoundNumber = 0,
+                    PlayerCardsRemaining = initialStats.PlayerCardCount,
+                    OpponentCardsRemaining = initialStats.OpponentCardCount
+                };
+                RoundStartedEvent?.Invoke(initialRound);
+            }
             
             return true;
         }
 
         private void RegisterDrawButton()
         {
-            _boardController.OnDrawButtonPressed += OnDrawButtonPressed;
+            if (_boardController != null)
+                _boardController.OnDrawButtonPressed += OnDrawButtonPressed;
         }
 
         private void RegisterGameEvents()
         {
             _gameStateService.GameStateChanged += HandleGameStateChanged;
+        }
+
+        private void RegisterBoardEvents()
+        {
+            if (_boardController != null)
+                _boardController.OnRoundAnimationComplete += HandleRoundAnimationComplete;
         }
 
         #endregion
@@ -116,12 +153,10 @@ namespace CardWar.Game
             switch (state)
             {
                 case GameState.Playing:
-                    
                     if (_isGameActive) 
                         ResumeGame();
                     else
                         StartGame();
-                    
                     break;
                 
                 case GameState.Paused:
@@ -137,7 +172,22 @@ namespace CardWar.Game
 
         private void OnDrawButtonPressed()
         {
-            DrawNextCards().Forget();
+            if (!_isProcessingRound)
+            {
+                DrawNextCards().Forget();
+            }
+        }
+
+        private void HandleRoundAnimationComplete()
+        {
+            if (!_isInWar)
+            {
+                _isProcessingRound = false;
+            }
+            else
+            {
+                ContinueWarSequence().Forget();
+            }
         }
 
         #endregion
@@ -170,10 +220,19 @@ namespace CardWar.Game
             catch (Exception e)
             {
                 Debug.LogError($"[GameController] Error processing round: {e.Message}");
-            }
-            finally
-            {
                 _isProcessingRound = false;
+                _isInWar = false;
+            }
+        }
+
+        private async UniTaskVoid ContinueWarSequence()
+        {
+            await UniTask.Delay(1000);
+            
+            if (_isInWar && !_isPaused)
+            {
+                _isProcessingRound = true;
+                await ProcessWarRound();
             }
         }
 
@@ -190,6 +249,12 @@ namespace CardWar.Game
             
             _isPaused = true;
             Debug.Log("[GameController] Game paused");
+            
+            if (_boardController != null)
+            {
+                _boardController.PauseAnimations();
+            }
+            
             GamePausedEvent?.Invoke();
         }
 
@@ -199,7 +264,18 @@ namespace CardWar.Game
             
             _isPaused = false;
             Debug.Log("[GameController] Game resumed");
+            
+            if (_boardController != null)
+            {
+                _boardController.ResumeAnimations();
+            }
+            
             GameResumedEvent?.Invoke();
+            
+            if (_isInWar && !_isProcessingRound)
+            {
+                ContinueWarSequence().Forget();
+            }
         }
 
         private void EndGame(GameStatus status)
@@ -208,6 +284,8 @@ namespace CardWar.Game
             
             _isGameActive = false;
             _isPaused = false;
+            _isProcessingRound = false;
+            _isInWar = false;
             
             Debug.Log($"[GameController] Game ended - Status: {status}");
             GameOverEvent?.Invoke(status);
@@ -245,17 +323,17 @@ namespace CardWar.Game
             if (roundData == null)
             {
                 Debug.LogError("[GameController] Failed to draw cards from server");
+                _isProcessingRound = false;
                 return;
             }
             
             Debug.Log($"[GameController] Round {_warServer.RoundNumber}: Player {roundData.PlayerCard.Rank} vs Opponent {roundData.OpponentCard.Rank}");
             
             CardsDrawnEvent?.Invoke();
-            RoundStartedEvent?.Invoke(roundData);
             
             await PlayRoundWithAnimation(roundData);
             
-            UpdateUIWithRoundData(roundData);
+            RoundStartedEvent?.Invoke(roundData);
             
             if (roundData.IsWar)
             {
@@ -278,16 +356,16 @@ namespace CardWar.Game
             if (warData == null)
             {
                 Debug.LogError("[GameController] Failed to resolve war");
+                _isProcessingRound = false;
+                _isInWar = false;
                 return;
             }
             
             Debug.Log($"[GameController] War resolved: Player {warData.PlayerCard.Rank} vs Opponent {warData.OpponentCard.Rank}");
             
-            RoundStartedEvent?.Invoke(warData);
-            
             await PlayRoundWithAnimation(warData);
             
-            UpdateUIWithRoundData(warData);
+            RoundStartedEvent?.Invoke(warData);
             
             if (warData.HasChainedWar)
             {
@@ -299,6 +377,7 @@ namespace CardWar.Game
                 _isInWar = false;
                 WarCompletedEvent?.Invoke();
                 RoundCompletedEvent?.Invoke(warData.Result);
+                _isProcessingRound = false;
             }
             
             CheckGameStatus();
@@ -323,11 +402,6 @@ namespace CardWar.Game
             }
         }
 
-        private void UpdateUIWithRoundData(RoundData roundData)
-        {
-            RoundStartedEvent?.Invoke(roundData);
-        }
-
         private void CheckGameStatus()
         {
             if (_warServer.Status == GameStatus.PlayerWon)
@@ -347,7 +421,10 @@ namespace CardWar.Game
         private void UnregisterDrawButton()
         {
             if (_boardController != null)
+            {
                 _boardController.OnDrawButtonPressed -= OnDrawButtonPressed;
+                _boardController.OnRoundAnimationComplete -= HandleRoundAnimationComplete;
+            }
                 
             if (_gameStateService != null) 
                 _gameStateService.GameStateChanged -= HandleGameStateChanged;

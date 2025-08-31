@@ -37,6 +37,7 @@ namespace CardWar.Game.UI
         [SerializeField] private float _roundEndDelay = 1f;
         
         public event Action OnDrawButtonPressed;
+        public event Action OnRoundAnimationComplete;
         
         private IGameControllerService _gameController;
         private IAssetService _assetService;
@@ -45,6 +46,8 @@ namespace CardWar.Game.UI
         private CardView _playerBattleCard;
         private CardView _opponentBattleCard;
         private List<CardView> _warCards = new();
+        
+        private bool _isPaused;
         
         #region Initialization
 
@@ -56,7 +59,7 @@ namespace CardWar.Game.UI
             SetupCardPool().Forget();
             SubscribeToEvents();
             
-            Debug.Log("[GameAnimationController] Initialized");
+            Debug.Log("[GameBoardController] Initialized");
         }
 
         private async UniTask SetupCardPool()
@@ -66,7 +69,7 @@ namespace CardWar.Game.UI
             
             var cardPrefab = await _assetService.LoadAssetAsync<CardView>(GameSettings.CARD_PREFAB_ASSET_PATH);
     
-            _cardPool = new GenericPool<CardView>(cardPrefab, _poolContainer, 20);
+            _cardPool = new GenericPool<CardView>(cardPrefab, _poolContainer, 30);
         }
 
         private void SubscribeToEvents()
@@ -85,18 +88,17 @@ namespace CardWar.Game.UI
 
         #endregion
 
-        
         #region Public Methods
 
         public async UniTask PlayRound(RoundData roundData)
         {
             if (roundData == null)
             {
-                Debug.LogError("[GameAnimationController] RoundData is null");
+                Debug.LogError("[GameBoardController] RoundData is null");
                 return;
             }
             
-            Debug.Log($"[GameAnimationController] Playing round - IsWar: {roundData.IsWar}");
+            Debug.Log($"[GameBoardController] Playing round - IsWar: {roundData.IsWar}");
             
             ClearBattleCards();
             
@@ -104,48 +106,72 @@ namespace CardWar.Game.UI
             _opponentBattleCard = SpawnCard(roundData.OpponentCard, _opponentDeckPosition.position);
             
             await MoveCardsToCenter();
+            
+            if (_isPaused) await WaitWhilePaused();
+            
             await FlipBattleCards();
+            
+            if (_isPaused) await WaitWhilePaused();
             
             if (!roundData.IsWar)
             {
                 await UniTask.Delay((int)(_roundEndDelay * 1000));
+                
+                if (_isPaused) await WaitWhilePaused();
+                
                 await CollectCards(roundData.Result);
             }
+            
+            // Always signal animation complete, even for war rounds
+            OnRoundAnimationComplete?.Invoke();
         }
 
         public async UniTask PlayWarSequence(RoundData warRound)
         {
             if (warRound == null)
             {
-                Debug.LogError("[GameAnimationController] War round data is null");
+                Debug.LogError("[GameBoardController] War round data is null");
                 return;
             }
             
-            Debug.Log($"[GameAnimationController] Playing war sequence");
+            Debug.Log($"[GameBoardController] Playing war sequence");
             
             await DisplayWarCards(warRound);
+            
+            if (_isPaused) await WaitWhilePaused();
+            
             await UniTask.Delay((int)(_roundEndDelay * 1000));
+            
+            if (_isPaused) await WaitWhilePaused();
             
             if (!warRound.HasChainedWar)
             {
                 await CollectAllCards(warRound.Result);
                 ClearAllCards();
             }
+            
+            // Always signal completion, even for chained wars
+            OnRoundAnimationComplete?.Invoke();
         }
 
         public void PauseAnimations()
         {
+            _isPaused = true;
             DOTween.PauseAll();
+            if (_drawButton != null)
+                _drawButton.interactable = false;
         }
 
         public void ResumeAnimations()
         {
+            _isPaused = false;
             DOTween.PlayAll();
+            if (_drawButton != null)
+                _drawButton.interactable = true;
         }
 
         #endregion
 
-        
         #region Card Management
 
         private CardView SpawnCard(CardData cardData, Vector3 position)
@@ -205,20 +231,28 @@ namespace CardWar.Game.UI
         {
             ClearWarCards();
             
+            var animationTasks = new List<UniTask>();
+            
             if (warRound.PlayerWarCards != null)
             {
                 for (var i = 0; i < warRound.PlayerWarCards.Count && i < _playerWarPositions.Length; i++)
                 {
                     if (_playerWarPositions[i] != null)
                     {
-                        var warCard = SpawnCard(warRound.PlayerWarCards[i], _playerWarPositions[i].position);
+                        var warCard = SpawnCard(warRound.PlayerWarCards[i], _playerDeckPosition.position);
                         _warCards.Add(warCard);
                         
-                        // Last card in war sequence is face-up, others are concealed
+                        var targetPosition = _playerWarPositions[i].position;
+                        animationTasks.Add(warCard.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+                        
                         var shouldFlip = (i == warRound.PlayerWarCards.Count - 1);
                         if (shouldFlip)
                         {
-                            warCard.FlipCard(true);
+                            UniTask.Create(async () =>
+                            {
+                                await UniTask.Delay((int)(_cardMoveSpeed * 1000));
+                                warCard.FlipCard(true);
+                            }).Forget();
                         }
                     }
                 }
@@ -230,20 +264,27 @@ namespace CardWar.Game.UI
                 {
                     if (_opponentWarPositions[i] != null)
                     {
-                        var warCard = SpawnCard(warRound.OpponentWarCards[i], _opponentWarPositions[i].position);
+                        var warCard = SpawnCard(warRound.OpponentWarCards[i], _opponentDeckPosition.position);
                         _warCards.Add(warCard);
                         
-                        // Last card in war sequence is face-up, others are concealed
+                        var targetPosition = _opponentWarPositions[i].position;
+                        animationTasks.Add(warCard.transform.DOMove(targetPosition, _cardMoveSpeed).AsyncWaitForCompletion().AsUniTask());
+                        
                         var shouldFlip = (i == warRound.OpponentWarCards.Count - 1);
                         if (shouldFlip)
                         {
-                            warCard.FlipCard(true, 0.3f);
+                            UniTask.Create(async () =>
+                            {
+                                await UniTask.Delay((int)(_cardMoveSpeed * 1000));
+                                warCard.FlipCard(true);
+                            }).Forget();
                         }
                     }
                 }
             }
             
-            await UniTask.Delay(1000);
+            await UniTask.WhenAll(animationTasks);
+            await UniTask.Delay(500);
         }
 
         private async UniTask CollectCards(RoundResult result)
@@ -296,6 +337,14 @@ namespace CardWar.Game.UI
             await UniTask.WhenAll(tasks);
         }
 
+        private async UniTask WaitWhilePaused()
+        {
+            while (_isPaused)
+            {
+                await UniTask.Yield();
+            }
+        }
+
         private void ClearBattleCards()
         {
             if (_playerBattleCard != null)
@@ -331,7 +380,6 @@ namespace CardWar.Game.UI
 
         #endregion
 
-        
         #region Event Handlers
 
         private void HandleGamePaused()
@@ -342,6 +390,22 @@ namespace CardWar.Game.UI
         private void HandleGameResumed()
         {
             ResumeAnimations();
+        }
+
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (pauseStatus)
+            {
+                PauseAnimations();
+            }
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus && _gameController != null)
+            {
+                PauseAnimations();
+            }
         }
 
         #endregion
@@ -362,7 +426,9 @@ namespace CardWar.Game.UI
             UnsubscribeFromEvents();
             
             OnDrawButtonPressed = null;
+            OnRoundAnimationComplete = null;
             
+            DOTween.KillAll();
             _cardPool?.ReturnAll();
             _warCards?.Clear();
         }

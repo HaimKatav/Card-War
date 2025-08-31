@@ -119,7 +119,14 @@ namespace CardWar.Managers
         {
             Debug.Log("[GameManager] Entering LoadingGame state");
             SimulateLoading().Forget();
-            await _gameController.CreateNewGame();
+            var result = await _gameController.CreateNewGame();
+            
+            if (!result)
+            {
+                Debug.Log("[GameManager] Failed to create new game - Returning to Main Menu");
+                ChangeState(GameState.MainMenu);
+                return;
+            }
             
             ChangeState(GameState.Playing);
         }
@@ -180,7 +187,6 @@ namespace CardWar.Managers
             
             if (progress >= 1f && CurrentState == GameState.LoadingGame)
             {
-                
                 DelayedStateChange(GameState.Playing, 500).Forget();
             }
         }
