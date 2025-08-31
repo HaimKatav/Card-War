@@ -10,6 +10,11 @@ namespace CardWar.Game.Logic
 {
     public class FakeWarServer
     {
+        public GameStatus Status => _gameStatus;
+        public int RoundNumber => _roundNumber;
+        public int PlayerCardCount => _playerDeck?.Count ?? 0;
+        public int OpponentCardCount => _opponentDeck?.Count ?? 0;
+        
         private GameSettings _gameSettings;
         private List<CardData> _playerDeck;
         private List<CardData> _opponentDeck;
@@ -17,11 +22,6 @@ namespace CardWar.Game.Logic
         private int _roundNumber;
         private GameStatus _gameStatus;
         private System.Random _random;
-        
-        public int PlayerCardCount => _playerDeck?.Count ?? 0;
-        public int OpponentCardCount => _opponentDeck?.Count ?? 0;
-        public int RoundNumber => _roundNumber;
-        public GameStatus Status => _gameStatus;
 
         public FakeWarServer(GameSettings gameSettings)
         {
@@ -34,6 +34,14 @@ namespace CardWar.Game.Logic
         {
             Debug.Log("[FakeWarServer] Initializing new game");
             
+            await SimulateNetworkDelay();
+            
+            if (ShouldSimulateFailure())
+            {
+                Debug.LogWarning("[FakeWarServer] Simulated network failure during InitializeNewGame");
+                return false;
+            }
+            
             _playerDeck = new List<CardData>();
             _opponentDeck = new List<CardData>();
             _warPot = new List<CardData>();
@@ -43,8 +51,6 @@ namespace CardWar.Game.Logic
             var fullDeck = GenerateFullDeck();
             ShuffleDeck(fullDeck);
             DealCards(fullDeck);
-            
-            await SimulateNetworkDelay();
             
             Debug.Log($"[FakeWarServer] Game initialized - Player: {_playerDeck.Count}, Opponent: {_opponentDeck.Count}");
             return true;
@@ -58,13 +64,19 @@ namespace CardWar.Game.Logic
                 return null;
             }
             
+            await SimulateNetworkDelay();
+            
+            if (ShouldSimulateFailure())
+            {
+                Debug.LogWarning("[FakeWarServer] Simulated network failure during DrawCards");
+                return null;
+            }
+            
             if (!HasCardsToPlay())
             {
                 DetermineWinner();
                 return CreateGameOverRound();
             }
-            
-            await SimulateNetworkDelay();
             
             _roundNumber++;
             
@@ -126,6 +138,12 @@ namespace CardWar.Game.Logic
             }
             
             await SimulateNetworkDelay();
+            
+            if (ShouldSimulateFailure())
+            {
+                Debug.LogWarning("[FakeWarServer] Simulated network failure during ResolveWar");
+                return null;
+            }
             
             var roundData = new RoundData
             {
@@ -201,6 +219,12 @@ namespace CardWar.Game.Logic
         {
             await SimulateNetworkDelay();
             
+            if (ShouldSimulateFailure())
+            {
+                Debug.LogWarning("[FakeWarServer] Simulated network failure during GetGameStats");
+                return null;
+            }
+            
             return new GameStats
             {
                 PlayerCardCount = _playerDeck.Count,
@@ -212,6 +236,21 @@ namespace CardWar.Game.Logic
         }
 
         #region Private Methods
+
+        private bool ShouldSimulateFailure()
+        {
+            if (_gameSettings == null || _gameSettings.FakeNetworkErrorRate <= 0)
+                return false;
+                
+            var shouldFail = _random.NextDouble() < _gameSettings.FakeNetworkErrorRate;
+            
+            if (shouldFail)
+            {
+                Debug.LogWarning($"[FakeWarServer] Simulating network failure (rate: {_gameSettings.FakeNetworkErrorRate:P0})");
+            }
+            
+            return shouldFail;
+        }
 
         private List<CardData> GenerateFullDeck()
         {

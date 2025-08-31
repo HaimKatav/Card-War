@@ -2,22 +2,12 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using CardWar.Services;
-using CardWar.Core;
 using CardWar.Common;
 using CardWar.Game.UI;
 using TMPro;
-using UnityEditor;
 
 namespace CardWar.Managers
 {
-    public enum UIState
-    {
-        FirstEntry,
-        Idle,
-        Animating,
-        Loading
-    }
-    
     public class UIManager : MonoBehaviour, IUIService
     {
         [Header("UI Layers")]

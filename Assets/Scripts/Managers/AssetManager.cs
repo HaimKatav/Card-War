@@ -73,7 +73,6 @@ namespace CardWar.Managers
             if (asset != null)
             {
                 _loadedAssets[path] = asset;
-                Debug.Log($"[AssetManager] Asset loaded: {path}");
                 return asset;
             }
 
@@ -87,7 +86,6 @@ namespace CardWar.Managers
             {
                 _loadedAssets.Remove(path);
                 Resources.UnloadAsset(asset);
-                Debug.Log($"[AssetManager] Asset unloaded: {path}");
             }
         }
 

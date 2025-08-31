@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Services;
 using CardWar.Game.Logic;
@@ -11,13 +12,6 @@ namespace CardWar.Game
 {
     public class GameController : MonoBehaviour, IGameControllerService
     {
-        private IGameStateService _gameStateService;
-        
-        private bool _isPaused;
-        private bool _isGameActive;
-        private bool _isProcessingRound;
-        private bool _isInWar;
-        
         public event Action<RoundData> RoundStartedEvent;
         public event Action CardsDrawnEvent;
         public event Action<RoundResult> RoundCompletedEvent;
@@ -27,11 +21,20 @@ namespace CardWar.Game
         public event Action GameResumedEvent;
         public event Action<GameStatus> GameOverEvent;
 
-        private GameBoardController _boardController;
-        private GameObject _playAreaParent;
+        private IGameStateService _gameStateService;
         private IAssetService _assetService;
+        
+        private GameBoardController _boardController;
         private FakeWarServer _warServer;
+        private GameObject _playAreaParent;
         private GameSettings _gameSettings;
+
+        private const int MAX_RETRY_ATTEMPTS = 3;
+        
+        private bool _isPaused;
+        private bool _isGameActive;
+        private bool _isProcessingRound;
+        private bool _isInWar;
 
         #region Unity Lifecycle
 
@@ -86,12 +89,15 @@ namespace CardWar.Game
             }
             
             _boardController = Instantiate(playAreaPrefab, _playAreaParent.transform);
-            
-            var success = await _warServer.InitializeNewGame();
+           
+            var success = await ExecuteWithRetry(
+                async () => await _warServer.InitializeNewGame(),
+                "InitializeNewGame"
+            );
             
             if (!success)
             {
-                Debug.LogError("[GameController] Failed to initialize FakeWarServer");
+                Debug.LogError("[GameController] Failed to initialize FakeWarServer after retries");
                 return false;
             }
             
@@ -316,18 +322,21 @@ namespace CardWar.Game
 
         #region Private Methods
 
-        private async UniTask ProcessNormalRound()
+       private async UniTask ProcessNormalRound()
         {
-            var roundData = await _warServer.DrawCards();
+            var roundData = await ExecuteWithRetry(
+                async () => await _warServer.DrawCards(),
+                "DrawCards"
+            );
             
             if (roundData == null)
             {
-                Debug.LogError("[GameController] Failed to draw cards from server");
+                Debug.LogError("[GameController] Failed to draw cards from server after retries");
                 _isProcessingRound = false;
                 return;
             }
             
-            Debug.Log($"[GameController] Round {_warServer.RoundNumber}: Player {roundData.PlayerCard.Rank} vs Opponent {roundData.OpponentCard.Rank}");
+            Debug.Log($"[GameController] Round {roundData.RoundNumber}: Player {roundData.PlayerCard.Rank} vs Opponent {roundData.OpponentCard.Rank}");
             
             CardsDrawnEvent?.Invoke();
             
@@ -351,11 +360,14 @@ namespace CardWar.Game
 
         private async UniTask ProcessWarRound()
         {
-            var warData = await _warServer.ResolveWar();
+            var warData = await ExecuteWithRetry(
+                async () => await _warServer.ResolveWar(),
+                "ResolveWar"
+            );
             
             if (warData == null)
             {
-                Debug.LogError("[GameController] Failed to resolve war");
+                Debug.LogError("[GameController] Failed to resolve war after retries");
                 _isProcessingRound = false;
                 _isInWar = false;
                 return;
@@ -414,8 +426,48 @@ namespace CardWar.Game
             }
         }
 
-        #endregion
+        #endregion Private Methods
 
+        
+        #region Server Retry Methods
+        
+        private async UniTask<T> ExecuteWithRetry<T>(Func<UniTask<T>> operation, string operationName)
+        {
+            for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
+            {
+                try
+                {
+                    var result = await operation();
+                    
+                    if (!EqualityComparer<T>.Default.Equals(result, default(T)))
+                    {
+                        if (attempt > 1)
+                        {
+                            Debug.Log($"[GameController] {operationName} succeeded on attempt {attempt}");
+                        }
+                        return result;
+                    }
+            
+                    Debug.LogWarning($"[GameController] {operationName} returned default value on attempt {attempt}");
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[GameController] {operationName} failed on attempt {attempt}: {e.Message}");
+                }
+        
+                if (attempt < MAX_RETRY_ATTEMPTS)
+                {
+                    var retryDelay = (int)(_gameSettings.FakeNetworkDelay * 1000 * attempt);
+                    Debug.Log($"[GameController] Retrying {operationName} in {retryDelay}ms...");
+                    await UniTask.Delay(retryDelay);
+                }
+            }
+    
+            return default(T);
+        }
+        
+        #endregion Server Methods
+        
         #region Cleanup
 
         private void UnregisterDrawButton()
