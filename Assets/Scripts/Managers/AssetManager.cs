@@ -9,7 +9,7 @@ namespace CardWar.Managers
 {
     public class AssetManager : MonoBehaviour, IAssetService
     {
-        private readonly Dictionary<string, UnityEngine.Object> _loadedAssets = new Dictionary<string, UnityEngine.Object>();
+        private readonly Dictionary<string, UnityEngine.Object> _loadedAssets = new ();
         private GameSettings _gameSettings;
 
         #region Unity Lifecycle

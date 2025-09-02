@@ -55,23 +55,7 @@ namespace CardWar.Game
             _warServer = new FakeWarServer(_gameSettings);
         }
         
-        private void OnApplicationPause(bool pauseStatus)
-        {
-            if (pauseStatus && _isGameActive && !_isPaused)
-            {
-                PauseGame();
-            }
-        }
-
-        private void OnApplicationFocus(bool hasFocus)
-        {
-            if (!hasFocus && _isGameActive && !_isPaused)
-            {
-                PauseGame();
-            }
-        }
-        
-        #endregion
+        #endregion Unity Lifecycle
 
         #region Game Creation
 

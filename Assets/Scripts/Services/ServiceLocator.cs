@@ -5,7 +5,7 @@ namespace CardWar.Services
 {
     public interface IBaseServiceProvider{}
     
-    public class ServiceLocator
+    public class ServiceLocator : IDisposable
     {
         private static ServiceLocator _instance;
         private readonly Dictionary<Type, object> _services = new ();
@@ -36,8 +36,8 @@ namespace CardWar.Services
             
             return null;
         }
-        
-        public void Clear()
+
+        public void Dispose()
         {
             _services.Clear();
         }
