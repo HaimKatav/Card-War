@@ -6,6 +6,7 @@ using CardWar.Game.Logic;
 using CardWar.Common;
 using CardWar.Core;
 using CardWar.Game.UI;
+using CardWar.Animation.Data;
 using Cysharp.Threading.Tasks;
 
 namespace CardWar.Game
@@ -23,11 +24,13 @@ namespace CardWar.Game
 
         private IGameStateService _gameStateService;
         private IAssetService _assetService;
+        private IUIService _uiService;
         
         private GameBoardController _boardController;
         private FakeWarServer _warServer;
         private GameObject _playAreaParent;
         private GameSettings _gameSettings;
+        private AnimationConfigManager _animationConfig;
 
         private const int MAX_RETRY_ATTEMPTS = 3;
         
@@ -35,6 +38,7 @@ namespace CardWar.Game
         private bool _isGameActive;
         private bool _isProcessingRound;
         private bool _isInWar;
+        private bool _isInitialized;
 
         #region Unity Lifecycle
 
@@ -45,14 +49,21 @@ namespace CardWar.Game
 
         private void Initialize()
         {
+            if (_isInitialized) return;
+            
             _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
             _assetService = ServiceLocator.Instance.Get<IAssetService>();
+            _uiService = ServiceLocator.Instance.Get<IUIService>();
             _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
             
-            var uiService = ServiceLocator.Instance.Get<IUIService>();
-            _playAreaParent = uiService.GetGameAreaParent();
+            _animationConfig = new AnimationConfigManager(_assetService);
+            
+            _playAreaParent = _uiService.GetGameAreaParent();
             
             _warServer = new FakeWarServer(_gameSettings);
+            
+            _isInitialized = true;
+            Debug.Log("[GameController] Initialized with animation configuration support");
         }
         
         #endregion Unity Lifecycle
@@ -63,8 +74,9 @@ namespace CardWar.Game
         {
             Debug.Log("[GameController] Creating new game");
 
-            var playAreaPrefab =
-                await _assetService.LoadAssetAsync<GameBoardController>(GameSettings.PLAY_AREA_ASSET_PATH);
+            var playAreaPrefab = await _assetService.LoadAssetAsync<GameBoardController>(
+                GameSettings.PLAY_AREA_ASSET_PATH
+            );
 
             if (playAreaPrefab == null || _playAreaParent == null)
             {
@@ -82,6 +94,11 @@ namespace CardWar.Game
             if (!success)
             {
                 Debug.LogError("[GameController] Failed to initialize FakeWarServer after retries");
+                if (_boardController != null)
+                {
+                    Destroy(_boardController.gameObject);
+                    _boardController = null;
+                }
                 return false;
             }
             
@@ -91,7 +108,7 @@ namespace CardWar.Game
                 return false;
             }
             
-            _boardController.Initialize();
+            InitializeBoardController();
             
             _isGameActive = true;
             _isPaused = true;
@@ -101,6 +118,8 @@ namespace CardWar.Game
             RegisterDrawButton();
             RegisterGameEvents();
             RegisterBoardEvents();
+            
+            await PlayInitialCardDealingAnimation();
             
             var initialStats = await _warServer.GetGameStats();
             if (initialStats != null)
@@ -117,6 +136,37 @@ namespace CardWar.Game
             return true;
         }
 
+        private void InitializeBoardController()
+        {
+            _boardController.Initialize();
+            
+            var poolConfig = _animationConfig.GetCardPoolConfig();
+            _boardController.SetupCardPool(
+                poolConfig.InitialPoolSize,
+                poolConfig.MaxPoolSize,
+                poolConfig.PrewarmPool
+            );
+            
+            Debug.Log($"[GameController] Board initialized with pool size: {poolConfig.InitialPoolSize}");
+        }
+
+        private async UniTask PlayInitialCardDealingAnimation()
+        {
+            var timingConfig = _animationConfig.GetTimingConfig();
+            var transitionConfig = _animationConfig.GetTransitionConfig();
+            
+            Debug.Log("[GameController] Playing initial card dealing animation");
+            
+            await UniTask.Delay((int)(timingConfig.RoundStartDelay * 1000));
+            
+            if (_boardController != null)
+            {
+                await _boardController.ShowInitialDeckSetup(transitionConfig.FadeInDuration);
+            }
+            
+            Debug.Log("[GameController] Initial setup complete");
+        }
+
         private void RegisterDrawButton()
         {
             if (_boardController != null)
@@ -125,7 +175,8 @@ namespace CardWar.Game
 
         private void RegisterGameEvents()
         {
-            _gameStateService.GameStateChanged += HandleGameStateChanged;
+            if (_gameStateService != null)
+                _gameStateService.GameStateChanged += HandleGameStateChanged;
         }
 
         private void RegisterBoardEvents()
@@ -162,7 +213,7 @@ namespace CardWar.Game
 
         private void OnDrawButtonPressed()
         {
-            if (!_isProcessingRound)
+            if (!_isProcessingRound && _isGameActive && !_isPaused)
             {
                 DrawNextCards().Forget();
             }
@@ -217,7 +268,8 @@ namespace CardWar.Game
 
         private async UniTaskVoid ContinueWarSequence()
         {
-            await UniTask.Delay(1000);
+            var warConfig = _animationConfig.GetWarConfig();
+            await UniTask.Delay((int)(warConfig.SequenceDelay * 1000));
             
             if (_isInWar && !_isPaused)
             {
@@ -242,7 +294,8 @@ namespace CardWar.Game
             
             if (_boardController != null)
             {
-                _boardController.PauseAnimations();
+                var transitionConfig = _animationConfig.GetTransitionConfig();
+                _boardController.PauseAnimationsWithTransition(transitionConfig.PauseFadeDuration);
             }
             
             GamePausedEvent?.Invoke();
@@ -257,7 +310,8 @@ namespace CardWar.Game
             
             if (_boardController != null)
             {
-                _boardController.ResumeAnimations();
+                var transitionConfig = _animationConfig.GetTransitionConfig();
+                _boardController.ResumeAnimationsWithTransition(transitionConfig.PauseFadeDuration);
             }
             
             GameResumedEvent?.Invoke();
@@ -295,7 +349,11 @@ namespace CardWar.Game
             Debug.Log("[GameController] Destroying game");
             if (_boardController != null)
             {
-                Destroy(_boardController.gameObject);
+                var boardControllerObject = _boardController as MonoBehaviour;
+                if (boardControllerObject != null)
+                {
+                    Destroy(boardControllerObject.gameObject);
+                }
                 _boardController = null;
             }
             
@@ -306,7 +364,7 @@ namespace CardWar.Game
 
         #region Private Methods
 
-       private async UniTask ProcessNormalRound()
+        private async UniTask ProcessNormalRound()
         {
             var roundData = await ExecuteWithRetry(
                 async () => await _warServer.DrawCards(),
@@ -320,11 +378,12 @@ namespace CardWar.Game
                 return;
             }
             
-            Debug.Log($"[GameController] Round {roundData.RoundNumber}: Player {roundData.PlayerCard.Rank} vs Opponent {roundData.OpponentCard.Rank}");
+            Debug.Log($"[GameController] Round {roundData.RoundNumber}: " +
+                     $"Player {roundData.PlayerCard.Rank} vs Opponent {roundData.OpponentCard.Rank}");
             
             CardsDrawnEvent?.Invoke();
             
-            await PlayRoundWithAnimation(roundData);
+            await PlayNormalRoundWithAnimation(roundData);
             
             RoundStartedEvent?.Invoke(roundData);
             
@@ -357,9 +416,10 @@ namespace CardWar.Game
                 return;
             }
             
-            Debug.Log($"[GameController] War resolved: Player {warData.PlayerCard.Rank} vs Opponent {warData.OpponentCard.Rank}");
+            Debug.Log($"[GameController] War resolved: " +
+                     $"Player {warData.PlayerCard.Rank} vs Opponent {warData.OpponentCard.Rank}");
             
-            await PlayRoundWithAnimation(warData);
+            await PlayWarRoundWithAnimation(warData);
             
             RoundStartedEvent?.Invoke(warData);
             
@@ -379,22 +439,114 @@ namespace CardWar.Game
             CheckGameStatus();
         }
         
-        private async UniTask PlayRoundWithAnimation(RoundData roundData)
+        private async UniTask PlayNormalRoundWithAnimation(RoundData roundData)
         {
-            if (_boardController != null)
+            if (_boardController == null)
             {
-                if (roundData.IsWar && roundData.PlayerWarCards != null && roundData.PlayerWarCards.Count > 0)
+                Debug.LogWarning("[GameController] Board controller not available");
+                return;
+            }
+            
+            var battleConfig = _animationConfig.GetBattleConfig();
+            var timingConfig = _animationConfig.GetTimingConfig();
+            
+            await UniTask.Delay((int)(timingConfig.RoundStartDelay * 1000));
+            
+            await _boardController.DrawBattleCards(
+                roundData,
+                battleConfig.DrawAnimation.Duration,
+                battleConfig.DrawAnimation.EasingCurve
+            );
+            
+            await UniTask.Delay((int)(battleConfig.PreBattleDelay * 1000));
+            
+            await _boardController.FlipBattleCards(
+                battleConfig.RevealAnimation.Duration,
+                battleConfig.RevealAnimation.DelayBetweenFlips,
+                battleConfig.RevealAnimation.EasingCurve
+            );
+            
+            if (!roundData.IsWar)
+            {
+                var winnerConfig = _animationConfig.GetWinnerConfig();
+                if (winnerConfig.EnableHighlight && roundData.Result != RoundResult.War)
                 {
-                    await _boardController.PlayWarSequence(roundData);
+                    await _boardController.HighlightWinner(
+                        roundData.Result,
+                        winnerConfig.ScaleMultiplier,
+                        winnerConfig.ScaleDuration,
+                        winnerConfig.TintColor
+                    );
                 }
-                else
+                
+                await UniTask.Delay((int)(timingConfig.RoundEndDelay * 1000));
+                
+                var collectionConfig = _animationConfig.GetCollectionConfig();
+                await _boardController.CollectBattleCards(
+                    roundData.Result,
+                    collectionConfig.Duration,
+                    collectionConfig.StaggerDelay,
+                    collectionConfig.EasingCurve
+                );
+            }
+        }
+
+        private async UniTask PlayWarRoundWithAnimation(RoundData warData)
+        {
+            if (_boardController == null)
+            {
+                Debug.LogWarning("[GameController] Board controller not available");
+                return;
+            }
+            
+            var warConfig = _animationConfig.GetWarConfig();
+            var timingConfig = _animationConfig.GetTimingConfig();
+            
+            if (warData.PlayerWarCards != null && warData.PlayerWarCards.Count > 0)
+            {
+                await _boardController.PlaceWarCards(
+                    warData,
+                    warConfig.FaceDownCardsPerPlayer,
+                    warConfig.PlaceCardsAnimation.Duration,
+                    warConfig.CardSpacing
+                );
+                
+                await UniTask.Delay((int)(warConfig.RevealDelay * 1000));
+                
+                await _boardController.RevealWarCards(
+                    warConfig.RevealAnimation.Duration,
+                    warConfig.RevealAnimation.EasingCurve
+                );
+                
+                await UniTask.Delay((int)(timingConfig.RoundEndDelay * 1000));
+                
+                if (!warData.HasChainedWar)
                 {
-                    await _boardController.PlayRound(roundData);
+                    await _boardController.RevealAllWarCards();
+                    
+                    await UniTask.Delay((int)(warConfig.SequenceDelay * 1000));
+                    
+                    var collectionConfig = _animationConfig.GetCollectionConfig();
+                    await _boardController.CollectWarCards(
+                        warData.Result,
+                        collectionConfig.Duration,
+                        collectionConfig.StaggerDelay,
+                        collectionConfig.EasingCurve
+                    );
                 }
             }
-            else
+            else if (warData.WarEndedInDraw)
             {
-                Debug.LogWarning("[GameController] Animation controller not available");
+                Debug.Log("[GameController] War ended in draw - returning cards to players");
+                
+                var collectionConfig = _animationConfig.GetCollectionConfig();
+                await _boardController.ReturnWarCardsToBothPlayers(
+                    collectionConfig.Duration,
+                    collectionConfig.EasingCurve
+                );
+                
+                _isInWar = false;
+                _isProcessingRound = false;
             }
         }
 
@@ -412,7 +564,6 @@ namespace CardWar.Game
 
         #endregion Private Methods
 
-        
         #region Server Retry Methods
         
         private async UniTask<T> ExecuteWithRetry<T>(Func<UniTask<T>> operation, string operationName)
@@ -478,6 +629,16 @@ namespace CardWar.Game
             GamePausedEvent = null;
             GameResumedEvent = null;
             GameOverEvent = null;
+            
+            _animationConfig = null;
+            _warServer = null;
+            _boardController = null;
+            _gameSettings = null;
+            _gameStateService = null;
+            _assetService = null;
+            _uiService = null;
+            
+            _isInitialized = false;
         }
 
         #endregion

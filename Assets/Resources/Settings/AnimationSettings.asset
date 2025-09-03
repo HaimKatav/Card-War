@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b223d4f4aaa4681a0b6974a6aa25252, type: 3}
+  m_Name: AnimationSettings
+  m_EditorClassIdentifier: 
+  _battleAnimation:
+    DrawAnimation:
+      Duration: 0.5
+      EasingCurve: 9
+      ScaleMultiplier: 1
+      UseScaling: 0
+    RevealAnimation:
+      Duration: 0.3
+      DelayBetweenFlips: 0.3
+      EasingCurve: 7
+      RotationAxis: {x: 0, y: 1, z: 0}
+      RotationAngle: 180
+    PreBattleDelay: 0.5
+    PostBattleDelay: 1
+    CardSpacing: 1.5
+  _warAnimation:
+    PlaceCardsAnimation:
+      Duration: 0.5
+      EasingCurve: 9
+      ScaleMultiplier: 1
+      UseScaling: 0
+    RevealAnimation:
+      Duration: 0.3
+      DelayBetweenFlips: 0.3
+      EasingCurve: 7
+      RotationAxis: {x: 0, y: 1, z: 0}
+      RotationAngle: 180
+    FaceDownCardsPerPlayer: 3
+    CardSpacing: 0.2
+    SequenceDelay: 0.5
+    RevealDelay: 0.3
+  _collectionAnimation:
+    Duration: 0.6
+    StaggerDelay: 0.1
+    EasingCurve: 26
+    UseStagger: 1
+    ScaleOnCollection: 0
+    CollectionScale: 0.9
+  _winnerHighlight:
+    EnableHighlight: 1
+    ScaleMultiplier: 1.1
+    ScaleDuration: 0.3
+    ScaleEase: 27
+    TintColor: {r: 1, g: 1, b: 0.8, a: 1}
+    UseTint: 1
+  _transitions:
+    FadeInDuration: 0.2
+    FadeOutDuration: 0.3
+    FadeInEase: 6
+    FadeOutEase: 5
+    PauseFadeDuration: 0.2
+  _timing:
+    RoundStartDelay: 0.3
+    RoundEndDelay: 1
+    GameOverDelay: 2
+    BetweenActionsDelay: 0.5
+  _cardPool:
+    InitialPoolSize: 20
+    MaxPoolSize: 52
+    PrewarmPool: 1
+    ExpandDynamically: 1
+  _quickMove:
+    Duration: 0.3
+    EasingCurve: 9
+    ScaleMultiplier: 1
+    UseScaling: 0
+  _normalMove:
+    Duration: 0.5
+    EasingCurve: 9
+    ScaleMultiplier: 1
+    UseScaling: 0
+  _slowMove:
+    Duration: 0.8
+    EasingCurve: 9
+    ScaleMultiplier: 1
+    UseScaling: 0

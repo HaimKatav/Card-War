@@ -1,10 +1,13 @@
 using System.Collections.Generic;
 using CardWar.Common;
+using Unity.VisualScripting;
+using UnityEngine.Analytics;
 
 namespace CardWar.Game.Logic
 {
     public class RoundData
     {
+        public bool WarEndedInDraw { get; set; }
         public int RoundNumber { get; set; }
         public CardData PlayerCard { get; set; }
         public CardData OpponentCard { get; set; }
