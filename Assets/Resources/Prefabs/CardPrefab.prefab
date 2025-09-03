@@ -140,6 +140,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _cardFront: {fileID: 4211857253857739341}
   _cardBack: {fileID: 8935665566877725659}
+  _canvasGroup: {fileID: 5292461724782543811}
 --- !u!1 &4716434634626679404
 GameObject:
   m_ObjectHideFlags: 0

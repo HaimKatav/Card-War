@@ -12,5 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 102d27b691844528be82a6fd3dced17e, type: 3}
   m_Name: GameSettings
   m_EditorClassIdentifier: 
+  _animationSettings: {fileID: 11400000, guid: dddb778ac0f9c4162ab9865bdea9b30d, type: 2}
   _fakeNetworkDelay: 0.1
   _fakeNetworkErrorRate: 0.05
