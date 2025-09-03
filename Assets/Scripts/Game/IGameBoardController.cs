@@ -29,11 +29,6 @@ namespace CardWar.Game.UI
         UniTask CollectWarCards(RoundResult result);
         UniTask ReturnWarCardsToBothPlayers();
         
-        UniTask PlayRound(RoundData roundData);
-        UniTask PlayWarSequence(RoundData warRound);
-        
-        void PauseAnimations();
-        void ResumeAnimations();
         void PauseAnimationsWithTransition();
         void ResumeAnimationsWithTransition();
     }

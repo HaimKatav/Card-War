@@ -133,7 +133,8 @@ namespace CardWar.Game.UI
             ReturnCard(opponentDeckCard);
         }
 
-        #endregion
+        #endregion Initialization
+        
 
         #region Battle Animation Methods
         public async UniTask DrawBattleCards(RoundData roundData)
@@ -243,8 +244,9 @@ namespace CardWar.Game.UI
             ClearBattleCards();
         }
 
-        #endregion
+        #endregion Battle Animation Methods
 
+        
         #region War Animation Methods
 
         public async UniTask PlaceWarCards(RoundData warData)
@@ -447,54 +449,7 @@ namespace CardWar.Game.UI
             ClearAllCards();
         }
 
-        #endregion
-
-        #region Legacy Methods (for backward compatibility)
-
-        public async UniTask PlayRound(RoundData roundData)
-        {
-            if (roundData == null) return;
-            
-            await DrawBattleCards(roundData);
-            await FlipBattleCards();
-            
-            if (!roundData.IsWar)
-            {
-                await UniTask.Delay((int)(_animationDataBundle.Timing.RoundEndDelay * 1000));
-                await CollectBattleCards(roundData.Result);
-            }
-            
-            OnRoundAnimationComplete?.Invoke();
-        }
-
-        public async UniTask PlayWarSequence(RoundData warRound)
-        {
-            if (warRound == null) return;
-
-            var warConfig = _animationDataBundle.War;
-            var timing = _animationDataBundle.Timing;
-            
-            await PlaceWarCards(warRound);
-            
-            await UniTask.Delay((int)(warConfig.RevealDelay * 1000));
-            
-            await RevealWarCards();
-            
-            await UniTask.Delay((int)(timing.RoundEndDelay * 1000));
-            
-            if (!warRound.HasChainedWar)
-            {
-                await RevealAllWarCards();
-                
-                await UniTask.Delay((int)(warConfig.SequenceDelay * 1000));
-                
-                await CollectWarCards(warRound.Result);
-            }
-            
-            OnRoundAnimationComplete?.Invoke();
-        }
-
-        #endregion Legacy Methods
+        #endregion War Animation Methods
 
         
         #region Pause/Resume
@@ -624,7 +579,7 @@ namespace CardWar.Game.UI
             ClearWarCards();
         }
 
-        #endregion
+        #endregion Card Management
 
         
         #region Event Handlers
@@ -638,24 +593,9 @@ namespace CardWar.Game.UI
         {
             ResumeAnimations();
         }
+        
 
-        private void OnApplicationPause(bool pauseStatus)
-        {
-            if (pauseStatus)
-            {
-                PauseAnimations();
-            }
-        }
-
-        private void OnApplicationFocus(bool hasFocus)
-        {
-            if (!hasFocus && _gameController != null)
-            {
-                PauseAnimations();
-            }
-        }
-
-        #endregion
+        #endregion Event Handlers
 
         
         #region Cleanup
@@ -698,6 +638,6 @@ namespace CardWar.Game.UI
             _isInitialized = false;
         }
 
-        #endregion
+        #endregion Cleanup
     }
 }
