@@ -29,6 +29,8 @@ namespace CardWar.Managers
 
         #region IAssetService Implementation
 
+        public GameSettings GameSettings => _gameSettings;
+        
         public async UniTask<T> LoadAssetAsync<T>(string path) where T : UnityEngine.Object
         {
             if (string.IsNullOrEmpty(path))

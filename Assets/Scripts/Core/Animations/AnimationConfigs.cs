@@ -5,7 +5,10 @@ using DG.Tweening;
 namespace CardWar.Animation.Data
 {
     [Serializable]
-    public class CardMoveAnimationConfig
+    public class BaseAnimationConfig { }
+
+    [Serializable]
+    public class CardMoveAnimationConfig : BaseAnimationConfig
     {
         [Header("Movement Settings")]
         [Range(0.1f, 2f)] public float Duration = 0.5f;
@@ -26,7 +29,7 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class CardFlipAnimationConfig
+    public class CardFlipAnimationConfig : BaseAnimationConfig
     {
         [Header("Flip Settings")]
         [Range(0.1f, 1f)] public float Duration = 0.3f;
@@ -49,11 +52,11 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class BattleAnimationConfig
+    public class BattleAnimationConfig : BaseAnimationConfig
     {
         [Header("Battle Sequence")]
-        public CardMoveAnimationConfig DrawAnimation = new CardMoveAnimationConfig();
-        public CardFlipAnimationConfig RevealAnimation = new CardFlipAnimationConfig();
+        public CardMoveAnimationConfig DrawAnimation = new();
+        public CardFlipAnimationConfig RevealAnimation = new();
         [Range(0f, 2f)] public float PreBattleDelay = 0.5f;
         [Range(0f, 2f)] public float PostBattleDelay = 1.0f;
         [Range(0.5f, 3f)] public float CardSpacing = 1.5f;
@@ -72,11 +75,11 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class WarAnimationConfig
+    public class WarAnimationConfig : BaseAnimationConfig
     {
         [Header("War Sequence")]
-        public CardMoveAnimationConfig PlaceCardsAnimation = new CardMoveAnimationConfig();
-        public CardFlipAnimationConfig RevealAnimation = new CardFlipAnimationConfig();
+        public CardMoveAnimationConfig PlaceCardsAnimation = new();
+        public CardFlipAnimationConfig RevealAnimation = new();
         [Range(1, 4)] public int FaceDownCardsPerPlayer = 3;
         [Range(0.1f, 1f)] public float CardSpacing = 0.2f;
         [Range(0f, 2f)] public float SequenceDelay = 0.5f;
@@ -97,7 +100,7 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class CollectionAnimationConfig
+    public class CollectionAnimationConfig : BaseAnimationConfig
     {
         [Header("Collection Settings")]
         [Range(0.1f, 2f)] public float Duration = 0.6f;
@@ -122,14 +125,14 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class WinnerHighlightConfig
+    public class WinnerHighlightConfig : BaseAnimationConfig
     {
         [Header("Winner Effects")]
         public bool EnableHighlight = true;
         [Range(1f, 1.5f)] public float ScaleMultiplier = 1.1f;
         [Range(0.1f, 1f)] public float ScaleDuration = 0.3f;
         public Ease ScaleEase = Ease.OutBack;
-        public Color TintColor = new Color(1f, 1f, 0.8f, 1f);
+        public Color TintColor = new(1f, 1f, 0.8f, 1f);
         public bool UseTint = true;
         
         public WinnerHighlightConfig Clone()
@@ -147,7 +150,7 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class TransitionAnimationConfig
+    public class TransitionAnimationConfig : BaseAnimationConfig
     {
         [Header("Transitions")]
         [Range(0.1f, 1f)] public float FadeInDuration = 0.2f;
@@ -170,7 +173,7 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class TimingConfig
+    public class TimingConfig : BaseAnimationConfig
     {
         [Header("Round Timing")]
         [Range(0f, 3f)] public float RoundStartDelay = 0.3f;
@@ -191,7 +194,7 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class CardPoolConfig
+    public class CardPoolConfig : BaseAnimationConfig
     {
         [Header("Object Pooling")]
         [Range(4, 52)] public int InitialPoolSize = 20;

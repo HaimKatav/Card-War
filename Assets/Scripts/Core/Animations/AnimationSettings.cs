@@ -6,18 +6,18 @@ namespace CardWar.Animation.Data
     public class AnimationSettings : ScriptableObject
     {
         [Header("Animation Configurations")]
-        [SerializeField] private BattleAnimationConfig _battleAnimation = new BattleAnimationConfig();
-        [SerializeField] private WarAnimationConfig _warAnimation = new WarAnimationConfig();
-        [SerializeField] private CollectionAnimationConfig _collectionAnimation = new CollectionAnimationConfig();
-        [SerializeField] private WinnerHighlightConfig _winnerHighlight = new WinnerHighlightConfig();
-        [SerializeField] private TransitionAnimationConfig _transitions = new TransitionAnimationConfig();
-        [SerializeField] private TimingConfig _timing = new TimingConfig();
-        [SerializeField] private CardPoolConfig _cardPool = new CardPoolConfig();
+        [SerializeField] private BattleAnimationConfig _battleAnimation = new();
+        [SerializeField] private WarAnimationConfig _warAnimation = new();
+        [SerializeField] private CollectionAnimationConfig _collectionAnimation = new();
+        [SerializeField] private WinnerHighlightConfig _winnerHighlight = new();
+        [SerializeField] private TransitionAnimationConfig _transitions = new();
+        [SerializeField] private TimingConfig _timing = new();
+        [SerializeField] private CardPoolConfig _cardPool = new();
         
         [Header("Quick Access Presets")]
-        [SerializeField] private CardMoveAnimationConfig _quickMove = new CardMoveAnimationConfig { Duration = 0.3f };
-        [SerializeField] private CardMoveAnimationConfig _normalMove = new CardMoveAnimationConfig { Duration = 0.5f };
-        [SerializeField] private CardMoveAnimationConfig _slowMove = new CardMoveAnimationConfig { Duration = 0.8f };
+        [SerializeField] private CardMoveAnimationConfig _quickMove = new() { Duration = 0.3f };
+        [SerializeField] private CardMoveAnimationConfig _normalMove = new() { Duration = 0.5f };
+        [SerializeField] private CardMoveAnimationConfig _slowMove = new() { Duration = 0.8f };
         
         public BattleAnimationConfig BattleAnimation => _battleAnimation.Clone();
         public WarAnimationConfig WarAnimation => _warAnimation.Clone();

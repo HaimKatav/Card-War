@@ -1,4 +1,5 @@
 using System;
+using CardWar.Animation.Data;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using CardWar.Game.Logic;
@@ -12,28 +13,28 @@ namespace CardWar.Game.UI
         event Action OnDrawButtonPressed;
         event Action OnRoundAnimationComplete;
         
-        void Initialize();
+        void Initialize(AnimationDataBundle animationDataBundle);
         void SetupCardPool(int initialSize, int maxSize, bool prewarm);
         
-        UniTask ShowInitialDeckSetup(float fadeInDuration);
+        UniTask ShowInitialDeckSetup();
         
-        UniTask DrawBattleCards(RoundData roundData, float moveDuration, Ease moveEase);
-        UniTask FlipBattleCards(float flipDuration, float delayBetweenFlips, Ease flipEase);
-        UniTask HighlightWinner(RoundResult result, float scaleMultiplier, float scaleDuration, Color tintColor);
-        UniTask CollectBattleCards(RoundResult result, float collectionDuration, float staggerDelay, Ease collectionEase);
+        UniTask DrawBattleCards(RoundData roundData);
+        UniTask FlipBattleCards();
+        UniTask HighlightWinner(RoundResult result);
+        UniTask CollectBattleCards(RoundResult result);
         
-        UniTask PlaceWarCards(RoundData warData, int faceDownCardsPerPlayer, float placeDuration, float cardSpacing);
-        UniTask RevealWarCards(float revealDuration, Ease revealEase);
+        UniTask PlaceWarCards(RoundData warData);
+        UniTask RevealWarCards();
         UniTask RevealAllWarCards();
-        UniTask CollectWarCards(RoundResult result, float collectionDuration, float staggerDelay, Ease collectionEase);
-        UniTask ReturnWarCardsToBothPlayers(float returnDuration, Ease returnEase);
+        UniTask CollectWarCards(RoundResult result);
+        UniTask ReturnWarCardsToBothPlayers();
         
         UniTask PlayRound(RoundData roundData);
         UniTask PlayWarSequence(RoundData warRound);
         
         void PauseAnimations();
         void ResumeAnimations();
-        void PauseAnimationsWithTransition(float fadeDuration);
-        void ResumeAnimationsWithTransition(float fadeDuration);
+        void PauseAnimationsWithTransition();
+        void ResumeAnimationsWithTransition();
     }
 }

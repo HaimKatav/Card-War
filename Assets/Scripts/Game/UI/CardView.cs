@@ -176,7 +176,7 @@ namespace CardWar.Game.UI
         
         public Tween SetTint(Color color, float duration)
         {
-            Sequence sequence = DOTween.Sequence();
+            var sequence = DOTween.Sequence();
             
             if (_isFaceUp && _cardFront != null)
             {

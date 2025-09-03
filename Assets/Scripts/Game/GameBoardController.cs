@@ -37,7 +37,7 @@ namespace CardWar.Game.UI
         
         private IGameControllerService _gameController;
         private IAssetService _assetService;
-        private AnimationConfigManager _animationConfig;
+        private AnimationDataBundle _animationDataBundle;
         
         private GenericPool<CardView> _cardPool;
         private CardView _playerBattleCard;
@@ -52,13 +52,14 @@ namespace CardWar.Game.UI
         
         #region Initialization
 
-        public void Initialize()
+        public void Initialize(AnimationDataBundle animationDataBundle)
         {
             if (_isInitialized) return;
             
             _gameController = ServiceLocator.Instance.Get<IGameControllerService>();
             _assetService = ServiceLocator.Instance.Get<IAssetService>();
-            _animationConfig = new AnimationConfigManager(_assetService);
+
+            _animationDataBundle = animationDataBundle;
             
             InitializeCardPool().Forget();
             SubscribeToEvents();
@@ -110,8 +111,10 @@ namespace CardWar.Game.UI
             }
         }
 
-        public async UniTask ShowInitialDeckSetup(float fadeInDuration)
+        public async UniTask ShowInitialDeckSetup()
         {
+            var fadeInDuration = _animationDataBundle.Transitions.FadeInDuration;
+            
             Debug.Log($"[GameBoardController] Showing initial deck setup - Fade: {fadeInDuration}s");
             
             var playerDeckCard = SpawnCard(null, _playerDeckPosition.position, false);
@@ -133,14 +136,16 @@ namespace CardWar.Game.UI
         #endregion
 
         #region Battle Animation Methods
-
-        public async UniTask DrawBattleCards(RoundData roundData, float moveDuration, Ease moveEase)
+        public async UniTask DrawBattleCards(RoundData roundData)
         {
             if (roundData == null)
             {
                 Debug.LogError("[GameBoardController] RoundData is null");
                 return;
             }
+
+            var moveDuration = _animationDataBundle.Battle.DrawAnimation.Duration;
+            var moveEase = _animationDataBundle.Battle.DrawAnimation.EasingCurve;
             
             Debug.Log($"[GameBoardController] Drawing battle cards - Duration: {moveDuration}s");
             
@@ -156,12 +161,17 @@ namespace CardWar.Game.UI
             await sequence.AsyncWaitForCompletion();
         }
         
-        public async UniTask FlipBattleCards(float flipDuration, float delayBetweenFlips, Ease flipEase)
+        public async UniTask FlipBattleCards()
         {
+            var flipDuration = _animationDataBundle.War.RevealAnimation.Duration;
+            var delayBetweenFlips = _animationDataBundle.War.RevealDelay;
+            var flipEase = _animationDataBundle.Battle.RevealAnimation.EasingCurve;
+            
             Debug.Log($"[GameBoardController] Flipping battle cards - Duration: {flipDuration}s, Delay: {delayBetweenFlips}s");
-            
+
             if (_isPaused) await WaitWhilePaused();
-            
+
+
             if (delayBetweenFlips > 0)
             {
                 await UniTask.Delay((int)(delayBetweenFlips * 1000));
@@ -178,11 +188,15 @@ namespace CardWar.Game.UI
             await UniTask.WhenAll(flipTasks);
         }
         
-        public async UniTask HighlightWinner(RoundResult result, float scaleMultiplier, float scaleDuration, Color tintColor)
+        public async UniTask HighlightWinner(RoundResult result)
         {
+            var scaleMultiplier = _animationDataBundle.WinnerHighlight.ScaleMultiplier;
+            var scaleDuration = _animationDataBundle.WinnerHighlight.ScaleDuration;
+            var tintColor = _animationDataBundle.WinnerHighlight.TintColor;
+            
             Debug.Log($"[GameBoardController] Highlighting winner - Scale: {scaleMultiplier}x, Duration: {scaleDuration}s");
             
-            CardView winnerCard = result == RoundResult.PlayerWins ? _playerBattleCard : _opponentBattleCard;
+            var winnerCard = result == RoundResult.PlayerWins ? _playerBattleCard : _opponentBattleCard;
             
             if (winnerCard != null)
             {
@@ -199,8 +213,12 @@ namespace CardWar.Game.UI
             }
         }
         
-        public async UniTask CollectBattleCards(RoundResult result, float collectionDuration, float staggerDelay, Ease collectionEase)
+        public async UniTask CollectBattleCards(RoundResult result)
         {
+            var collectionDuration = _animationDataBundle.Collection.Duration;
+            var staggerDelay = _animationDataBundle.Collection.StaggerDelay;
+            var collectionEase = _animationDataBundle.Collection.EasingCurve;
+            
             Debug.Log($"[GameBoardController] Collecting battle cards - Duration: {collectionDuration}s");
             
             var targetPosition = result == RoundResult.PlayerWins ? 
@@ -229,24 +247,28 @@ namespace CardWar.Game.UI
 
         #region War Animation Methods
 
-        public async UniTask PlaceWarCards(RoundData warData, int faceDownCardsPerPlayer, float placeDuration, float cardSpacing)
+        public async UniTask PlaceWarCards(RoundData warData)
         {
             if (warData == null)
             {
                 Debug.LogError("[GameBoardController] War data is null");
                 return;
             }
+
+            var faceDownCardsPerPlayer = _animationDataBundle.War.FaceDownCardsPerPlayer;
+            var placeDuration = _animationDataBundle.War.PlaceCardsAnimation.Duration;
+            var cardSpacing = _animationDataBundle.War.CardSpacing;
             
             Debug.Log($"[GameBoardController] Placing {faceDownCardsPerPlayer} face-down cards per player");
             
             ClearWarCards();
             
             var sequence = DOTween.Sequence();
-            float delay = 0f;
+            var delay = 0f;
             
             if (warData.PlayerWarCards != null)
             {
-                for (int i = 0; i < warData.PlayerWarCards.Count && i < _playerWarPositions.Length; i++)
+                for (var i = 0; i < warData.PlayerWarCards.Count && i < _playerWarPositions.Length; i++)
                 {
                     if (_playerWarPositions[i] != null)
                     {
@@ -268,7 +290,7 @@ namespace CardWar.Game.UI
             if (warData.OpponentWarCards != null)
             {
                 delay = 0f;
-                for (int i = 0; i < warData.OpponentWarCards.Count && i < _opponentWarPositions.Length; i++)
+                for (var i = 0; i < warData.OpponentWarCards.Count && i < _opponentWarPositions.Length; i++)
                 {
                     if (_opponentWarPositions[i] != null)
                     {
@@ -290,8 +312,11 @@ namespace CardWar.Game.UI
             await sequence.AsyncWaitForCompletion();
         }
         
-        public async UniTask RevealWarCards(float revealDuration, Ease revealEase)
+        public async UniTask RevealWarCards()
         {
+            var revealDuration = _animationDataBundle.War.RevealAnimation.Duration;
+            var revealEase = _animationDataBundle.War.RevealAnimation.EasingCurve;
+   
             Debug.Log($"[GameBoardController] Revealing war cards - Duration: {revealDuration}s");
             
             var revealTasks = new List<UniTask>();
@@ -320,9 +345,9 @@ namespace CardWar.Game.UI
         {
             Debug.Log($"[GameBoardController] Revealing all face-down war cards");
             
-            var config = _animationConfig.GetWarConfig();
+            var config = _animationDataBundle.War;
             var sequence = DOTween.Sequence();
-            float delay = 0f;
+            var delay = 0f;
             
             foreach (var card in _warCards)
             {
@@ -343,15 +368,19 @@ namespace CardWar.Game.UI
             await UniTask.Delay(500);
         }
         
-        public async UniTask CollectWarCards(RoundResult result, float collectionDuration, float staggerDelay, Ease collectionEase)
+        public async UniTask CollectWarCards(RoundResult result)
         {
+            var collectionDuration = _animationDataBundle.Collection.Duration;
+            var staggerDelay = _animationDataBundle.Collection.StaggerDelay;
+            var collectionEase = _animationDataBundle.Collection.EasingCurve;
+            
             Debug.Log($"[GameBoardController] Collecting all war cards - Duration: {collectionDuration}s");
             
             var targetPosition = result == RoundResult.PlayerWins ? 
                 _playerDeckPosition.position : _opponentDeckPosition.position;
             
             var sequence = DOTween.Sequence();
-            float delay = 0f;
+            var delay = 0f;
             
             foreach (var card in _warCards)
             {
@@ -378,20 +407,22 @@ namespace CardWar.Game.UI
             ClearAllCards();
         }
         
-        public async UniTask ReturnWarCardsToBothPlayers(float returnDuration, Ease returnEase)
+        public async UniTask ReturnWarCardsToBothPlayers()
         {
+            var returnDuration = _animationDataBundle.Collection.Duration;
+            var returnEase = _animationDataBundle.Collection.EasingCurve;
             Debug.Log($"[GameBoardController] War ended in draw - Returning cards to both players");
             
             var sequence = DOTween.Sequence();
             
-            int playerCardIndex = 0;
-            int opponentCardIndex = 0;
+            var playerCardIndex = 0;
+            var opponentCardIndex = 0;
             
             foreach (var card in _warCards)
             {
                 if (card != null)
                 {
-                    bool isPlayerCard = false;
+                    var isPlayerCard = false;
                     foreach (var pos in _playerWarPositions)
                     {
                         if (pos != null && Vector3.Distance(card.transform.position, pos.position) < 0.1f)
@@ -402,7 +433,7 @@ namespace CardWar.Game.UI
                     }
                     
                     var targetPosition = isPlayerCard ? _playerDeckPosition.position : _opponentDeckPosition.position;
-                    float delay = isPlayerCard ? playerCardIndex * 0.1f : opponentCardIndex * 0.1f;
+                    var delay = isPlayerCard ? playerCardIndex * 0.1f : opponentCardIndex * 0.1f;
                     
                     sequence.Insert(delay, card.transform.DOMove(targetPosition, returnDuration).SetEase(returnEase));
                     
@@ -424,16 +455,13 @@ namespace CardWar.Game.UI
         {
             if (roundData == null) return;
             
-            var config = _animationConfig.GetBattleConfig();
-            var timing = _animationConfig.GetTimingConfig();
-            
-            await DrawBattleCards(roundData, config.DrawAnimation.Duration, config.DrawAnimation.EasingCurve);
-            await FlipBattleCards(config.RevealAnimation.Duration, config.RevealAnimation.DelayBetweenFlips, config.RevealAnimation.EasingCurve);
+            await DrawBattleCards(roundData);
+            await FlipBattleCards();
             
             if (!roundData.IsWar)
             {
-                await UniTask.Delay((int)(timing.RoundEndDelay * 1000));
-                await CollectBattleCards(roundData.Result, config.DrawAnimation.Duration, 0, Ease.InOutQuad);
+                await UniTask.Delay((int)(_animationDataBundle.Timing.RoundEndDelay * 1000));
+                await CollectBattleCards(roundData.Result);
             }
             
             OnRoundAnimationComplete?.Invoke();
@@ -442,34 +470,33 @@ namespace CardWar.Game.UI
         public async UniTask PlayWarSequence(RoundData warRound)
         {
             if (warRound == null) return;
+
+            var warConfig = _animationDataBundle.War;
+            var timing = _animationDataBundle.Timing;
             
-            var warConfig = _animationConfig.GetWarConfig();
-            var timing = _animationConfig.GetTimingConfig();
-            
-            await PlaceWarCards(warRound, warConfig.FaceDownCardsPerPlayer, 
-                warConfig.PlaceCardsAnimation.Duration, warConfig.CardSpacing);
+            await PlaceWarCards(warRound);
             
             await UniTask.Delay((int)(warConfig.RevealDelay * 1000));
             
-            await RevealWarCards(warConfig.RevealAnimation.Duration, warConfig.RevealAnimation.EasingCurve);
+            await RevealWarCards();
             
             await UniTask.Delay((int)(timing.RoundEndDelay * 1000));
             
             if (!warRound.HasChainedWar)
             {
                 await RevealAllWarCards();
+                
                 await UniTask.Delay((int)(warConfig.SequenceDelay * 1000));
                 
-                var collectionConfig = _animationConfig.GetCollectionConfig();
-                await CollectWarCards(warRound.Result, collectionConfig.Duration, 
-                    collectionConfig.StaggerDelay, collectionConfig.EasingCurve);
+                await CollectWarCards(warRound.Result);
             }
             
             OnRoundAnimationComplete?.Invoke();
         }
 
-        #endregion
+        #endregion Legacy Methods
 
+        
         #region Pause/Resume
 
         public void PauseAnimations()
@@ -488,15 +515,15 @@ namespace CardWar.Game.UI
                 _drawButton.interactable = true;
         }
         
-        public void PauseAnimationsWithTransition(float fadeDuration)
+        public void PauseAnimationsWithTransition()
         {
-            Debug.Log($"[GameBoardController] Pausing with {fadeDuration}s transition");
+            Debug.Log($"[GameBoardController] Pausing Animations");
             PauseAnimations();
         }
         
-        public void ResumeAnimationsWithTransition(float fadeDuration)
+        public void ResumeAnimationsWithTransition()
         {
-            Debug.Log($"[GameBoardController] Resuming with {fadeDuration}s transition");
+            Debug.Log($"[GameBoardController] Resuming animations");
             ResumeAnimations();
         }
 
@@ -508,8 +535,9 @@ namespace CardWar.Game.UI
             }
         }
 
-        #endregion
+        #endregion Pause/Resume
 
+        
         #region Card Management
 
         private CardView SpawnCard(CardData cardData, Vector3 position, bool loadSprites = true)
@@ -598,6 +626,7 @@ namespace CardWar.Game.UI
 
         #endregion
 
+        
         #region Event Handlers
 
         private void HandleGamePaused()
@@ -628,6 +657,7 @@ namespace CardWar.Game.UI
 
         #endregion
 
+        
         #region Cleanup
 
         private void UnsubscribeFromEvents()

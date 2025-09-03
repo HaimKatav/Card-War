@@ -1,3 +1,4 @@
+using CardWar.Core;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 
@@ -5,6 +6,7 @@ namespace CardWar.Services
 {
     public interface IAssetService : IBaseServiceProvider
     {
+        GameSettings GameSettings { get; }
         UniTask<T> LoadAssetAsync<T>(string assetPath) where T : UnityEngine.Object;
         T LoadAsset<T>(string assetPath) where T : UnityEngine.Object;
         void UnloadAsset(string assetPath);

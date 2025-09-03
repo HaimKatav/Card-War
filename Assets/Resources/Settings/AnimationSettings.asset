@@ -24,18 +24,18 @@ MonoBehaviour:
       EasingCurve: 7
       RotationAxis: {x: 0, y: 1, z: 0}
       RotationAngle: 180
-    PreBattleDelay: 0.5
-    PostBattleDelay: 1
-    CardSpacing: 1.5
+    PreBattleDelay: 0
+    PostBattleDelay: 0
+    CardSpacing: 0.5
   _warAnimation:
     PlaceCardsAnimation:
-      Duration: 0.5
+      Duration: 0.4
       EasingCurve: 9
       ScaleMultiplier: 1
       UseScaling: 0
     RevealAnimation:
       Duration: 0.3
-      DelayBetweenFlips: 0.3
+      DelayBetweenFlips: 0.174
       EasingCurve: 7
       RotationAxis: {x: 0, y: 1, z: 0}
       RotationAngle: 180
@@ -64,10 +64,10 @@ MonoBehaviour:
     FadeOutEase: 5
     PauseFadeDuration: 0.2
   _timing:
-    RoundStartDelay: 0.3
-    RoundEndDelay: 1
-    GameOverDelay: 2
-    BetweenActionsDelay: 0.5
+    RoundStartDelay: 0
+    RoundEndDelay: 0
+    GameOverDelay: 1
+    BetweenActionsDelay: 0.3
   _cardPool:
     InitialPoolSize: 20
     MaxPoolSize: 52

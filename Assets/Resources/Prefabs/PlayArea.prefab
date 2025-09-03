@@ -24,7 +24,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 474065973074946172}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -61,15 +61,12 @@ MonoBehaviour:
   - {fileID: 4207985764047106705}
   - {fileID: 446090330162017530}
   - {fileID: 5864506382919213683}
-  - {fileID: 2338491312080051468}
+  - {fileID: 3369096923816767620}
   _opponentWarPositions:
   - {fileID: 3807607091930488601}
   - {fileID: 613129957402532210}
   - {fileID: 6904154309626351611}
   - {fileID: 2338491312080051468}
-  _cardMoveSpeed: 0.5
-  _cardFlipDelay: 0.3
-  _roundEndDelay: 1
 --- !u!1 &3115385588351858387
 GameObject:
   m_ObjectHideFlags: 0
@@ -407,6 +404,22 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 9139552551228360636}
     m_Modifications:
+    - target: {fileID: 2247289022360593402, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 800
+      objectReference: {fileID: 0}
+    - target: {fileID: 2247289022360593402, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -440
+      objectReference: {fileID: 0}
+    - target: {fileID: 2541807538444902384, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 2541807538444902384, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_Color.a
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4449903272859562487, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
       propertyPath: m_Name
       value: PlayerWarArea
@@ -501,6 +514,11 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 4025728176248235908, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
   m_PrefabInstance: {fileID: 3597978872563733374}
   m_PrefabAsset: {fileID: 0}
+--- !u!224 &3369096923816767620 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2247289022360593402, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+  m_PrefabInstance: {fileID: 3597978872563733374}
+  m_PrefabAsset: {fileID: 0}
 --- !u!224 &4207985764047106705 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 831849236586308079, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
@@ -524,6 +542,22 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 9139552551228360636}
     m_Modifications:
+    - target: {fileID: 2247289022360593402, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 800
+      objectReference: {fileID: 0}
+    - target: {fileID: 2247289022360593402, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -440
+      objectReference: {fileID: 0}
+    - target: {fileID: 2541807538444902384, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 2541807538444902384, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
+      propertyPath: m_Color.a
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4449903272859562487, guid: e971a220148d04c5a87502ca8bf7a5f2, type: 3}
       propertyPath: m_Name
       value: OpponentWarArea
@@ -730,6 +764,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8964668564001777716, guid: 26e58ab226bed44e4800199671a67dde, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964668564001777716, guid: 26e58ab226bed44e4800199671a67dde, type: 3}
+      propertyPath: m_Color.a
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -851,6 +893,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8747406755786226383, guid: 26e58ab226bed44e4800199671a67dde, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964668564001777716, guid: 26e58ab226bed44e4800199671a67dde, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964668564001777716, guid: 26e58ab226bed44e4800199671a67dde, type: 3}
+      propertyPath: m_Color.a
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []

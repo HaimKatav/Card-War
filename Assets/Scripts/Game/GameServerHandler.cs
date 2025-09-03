@@ -146,7 +146,7 @@ namespace CardWar.Game
         
         private async UniTask<T> ExecuteWithRetry<T>(Func<UniTask<T>> operation, string operationName)
         {
-            for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
+            for (var attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++)
             {
                 try
                 {
