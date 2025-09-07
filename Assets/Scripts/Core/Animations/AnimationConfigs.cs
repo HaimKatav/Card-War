@@ -5,15 +5,109 @@ using DG.Tweening;
 namespace CardWar.Animation.Data
 {
     [Serializable]
-    public class BaseAnimationConfig { }
-
+    public abstract class BaseAnimationConfig
+    {
+        public virtual void OnValidate() { }
+    }
+    
+    [Serializable]
+    public class BattleAnimationConfig : BaseAnimationConfig
+    {
+        [Header("Draw Phase")]
+        public CardMoveAnimationConfig DrawAnimation = new() { Duration = 0.5f, EasingCurve = Ease.OutCubic };
+        [Range(0f, 2f)] public float PreDrawDelay = 0f;
+        [Range(0f, 2f)] public float PostDrawDelay = 0.2f;
+        
+        [Header("Flip Phase")]
+        public CardFlipAnimationConfig RevealAnimation = new() { Duration = 0.3f };
+        [Range(0f, 2f)] public float PreFlipDelay = 0.3f;
+        [Range(0f, 2f)] public float PostFlipDelay = 0.5f;
+        
+        [Header("Highlight Phase")]
+        [Range(0f, 2f)] public float PreHighlightDelay = 0.2f;
+        [Range(0f, 2f)] public float PostHighlightDelay = 0.3f;
+        
+        [Header("Collection Phase")]
+        [Range(0f, 2f)] public float PreCollectionDelay = 0.2f;
+        [Range(0f, 2f)] public float PostCollectionDelay = 0.3f;
+        
+        [Header("General")]
+        [Range(0.1f, 2f)] public float CardSpacing = 0.5f;
+        
+        public BattleAnimationConfig Clone()
+        {
+            return new BattleAnimationConfig
+            {
+                DrawAnimation = DrawAnimation.Clone(),
+                PreDrawDelay = PreDrawDelay,
+                PostDrawDelay = PostDrawDelay,
+                RevealAnimation = RevealAnimation.Clone(),
+                PreFlipDelay = PreFlipDelay,
+                PostFlipDelay = PostFlipDelay,
+                PreHighlightDelay = PreHighlightDelay,
+                PostHighlightDelay = PostHighlightDelay,
+                PreCollectionDelay = PreCollectionDelay,
+                PostCollectionDelay = PostCollectionDelay,
+                CardSpacing = CardSpacing
+            };
+        }
+    }
+    
+    [Serializable]
+    public class WarAnimationConfig : BaseAnimationConfig
+    {
+        [Header("Placement Phase")]
+        public CardMoveAnimationConfig PlaceCardsAnimation = new() { Duration = 0.4f, EasingCurve = Ease.OutCubic };
+        [Range(0f, 2f)] public float PrePlacementDelay = 0f;
+        [Range(0f, 2f)] public float PostPlacementDelay = 0.3f;
+        [Range(0f, 1f)] public float CardPlacementStagger = 0.1f;
+        
+        [Header("Reveal Phase")]
+        public CardFlipAnimationConfig RevealAnimation = new() { Duration = 0.3f };
+        [Range(0f, 2f)] public float PreRevealDelay = 0.2f;
+        [Range(0f, 2f)] public float PostRevealDelay = 0.5f;
+        
+        [Header("Sequential Reveal")]
+        [Range(0f, 2f)] public float PreSequentialRevealDelay = 0.3f;
+        [Range(0f, 1f)] public float SequentialRevealStagger = 0.1f;
+        [Range(0f, 2f)] public float PostSequentialRevealDelay = 0.5f;
+        
+        [Header("Collection Phase")]
+        [Range(0f, 2f)] public float PreWarCollectionDelay = 0.3f;
+        [Range(0f, 2f)] public float PostWarCollectionDelay = 0.5f;
+        
+        [Header("General")]
+        [Range(1, 4)] public int FaceDownCardsPerPlayer = 3;
+        [Range(0.1f, 1f)] public float CardSpacing = 0.2f;
+        
+        public WarAnimationConfig Clone()
+        {
+            return new WarAnimationConfig
+            {
+                PlaceCardsAnimation = PlaceCardsAnimation.Clone(),
+                PrePlacementDelay = PrePlacementDelay,
+                PostPlacementDelay = PostPlacementDelay,
+                CardPlacementStagger = CardPlacementStagger,
+                RevealAnimation = RevealAnimation.Clone(),
+                PreRevealDelay = PreRevealDelay,
+                PostRevealDelay = PostRevealDelay,
+                PreSequentialRevealDelay = PreSequentialRevealDelay,
+                SequentialRevealStagger = SequentialRevealStagger,
+                PostSequentialRevealDelay = PostSequentialRevealDelay,
+                PreWarCollectionDelay = PreWarCollectionDelay,
+                PostWarCollectionDelay = PostWarCollectionDelay,
+                FaceDownCardsPerPlayer = FaceDownCardsPerPlayer,
+                CardSpacing = CardSpacing
+            };
+        }
+    }
+    
     [Serializable]
     public class CardMoveAnimationConfig : BaseAnimationConfig
     {
-        [Header("Movement Settings")]
         [Range(0.1f, 2f)] public float Duration = 0.5f;
         public Ease EasingCurve = Ease.OutCubic;
-        [Range(0.8f, 1.5f)] public float ScaleMultiplier = 1.0f;
+        [Range(0.5f, 2f)] public float ScaleMultiplier = 1f;
         public bool UseScaling = false;
         
         public CardMoveAnimationConfig Clone()
@@ -31,12 +125,11 @@ namespace CardWar.Animation.Data
     [Serializable]
     public class CardFlipAnimationConfig : BaseAnimationConfig
     {
-        [Header("Flip Settings")]
         [Range(0.1f, 1f)] public float Duration = 0.3f;
-        [Range(0f, 1f)] public float DelayBetweenFlips = 0.3f;
+        [Range(0f, 1f)] public float DelayBetweenFlips = 0f;
         public Ease EasingCurve = Ease.InOutQuad;
         public Vector3 RotationAxis = Vector3.up;
-        public float RotationAngle = 180f;
+        [Range(90f, 360f)] public float RotationAngle = 180f;
         
         public CardFlipAnimationConfig Clone()
         {
@@ -52,63 +145,17 @@ namespace CardWar.Animation.Data
     }
     
     [Serializable]
-    public class BattleAnimationConfig : BaseAnimationConfig
-    {
-        [Header("Battle Sequence")]
-        public CardMoveAnimationConfig DrawAnimation = new();
-        public CardFlipAnimationConfig RevealAnimation = new();
-        [Range(0f, 2f)] public float PreBattleDelay = 0.5f;
-        [Range(0f, 2f)] public float PostBattleDelay = 1.0f;
-        [Range(0.5f, 3f)] public float CardSpacing = 1.5f;
-        
-        public BattleAnimationConfig Clone()
-        {
-            return new BattleAnimationConfig
-            {
-                DrawAnimation = DrawAnimation.Clone(),
-                RevealAnimation = RevealAnimation.Clone(),
-                PreBattleDelay = PreBattleDelay,
-                PostBattleDelay = PostBattleDelay,
-                CardSpacing = CardSpacing
-            };
-        }
-    }
-    
-    [Serializable]
-    public class WarAnimationConfig : BaseAnimationConfig
-    {
-        [Header("War Sequence")]
-        public CardMoveAnimationConfig PlaceCardsAnimation = new();
-        public CardFlipAnimationConfig RevealAnimation = new();
-        [Range(1, 4)] public int FaceDownCardsPerPlayer = 3;
-        [Range(0.1f, 1f)] public float CardSpacing = 0.2f;
-        [Range(0f, 2f)] public float SequenceDelay = 0.5f;
-        [Range(0f, 1f)] public float RevealDelay = 0.3f;
-        
-        public WarAnimationConfig Clone()
-        {
-            return new WarAnimationConfig
-            {
-                PlaceCardsAnimation = PlaceCardsAnimation.Clone(),
-                RevealAnimation = RevealAnimation.Clone(),
-                FaceDownCardsPerPlayer = FaceDownCardsPerPlayer,
-                CardSpacing = CardSpacing,
-                SequenceDelay = SequenceDelay,
-                RevealDelay = RevealDelay
-            };
-        }
-    }
-    
-    [Serializable]
     public class CollectionAnimationConfig : BaseAnimationConfig
     {
-        [Header("Collection Settings")]
+        [Header("Movement")]
         [Range(0.1f, 2f)] public float Duration = 0.6f;
         [Range(0f, 0.5f)] public float StaggerDelay = 0.1f;
         public Ease EasingCurve = Ease.InBack;
         public bool UseStagger = true;
+        
+        [Header("Effects")]
         public bool ScaleOnCollection = false;
-        [Range(0.8f, 1.2f)] public float CollectionScale = 0.9f;
+        [Range(0.5f, 1.5f)] public float CollectionScale = 0.9f;
         
         public CollectionAnimationConfig Clone()
         {
@@ -127,13 +174,16 @@ namespace CardWar.Animation.Data
     [Serializable]
     public class WinnerHighlightConfig : BaseAnimationConfig
     {
-        [Header("Winner Effects")]
+        [Header("Highlight Settings")]
         public bool EnableHighlight = true;
-        [Range(1f, 1.5f)] public float ScaleMultiplier = 1.1f;
+        [Range(1f, 2f)] public float ScaleMultiplier = 1.3f;
         [Range(0.1f, 1f)] public float ScaleDuration = 0.3f;
         public Ease ScaleEase = Ease.OutBack;
-        public Color TintColor = new(1f, 1f, 0.8f, 1f);
-        public bool UseTint = true;
+        
+        [Header("Tint Settings")]
+        public Color TintColor = Color.white;
+        public bool UseTint = false;
+        [Range(0.1f, 1f)] public float TintDuration = 0.3f;
         
         public WinnerHighlightConfig Clone()
         {
@@ -144,7 +194,43 @@ namespace CardWar.Animation.Data
                 ScaleDuration = ScaleDuration,
                 ScaleEase = ScaleEase,
                 TintColor = TintColor,
-                UseTint = UseTint
+                UseTint = UseTint,
+                TintDuration = TintDuration
+            };
+        }
+    }
+    
+    [Serializable]
+    public class UtilityAnimationConfig : BaseAnimationConfig
+    {
+        [Header("Shuffle Animation")]
+        [Range(0.3f, 2f)] public float ShuffleDuration = 0.8f;
+        [Range(0.1f, 1f)] public float ShuffleHeight = 0.5f;
+        public Ease ShuffleEase = Ease.InOutQuad;
+        
+        [Header("Conceal Animation")]
+        [Range(0.1f, 1f)] public float ConcealDuration = 0.3f;
+        [Range(0f, 2f)] public float PreConcealDelay = 0f;
+        [Range(0f, 2f)] public float PostConcealDelay = 0.3f;
+        
+        [Header("Return to Deck")]
+        [Range(0.3f, 2f)] public float ReturnDuration = 0.5f;
+        [Range(0f, 0.5f)] public float ReturnStagger = 0.1f;
+        public Ease ReturnEase = Ease.InCubic;
+        
+        public UtilityAnimationConfig Clone()
+        {
+            return new UtilityAnimationConfig
+            {
+                ShuffleDuration = ShuffleDuration,
+                ShuffleHeight = ShuffleHeight,
+                ShuffleEase = ShuffleEase,
+                ConcealDuration = ConcealDuration,
+                PreConcealDelay = PreConcealDelay,
+                PostConcealDelay = PostConcealDelay,
+                ReturnDuration = ReturnDuration,
+                ReturnStagger = ReturnStagger,
+                ReturnEase = ReturnEase
             };
         }
     }
@@ -152,8 +238,8 @@ namespace CardWar.Animation.Data
     [Serializable]
     public class TransitionAnimationConfig : BaseAnimationConfig
     {
-        [Header("Transitions")]
-        [Range(0.1f, 1f)] public float FadeInDuration = 0.2f;
+        [Header("Fade Transitions")]
+        [Range(0.1f, 1f)] public float FadeInDuration = 0.3f;
         [Range(0.1f, 1f)] public float FadeOutDuration = 0.3f;
         public Ease FadeInEase = Ease.OutQuad;
         public Ease FadeOutEase = Ease.InQuad;
@@ -168,27 +254,6 @@ namespace CardWar.Animation.Data
                 FadeInEase = FadeInEase,
                 FadeOutEase = FadeOutEase,
                 PauseFadeDuration = PauseFadeDuration
-            };
-        }
-    }
-    
-    [Serializable]
-    public class TimingConfig : BaseAnimationConfig
-    {
-        [Header("Round Timing")]
-        [Range(0f, 3f)] public float RoundStartDelay = 0.3f;
-        [Range(0f, 3f)] public float RoundEndDelay = 1.0f;
-        [Range(0f, 5f)] public float GameOverDelay = 2.0f;
-        [Range(0f, 2f)] public float BetweenActionsDelay = 0.5f;
-        
-        public TimingConfig Clone()
-        {
-            return new TimingConfig
-            {
-                RoundStartDelay = RoundStartDelay,
-                RoundEndDelay = RoundEndDelay,
-                GameOverDelay = GameOverDelay,
-                BetweenActionsDelay = BetweenActionsDelay
             };
         }
     }

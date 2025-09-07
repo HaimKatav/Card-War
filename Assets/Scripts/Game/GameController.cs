@@ -68,6 +68,7 @@ namespace CardWar.Game
         private void Initialize()
         {
             if (_isInitialized) return;
+            
             _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
             _assetService = ServiceLocator.Instance.Get<IAssetService>();
             _uiService = ServiceLocator.Instance.Get<IUIService>();
@@ -287,43 +288,27 @@ namespace CardWar.Game
             Debug.Log("[GameController] War draw complete - cards returned and decks shuffled");
         }
 
-        #endregion Game Flow
+        #endregion
 
         #region Animation Control
 
         private async UniTask PlayInitialSetup()
         {
-            var timingConfig = _animationDataBundle.Timing;
-
             Debug.Log("[GameController] Playing initial setup animation");
-            await UniTask.Delay((int)(timingConfig.RoundStartDelay * 1000));
-
             await _boardController.ShowInitialDeckSetup();
-
             Debug.Log("[GameController] Initial setup complete");
         }
 
         private async UniTask PlayBattleAnimations(RoundData roundData)
         {
-            var battleConfig = _animationDataBundle.Battle;
-            var roundDelay = _animationDataBundle.Timing.RoundEndDelay;
-    
             await _boardController.DrawBattleCards(roundData);
-    
-            await UniTask.Delay((int)(battleConfig.PreBattleDelay * 1000));
-    
             await _boardController.FlipBattleCards();
-    
-            await UniTask.Delay((int)(roundDelay * 1000));
-    
+            
             if (!roundData.IsWar)
             {
                 await _boardController.HighlightWinner(roundData.Result);
-        
-                await UniTask.Delay((int)(battleConfig.PostBattleDelay * 1000));
-        
                 await _boardController.CollectBattleCards(roundData.Result);
-        
+                
                 // Update UI after collection
                 var stats = await _serverHandler.GetGameStats();
                 if (stats != null)
@@ -338,27 +323,17 @@ namespace CardWar.Game
                 }
             }
         }
-        
+
         private async UniTask PlayWarAnimations(RoundData warData)
         {
-            var sequenceDelay = _animationDataBundle.War.SequenceDelay;
-            var timing = _animationDataBundle.Timing;
-    
             await _boardController.PlaceWarCards(warData);
-    
-            await UniTask.Delay((int)(sequenceDelay * 1000));
             await _boardController.RevealWarCards();
-    
-            await UniTask.Delay((int)(timing.RoundEndDelay * 1000));
-    
+            
             if (!warData.HasChainedWar)
             {
                 await _boardController.RevealAllWarCards();
-                await UniTask.Delay((int)(sequenceDelay * 1000));
-        
-                // Collect all cards including the initial war trigger cards
                 await _boardController.CollectWarCards(warData.Result);
-        
+                
                 // Update UI after war collection
                 var stats = await _serverHandler.GetGameStats();
                 if (stats != null)
@@ -374,7 +349,7 @@ namespace CardWar.Game
             }
         }
 
-        #endregion Animation Control
+        #endregion
 
         #region Board Management
 
@@ -403,7 +378,7 @@ namespace CardWar.Game
             {
                 var initialRound = new RoundData
                 {
-                    RoundNumber = stats.RoundNumber,  // Use actual round number from server
+                    RoundNumber = stats.RoundNumber,
                     PlayerCardsRemaining = stats.PlayerCardCount,
                     OpponentCardsRemaining = stats.OpponentCardCount
                 };
@@ -411,7 +386,7 @@ namespace CardWar.Game
             }
         }
 
-        #endregion Board Management
+        #endregion
 
         #region Event Handlers
 
@@ -438,8 +413,7 @@ namespace CardWar.Game
 
         private void OnDrawButtonPressed()
         {
-            Debug.Log(
-                $"[GameController] Draw button pressed - Active: {_isGameActive}, Paused: {_isPaused}, Processing: {_isProcessingRound}");
+            Debug.Log($"[GameController] Draw button pressed - Active: {_isGameActive}, Paused: {_isPaused}, Processing: {_isProcessingRound}");
             DrawNextCards().Forget();
         }
 
@@ -455,10 +429,12 @@ namespace CardWar.Game
 
         private void HandleCardsDrawn(RoundData roundData)
         {
+            // Server event - can be used for additional processing if needed
         }
 
         private void HandleWarResolved(RoundData warData)
         {
+            // Server event - can be used for additional processing if needed
         }
 
         private void HandleGameStatusChanged(GameStatus status)
@@ -536,7 +512,7 @@ namespace CardWar.Game
             ResetGame();
         }
 
-        #endregion State Management
+        #endregion
 
         #region Utility
 
@@ -555,7 +531,7 @@ namespace CardWar.Game
                 Debug.Log("[GameController] Cannot draw - round still processing");
         }
 
-        #endregion Utility
+        #endregion
 
         #region Cleanup
 
@@ -581,11 +557,6 @@ namespace CardWar.Game
                 _serverHandler.OnServerError -= HandleServerError;
             }
 
-            if (_animationDataBundle != null)
-            {
-
-            }
-
             RoundStartedEvent = null;
             CardsDrawnEvent = null;
             RoundCompletedEvent = null;
@@ -598,6 +569,6 @@ namespace CardWar.Game
             _isInitialized = false;
         }
 
-        #endregion Cleanup
+        #endregion
     }
 }

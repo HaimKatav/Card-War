@@ -5,109 +5,47 @@ namespace CardWar.Animation.Data
     [CreateAssetMenu(fileName = "AnimationSettings", menuName = "CardWar/AnimationSettings")]
     public class AnimationSettings : ScriptableObject
     {
+        [Header("Data Access Mode")]
+        [Tooltip("If true, returns cloned configs (safer). If false, returns direct references (faster, but changes affect the asset).")]
+        [SerializeField] private bool _useClonedData = true;
+        
         [Header("Animation Configurations")]
         [SerializeField] private BattleAnimationConfig _battleAnimation = new();
         [SerializeField] private WarAnimationConfig _warAnimation = new();
         [SerializeField] private CollectionAnimationConfig _collectionAnimation = new();
         [SerializeField] private WinnerHighlightConfig _winnerHighlight = new();
+        [SerializeField] private UtilityAnimationConfig _utilityAnimation = new();
         [SerializeField] private TransitionAnimationConfig _transitions = new();
-        [SerializeField] private TimingConfig _timing = new();
         [SerializeField] private CardPoolConfig _cardPool = new();
         
-        [Header("Quick Access Presets")]
-        [SerializeField] private CardMoveAnimationConfig _quickMove = new() { Duration = 0.3f };
-        [SerializeField] private CardMoveAnimationConfig _normalMove = new() { Duration = 0.5f };
-        [SerializeField] private CardMoveAnimationConfig _slowMove = new() { Duration = 0.8f };
+        public bool UseClonedData => _useClonedData;
         
-        public BattleAnimationConfig BattleAnimation => _battleAnimation.Clone();
-        public WarAnimationConfig WarAnimation => _warAnimation.Clone();
-        public CollectionAnimationConfig CollectionAnimation => _collectionAnimation.Clone();
-        public WinnerHighlightConfig WinnerHighlight => _winnerHighlight.Clone();
-        public TransitionAnimationConfig Transitions => _transitions.Clone();
-        public TimingConfig Timing => _timing.Clone();
-        public CardPoolConfig CardPool => _cardPool.Clone();
-        
-        public CardMoveAnimationConfig QuickMove => _quickMove.Clone();
-        public CardMoveAnimationConfig NormalMove => _normalMove.Clone();
-        public CardMoveAnimationConfig SlowMove => _slowMove.Clone();
-        
-        public BattleAnimationConfig GetBattleConfig() => _battleAnimation.Clone();
-        public WarAnimationConfig GetWarConfig() => _warAnimation.Clone();
-        public CollectionAnimationConfig GetCollectionConfig() => _collectionAnimation.Clone();
-        public WinnerHighlightConfig GetWinnerConfig() => _winnerHighlight.Clone();
-        public TransitionAnimationConfig GetTransitionConfig() => _transitions.Clone();
-        public TimingConfig GetTimingConfig() => _timing.Clone();
-        public CardPoolConfig GetCardPoolConfig() => _cardPool.Clone();
+        public BattleAnimationConfig BattleAnimation => _useClonedData ? _battleAnimation.Clone() : _battleAnimation;
+        public WarAnimationConfig WarAnimation => _useClonedData ? _warAnimation.Clone() : _warAnimation;
+        public CollectionAnimationConfig CollectionAnimation => _useClonedData ? _collectionAnimation.Clone() : _collectionAnimation;
+        public WinnerHighlightConfig WinnerHighlight => _useClonedData ? _winnerHighlight.Clone() : _winnerHighlight;
+        public UtilityAnimationConfig UtilityAnimation => _useClonedData ? _utilityAnimation.Clone() : _utilityAnimation;
+        public TransitionAnimationConfig Transitions => _useClonedData ? _transitions.Clone() : _transitions;
+        public CardPoolConfig CardPool => _useClonedData ? _cardPool.Clone() : _cardPool;
         
         #region Validation
         
         private void OnValidate()
         {
-            ValidateBattleAnimation();
-            ValidateWarAnimation();
-            ValidateCollectionAnimation();
-            ValidateWinnerHighlight();
-            ValidateTransitions();
-            ValidateTiming();
-            ValidateCardPool();
+            ValidateAllConfigurations();
         }
         
-        private void ValidateBattleAnimation()
+        private void ValidateAllConfigurations()
         {
-            if (_battleAnimation == null)
-                _battleAnimation = new BattleAnimationConfig();
-                
-            if (_battleAnimation.DrawAnimation == null)
-                _battleAnimation.DrawAnimation = new CardMoveAnimationConfig();
-                
-            if (_battleAnimation.RevealAnimation == null)
-                _battleAnimation.RevealAnimation = new CardFlipAnimationConfig();
-        }
-        
-        private void ValidateWarAnimation()
-        {
-            if (_warAnimation == null)
-                _warAnimation = new WarAnimationConfig();
-                
-            if (_warAnimation.PlaceCardsAnimation == null)
-                _warAnimation.PlaceCardsAnimation = new CardMoveAnimationConfig();
-                
-            if (_warAnimation.RevealAnimation == null)
-                _warAnimation.RevealAnimation = new CardFlipAnimationConfig();
-                
+            if (_battleAnimation == null) _battleAnimation = new BattleAnimationConfig();
+            if (_warAnimation == null) _warAnimation = new WarAnimationConfig();
+            if (_collectionAnimation == null) _collectionAnimation = new CollectionAnimationConfig();
+            if (_winnerHighlight == null) _winnerHighlight = new WinnerHighlightConfig();
+            if (_utilityAnimation == null) _utilityAnimation = new UtilityAnimationConfig();
+            if (_transitions == null) _transitions = new TransitionAnimationConfig();
+            if (_cardPool == null) _cardPool = new CardPoolConfig();
+            
             _warAnimation.FaceDownCardsPerPlayer = Mathf.Clamp(_warAnimation.FaceDownCardsPerPlayer, 1, 4);
-        }
-        
-        private void ValidateCollectionAnimation()
-        {
-            if (_collectionAnimation == null)
-                _collectionAnimation = new CollectionAnimationConfig();
-        }
-        
-        private void ValidateWinnerHighlight()
-        {
-            if (_winnerHighlight == null)
-                _winnerHighlight = new WinnerHighlightConfig();
-        }
-        
-        private void ValidateTransitions()
-        {
-            if (_transitions == null)
-                _transitions = new TransitionAnimationConfig();
-        }
-        
-        private void ValidateTiming()
-        {
-            if (_timing == null)
-                _timing = new TimingConfig();
-        }
-        
-        private void ValidateCardPool()
-        {
-            if (_cardPool == null)
-                _cardPool = new CardPoolConfig();
-                
-            _cardPool.InitialPoolSize = Mathf.Clamp(_cardPool.InitialPoolSize, 4, _cardPool.MaxPoolSize);
             _cardPool.MaxPoolSize = Mathf.Max(_cardPool.InitialPoolSize, _cardPool.MaxPoolSize);
         }
         
@@ -122,21 +60,54 @@ namespace CardWar.Animation.Data
             _warAnimation = new WarAnimationConfig();
             _collectionAnimation = new CollectionAnimationConfig();
             _winnerHighlight = new WinnerHighlightConfig();
+            _utilityAnimation = new UtilityAnimationConfig();
             _transitions = new TransitionAnimationConfig();
-            _timing = new TimingConfig();
             _cardPool = new CardPoolConfig();
             
             Debug.Log($"[AnimationSettings] Reset all configurations to defaults");
         }
         
-        [ContextMenu("Log Current Settings")]
-        private void LogCurrentSettings()
+        [ContextMenu("Apply Fast Animations")]
+        private void ApplyFastAnimations()
         {
-            Debug.Log($"[AnimationSettings] Battle Move Duration: {_battleAnimation.DrawAnimation.Duration}");
-            Debug.Log($"[AnimationSettings] War Cards Per Player: {_warAnimation.FaceDownCardsPerPlayer}");
-            Debug.Log($"[AnimationSettings] Collection Duration: {_collectionAnimation.Duration}");
-            Debug.Log($"[AnimationSettings] Round End Delay: {_timing.RoundEndDelay}");
-            Debug.Log($"[AnimationSettings] Card Pool Size: {_cardPool.InitialPoolSize}/{_cardPool.MaxPoolSize}");
+            _battleAnimation.DrawAnimation.Duration = 0.3f;
+            _battleAnimation.RevealAnimation.Duration = 0.2f;
+            _battleAnimation.PreFlipDelay = 0.1f;
+            _battleAnimation.PostFlipDelay = 0.2f;
+            
+            _warAnimation.PlaceCardsAnimation.Duration = 0.3f;
+            _warAnimation.RevealAnimation.Duration = 0.2f;
+            _warAnimation.PostPlacementDelay = 0.1f;
+            
+            _collectionAnimation.Duration = 0.4f;
+            _collectionAnimation.StaggerDelay = 0.05f;
+            
+            Debug.Log($"[AnimationSettings] Applied fast animation preset");
+        }
+        
+        [ContextMenu("Apply Slow Animations")]
+        private void ApplySlowAnimations()
+        {
+            _battleAnimation.DrawAnimation.Duration = 0.8f;
+            _battleAnimation.RevealAnimation.Duration = 0.5f;
+            _battleAnimation.PreFlipDelay = 0.5f;
+            _battleAnimation.PostFlipDelay = 0.8f;
+            
+            _warAnimation.PlaceCardsAnimation.Duration = 0.6f;
+            _warAnimation.RevealAnimation.Duration = 0.5f;
+            _warAnimation.PostPlacementDelay = 0.5f;
+            
+            _collectionAnimation.Duration = 0.8f;
+            _collectionAnimation.StaggerDelay = 0.15f;
+            
+            Debug.Log($"[AnimationSettings] Applied slow animation preset");
+        }
+        
+        [ContextMenu("Toggle Clone Mode")]
+        private void ToggleCloneMode()
+        {
+            _useClonedData = !_useClonedData;
+            Debug.Log($"[AnimationSettings] Clone mode: {(_useClonedData ? "Enabled (Safer)" : "Disabled (Direct Access)")}");
         }
         
         #endregion

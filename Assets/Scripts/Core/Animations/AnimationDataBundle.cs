@@ -8,11 +8,16 @@ namespace CardWar.Animation.Data
         public WarAnimationConfig War { get; private set; }
         public CollectionAnimationConfig Collection { get; private set; }
         public WinnerHighlightConfig WinnerHighlight { get; private set; }
+        public UtilityAnimationConfig UtilityAnimation { get; private set; }
         public TransitionAnimationConfig Transitions { get; private set; }
-        public TimingConfig Timing { get; private set; }
         public CardPoolConfig CardPool { get; private set; }
         
-        private AnimationDataBundle() { }
+        private readonly bool _isUsingClonedData;
+        
+        private AnimationDataBundle(bool useClonedData = true)
+        {
+            _isUsingClonedData = useClonedData;
+        }
         
         public static AnimationDataBundle CreateFromSettings(AnimationSettings settings)
         {
@@ -22,14 +27,18 @@ namespace CardWar.Animation.Data
                 return CreateDefault();
             }
             
-            return new AnimationDataBundle
+            var useClonedData = settings.UseClonedData;
+            
+            Debug.Log($"[AnimationDataBundle] Creating bundle with {(useClonedData ? "cloned" : "direct")} data access");
+            
+            return new AnimationDataBundle(useClonedData)
             {
                 Battle = settings.BattleAnimation,
                 War = settings.WarAnimation,
                 Collection = settings.CollectionAnimation,
                 WinnerHighlight = settings.WinnerHighlight,
+                UtilityAnimation = settings.UtilityAnimation,
                 Transitions = settings.Transitions,
-                Timing = settings.Timing,
                 CardPool = settings.CardPool
             };
         }
@@ -38,69 +47,21 @@ namespace CardWar.Animation.Data
         {
             Debug.LogWarning("[AnimationDataBundle] Creating bundle with default values");
             
-            return new AnimationDataBundle
+            return new AnimationDataBundle(true)
             {
                 Battle = new BattleAnimationConfig(),
                 War = new WarAnimationConfig(),
                 Collection = new CollectionAnimationConfig(),
                 WinnerHighlight = new WinnerHighlightConfig(),
+                UtilityAnimation = new UtilityAnimationConfig(),
                 Transitions = new TransitionAnimationConfig(),
-                Timing = new TimingConfig(),
                 CardPool = new CardPoolConfig()
             };
         }
         
-        public static AnimationDataBundle CreateForBattle(AnimationSettings settings)
+        public bool IsUsingClonedData()
         {
-            if (settings == null) return CreateDefault();
-            
-            return new AnimationDataBundle
-            {
-                Battle = settings.BattleAnimation,
-                Collection = settings.CollectionAnimation,
-                WinnerHighlight = settings.WinnerHighlight,
-                Transitions = settings.Transitions,
-                Timing = settings.Timing,
-                War = null,
-                CardPool = null
-            };
-        }
-        
-        public static AnimationDataBundle CreateForWar(AnimationSettings settings)
-        {
-            if (settings == null) return CreateDefault();
-            
-            return new AnimationDataBundle
-            {
-                War = settings.WarAnimation,
-                Collection = settings.CollectionAnimation,
-                WinnerHighlight = settings.WinnerHighlight,
-                Transitions = settings.Transitions,
-                Timing = settings.Timing,
-                Battle = null,
-                CardPool = null
-            };
-        }
-        
-        public AnimationDataBundle WithCustomTiming(TimingConfig customTiming)
-        {
-            Timing = customTiming;
-            return this;
-        }
-        
-        public AnimationDataBundle WithCustomCollection(CollectionAnimationConfig customCollection)
-        {
-            Collection = customCollection;
-            return this;
-        }
-        
-        public AnimationDataBundle DisableWinnerHighlight()
-        {
-            if (WinnerHighlight != null)
-            {
-                WinnerHighlight.EnableHighlight = false;
-            }
-            return this;
+            return _isUsingClonedData;
         }
     }
 }

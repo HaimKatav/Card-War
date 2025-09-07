@@ -3,9 +3,10 @@ using UnityEngine;
 using DG.Tweening;
 using Cysharp.Threading.Tasks;
 using CardWar.Animation.Data;
+using CardWar.Game.UI;
 using CardWar.Common;
 
-namespace CardWar.Game.UI
+namespace CardWar.Game.Helpers
 {
     public class CardAnimationHelper
     {
@@ -52,32 +53,50 @@ namespace CardWar.Game.UI
         {
             if (playerCard == null || opponentCard == null || _positionManager == null) return;
             
-            var drawConfig = _animationData.Battle.DrawAnimation;
+            var battleConfig = _animationData.Battle;
+            
+            if (battleConfig.PreDrawDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PreDrawDelay * 1000));
+            }
             
             var tasks = new List<UniTask>
             {
-                MoveCardToPosition(playerCard, _positionManager.PlayerBattlePosition, 
-                    drawConfig.Duration, drawConfig.EasingCurve),
-                MoveCardToPosition(opponentCard, _positionManager.OpponentBattlePosition, 
-                    drawConfig.Duration, drawConfig.EasingCurve)
+                MoveCard(playerCard, _positionManager.PlayerBattlePosition, battleConfig.DrawAnimation),
+                MoveCard(opponentCard, _positionManager.OpponentBattlePosition, battleConfig.DrawAnimation)
             };
             
             await UniTask.WhenAll(tasks);
+            
+            if (battleConfig.PostDrawDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PostDrawDelay * 1000));
+            }
         }
         
         public async UniTask AnimateBattleCardFlip(CardView playerCard, CardView opponentCard)
         {
             if (playerCard == null || opponentCard == null) return;
             
-            var flipConfig = _animationData.Battle.RevealAnimation;
+            var battleConfig = _animationData.Battle;
+            
+            if (battleConfig.PreFlipDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PreFlipDelay * 1000));
+            }
             
             var tasks = new List<UniTask>
             {
-                playerCard.FlipCard(true, flipConfig.Duration),
-                opponentCard.FlipCard(true, flipConfig.Duration)
+                FlipCard(playerCard, true, battleConfig.RevealAnimation),
+                FlipCard(opponentCard, true, battleConfig.RevealAnimation)
             };
             
             await UniTask.WhenAll(tasks);
+            
+            if (battleConfig.PostFlipDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PostFlipDelay * 1000));
+            }
         }
         
         public async UniTask HighlightWinner(CardView winnerCard)
@@ -85,15 +104,53 @@ namespace CardWar.Game.UI
             if (winnerCard == null) return;
             
             var config = _animationData.WinnerHighlight;
-            await HighlightCard(winnerCard, config.ScaleMultiplier, config.TintColor);
+            var battleConfig = _animationData.Battle;
+            
+            if (!config.EnableHighlight) return;
+            
+            if (battleConfig.PreHighlightDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PreHighlightDelay * 1000));
+            }
+            
+            var sequence = DOTween.Sequence();
+            
+            sequence.Append(winnerCard.transform.DOScale(config.ScaleMultiplier, config.ScaleDuration * 0.5f)
+                .SetEase(config.ScaleEase));
+            sequence.Append(winnerCard.transform.DOScale(1f, config.ScaleDuration * 0.5f)
+                .SetEase(Ease.InBack));
+            
+            if (config.UseTint && config.TintColor != Color.white)
+            {
+                sequence.Join(winnerCard.SetTint(config.TintColor, config.TintDuration));
+            }
+            
+            await sequence.AsyncWaitForCompletion().AsUniTask();
+            
+            if (battleConfig.PostHighlightDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PostHighlightDelay * 1000));
+            }
         }
         
         public async UniTask CollectBattleCards(List<CardView> cards, RoundResult result)
         {
             if (cards == null || cards.Count == 0 || _positionManager == null) return;
             
+            var battleConfig = _animationData.Battle;
+            
+            if (battleConfig.PreCollectionDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PreCollectionDelay * 1000));
+            }
+            
             var targetPosition = _positionManager.GetCollectionTargetPosition(result);
-            await CollectCardsToPosition(cards, targetPosition);
+            await CollectCards(cards, targetPosition, _animationData.Collection);
+            
+            if (battleConfig.PostCollectionDelay > 0)
+            {
+                await UniTask.Delay((int)(battleConfig.PostCollectionDelay * 1000));
+            }
         }
         
         #endregion
@@ -101,24 +158,30 @@ namespace CardWar.Game.UI
         #region War Animations
         
         public async UniTask AnimateWarCardPlacement(List<CardView> playerCards, List<CardView> opponentCards, 
-            int warDepth)
+            int warDepth, float cardSpacing)
         {
             if (playerCards == null || opponentCards == null || _positionManager == null) return;
             
-            var config = _animationData.War.PlaceCardsAnimation;
-            var spacing = _animationData.War.CardSpacing;
+            var warConfig = _animationData.War;
+            
+            if (warConfig.PrePlacementDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PrePlacementDelay * 1000));
+            }
+            
             var sequence = DOTween.Sequence();
             
             for (var i = 0; i < playerCards.Count; i++)
             {
                 if (playerCards[i] != null)
                 {
-                    var stackOffset = _positionManager.CalculateWarStackOffset(warDepth, i, spacing);
+                    var stackOffset = _positionManager.CalculateWarStackOffset(warDepth, i, cardSpacing);
                     var targetPos = _positionManager.GetWarPosition(true, i, stackOffset);
+                    var delay = i * warConfig.CardPlacementStagger;
                     
-                    sequence.Insert(i * 0.1f, playerCards[i].transform
-                        .DOMove(targetPos, config.Duration)
-                        .SetEase(config.EasingCurve));
+                    sequence.Insert(delay, playerCards[i].transform
+                        .DOMove(targetPos, warConfig.PlaceCardsAnimation.Duration)
+                        .SetEase(warConfig.PlaceCardsAnimation.EasingCurve));
                 }
             }
             
@@ -126,23 +189,63 @@ namespace CardWar.Game.UI
             {
                 if (opponentCards[i] != null)
                 {
-                    var stackOffset = _positionManager.CalculateWarStackOffset(warDepth, i, spacing);
+                    var stackOffset = _positionManager.CalculateWarStackOffset(warDepth, i, cardSpacing);
                     var targetPos = _positionManager.GetWarPosition(false, i, stackOffset);
+                    var delay = i * warConfig.CardPlacementStagger;
                     
-                    sequence.Insert(i * 0.1f, opponentCards[i].transform
-                        .DOMove(targetPos, config.Duration)
-                        .SetEase(config.EasingCurve));
+                    sequence.Insert(delay, opponentCards[i].transform
+                        .DOMove(targetPos, warConfig.PlaceCardsAnimation.Duration)
+                        .SetEase(warConfig.PlaceCardsAnimation.EasingCurve));
                 }
             }
             
             await sequence.AsyncWaitForCompletion().AsUniTask();
+            
+            if (warConfig.PostPlacementDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PostPlacementDelay * 1000));
+            }
+        }
+        
+        public async UniTask RevealWarCards(List<CardView> cardsToReveal)
+        {
+            if (cardsToReveal == null || cardsToReveal.Count == 0) return;
+            
+            var warConfig = _animationData.War;
+            
+            if (warConfig.PreRevealDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PreRevealDelay * 1000));
+            }
+            
+            var tasks = new List<UniTask>();
+            foreach (var card in cardsToReveal)
+            {
+                if (card != null)
+                {
+                    tasks.Add(FlipCard(card, true, warConfig.RevealAnimation));
+                }
+            }
+            
+            await UniTask.WhenAll(tasks);
+            
+            if (warConfig.PostRevealDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PostRevealDelay * 1000));
+            }
         }
         
         public async UniTask RevealWarCardsSequentially(List<CardView> cards)
         {
             if (cards == null || cards.Count == 0) return;
             
-            var config = _animationData.War.RevealAnimation;
+            var warConfig = _animationData.War;
+            
+            if (warConfig.PreSequentialRevealDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PreSequentialRevealDelay * 1000));
+            }
+            
             var sequence = DOTween.Sequence();
             var delay = 0f;
             
@@ -152,33 +255,110 @@ namespace CardWar.Game.UI
                 if (card != null && !card.IsFaceUp)
                 {
                     var capturedCard = card;
+                    var flipConfig = warConfig.RevealAnimation;
+                    
                     sequence.Insert(delay, DOTween.To(
                         () => 0f,
                         _ => { },
                         1f,
                         0.01f
-                    ).OnComplete(() => capturedCard.FlipCard(true, config.Duration).Forget()));
+                    ).OnComplete(() => capturedCard.FlipCard(true, flipConfig.Duration).Forget()));
                     
-                    delay += 0.1f;
+                    delay += warConfig.SequentialRevealStagger;
                 }
             }
             
             await sequence.AsyncWaitForCompletion().AsUniTask();
+            
+            if (warConfig.PostSequentialRevealDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PostSequentialRevealDelay * 1000));
+            }
         }
         
         public async UniTask CollectWarCards(List<CardView> cards, RoundResult result)
         {
             if (cards == null || cards.Count == 0 || _positionManager == null) return;
             
+            var warConfig = _animationData.War;
+            
+            if (warConfig.PreWarCollectionDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PreWarCollectionDelay * 1000));
+            }
+            
             var targetPosition = _positionManager.GetCollectionTargetPosition(result);
-            await CollectCardsToPosition(cards, targetPosition, true);
+            await CollectCards(cards, targetPosition, _animationData.Collection, true);
+            
+            if (warConfig.PostWarCollectionDelay > 0)
+            {
+                await UniTask.Delay((int)(warConfig.PostWarCollectionDelay * 1000));
+            }
+        }
+        
+        #endregion
+        
+        #region Utility Animations
+        
+        public async UniTask ShowShuffleAnimation(Transform deckTransform)
+        {
+            if (deckTransform == null) return;
+            
+            var utilityConfig = _animationData.UtilityAnimation;
+            var sequence = DOTween.Sequence();
+            
+            var originalPosition = deckTransform.position;
+            
+            sequence.Append(deckTransform.DOMove(
+                originalPosition + Vector3.up * utilityConfig.ShuffleHeight, 
+                utilityConfig.ShuffleDuration * 0.25f)
+                .SetEase(Ease.OutQuad));
+            
+            sequence.Append(deckTransform.DOMove(
+                originalPosition, 
+                utilityConfig.ShuffleDuration * 0.25f)
+                .SetEase(Ease.InQuad));
+            
+            await sequence.AsyncWaitForCompletion().AsUniTask();
+        }
+        
+        public async UniTask ConcealCards(List<CardView> cards)
+        {
+            if (cards == null || cards.Count == 0) return;
+            
+            var utilityConfig = _animationData.UtilityAnimation;
+            
+            if (utilityConfig.PreConcealDelay > 0)
+            {
+                await UniTask.Delay((int)(utilityConfig.PreConcealDelay * 1000));
+            }
+            
+            var tasks = new List<UniTask>();
+            
+            foreach (var card in cards)
+            {
+                if (card != null && card.IsFaceUp)
+                {
+                    tasks.Add(card.FlipCard(false, utilityConfig.ConcealDuration));
+                }
+            }
+            
+            if (tasks.Count > 0)
+            {
+                await UniTask.WhenAll(tasks);
+            }
+            
+            if (utilityConfig.PostConcealDelay > 0)
+            {
+                await UniTask.Delay((int)(utilityConfig.PostConcealDelay * 1000));
+            }
         }
         
         public async UniTask ReturnWarCardsToBothDecks(List<CardView> cards)
         {
             if (cards == null || cards.Count == 0 || _positionManager == null) return;
             
-            var config = _animationData.Collection;
+            var utilityConfig = _animationData.UtilityAnimation;
             var sequence = DOTween.Sequence();
             var playerDelay = 0f;
             var opponentDelay = 0f;
@@ -191,16 +371,17 @@ namespace CardWar.Game.UI
                 var targetPosition = _positionManager.GetCardReturnPosition(card);
                 var delay = isPlayerCard ? playerDelay : opponentDelay;
                 
-                sequence.Insert(delay, card.transform.DOMove(targetPosition, config.Duration)
-                    .SetEase(config.EasingCurve));
+                sequence.Insert(delay, card.transform
+                    .DOMove(targetPosition, utilityConfig.ReturnDuration)
+                    .SetEase(utilityConfig.ReturnEase));
                 
                 if (isPlayerCard)
                 {
-                    playerDelay += 0.1f;
+                    playerDelay += utilityConfig.ReturnStagger;
                 }
                 else
                 {
-                    opponentDelay += 0.1f;
+                    opponentDelay += utilityConfig.ReturnStagger;
                 }
             }
             
@@ -209,191 +390,90 @@ namespace CardWar.Game.UI
         
         #endregion
         
-        #region Card Movement
+        #region Core Animation Methods
         
-        public async UniTask MoveCardToPosition(CardView card, Vector3 targetPosition, float duration, Ease easing)
+        private async UniTask MoveCard(CardView card, Vector3 targetPosition, CardMoveAnimationConfig config)
         {
-            if (card == null) return;
-            
-            await card.transform.DOMove(targetPosition, duration)
-                .SetEase(easing)
-                .AsyncWaitForCompletion()
-                .AsUniTask();
-        }
-        
-        public async UniTask MoveCardsToPosition(List<CardView> cards, Vector3 targetPosition, 
-            float duration, float staggerDelay, Ease easing)
-        {
-            if (cards == null || cards.Count == 0) return;
+            if (card == null || config == null) return;
             
             var sequence = DOTween.Sequence();
-            var delay = 0f;
             
-            foreach (var card in cards)
+            sequence.Append(card.transform
+                .DOMove(targetPosition, config.Duration)
+                .SetEase(config.EasingCurve));
+            
+            if (config.UseScaling)
             {
-                if (card != null)
-                {
-                    sequence.Insert(delay, card.transform.DOMove(targetPosition, duration).SetEase(easing));
-                    delay += staggerDelay;
-                }
+                sequence.Join(card.transform.DOScale(config.ScaleMultiplier, config.Duration * 0.5f));
+                sequence.Append(card.transform.DOScale(1f, config.Duration * 0.5f));
             }
             
             await sequence.AsyncWaitForCompletion().AsUniTask();
         }
         
-        #endregion
-        
-        #region Card Flipping
-        
-        public async UniTask FlipCard(CardView card, bool faceUp, float duration)
+        private async UniTask FlipCard(CardView card, bool faceUp, CardFlipAnimationConfig config)
         {
-            if (card == null) return;
+            if (card == null || config == null) return;
             
-            await card.FlipCard(faceUp, duration);
-        }
-        
-        public async UniTask FlipCards(List<CardView> cards, bool faceUp, float duration, float staggerDelay)
-        {
-            if (cards == null || cards.Count == 0) return;
-            
-            var tasks = new List<UniTask>();
-            var currentDelay = 0f;
-            
-            foreach (var card in cards)
+            if (config.DelayBetweenFlips > 0)
             {
-                if (card != null)
-                {
-                    tasks.Add(FlipCardDelayed(card, faceUp, duration, currentDelay));
-                    currentDelay += staggerDelay;
-                }
+                await UniTask.Delay((int)(config.DelayBetweenFlips * 1000));
             }
             
-            await UniTask.WhenAll(tasks);
+            await card.FlipCard(faceUp, config.Duration);
         }
         
-        private async UniTask FlipCardDelayed(CardView card, bool faceUp, float duration, float delay)
+        private async UniTask CollectCards(List<CardView> cards, Vector3 targetPosition, 
+            CollectionAnimationConfig config, bool reverseOrder = false)
         {
-            if (delay > 0)
-            {
-                await UniTask.Delay((int)(delay * 1000));
-            }
+            if (cards == null || cards.Count == 0 || config == null) return;
             
-            await card.FlipCard(faceUp, duration);
-        }
-        
-        public async UniTask ConcealCards(List<CardView> cards)
-        {
-            if (cards == null || cards.Count == 0) return;
-            
-            var tasks = new List<UniTask>();
-            
-            foreach (var card in cards)
-            {
-                if (card != null && card.IsFaceUp)
-                {
-                    tasks.Add(card.FlipCard(false, 0.3f));
-                }
-            }
-            
-            if (tasks.Count > 0)
-            {
-                await UniTask.WhenAll(tasks);
-            }
-        }
-        
-        #endregion
-        
-        #region Card Collection
-        
-        public async UniTask CollectCardsToPosition(List<CardView> cards, Vector3 targetPosition, bool reverseOrder = false)
-        {
-            if (cards == null || cards.Count == 0) return;
-            
-            var config = _animationData.Collection;
             var sequence = DOTween.Sequence();
-            var delay = 0f;
-            
             var cardList = new List<CardView>(cards);
+            
             if (reverseOrder)
             {
                 cardList.Reverse();
             }
             
-            foreach (var card in cardList)
+            if (config.UseStagger)
             {
-                if (card != null)
+                var delay = 0f;
+                foreach (var card in cardList)
                 {
-                    sequence.Insert(delay, card.transform.DOMove(targetPosition, config.Duration)
-                        .SetEase(config.EasingCurve));
-                    delay += config.StaggerDelay;
+                    if (card != null)
+                    {
+                        var tween = card.transform
+                            .DOMove(targetPosition, config.Duration)
+                            .SetEase(config.EasingCurve);
+                        
+                        if (config.ScaleOnCollection)
+                        {
+                            sequence.Insert(delay, card.transform.DOScale(config.CollectionScale, config.Duration * 0.5f));
+                            sequence.Insert(delay + config.Duration * 0.5f, card.transform.DOScale(1f, config.Duration * 0.5f));
+                        }
+                        
+                        sequence.Insert(delay, tween);
+                        delay += config.StaggerDelay;
+                    }
+                }
+            }
+            else
+            {
+                foreach (var card in cardList)
+                {
+                    if (card != null)
+                    {
+                        var tween = card.transform
+                            .DOMove(targetPosition, config.Duration)
+                            .SetEase(config.EasingCurve);
+                        
+                        sequence.Insert(0, tween);
+                    }
                 }
             }
             
             await sequence.AsyncWaitForCompletion().AsUniTask();
-        }
-        
-        #endregion
-        
-        #region Visual Effects
-        
-        public async UniTask HighlightCard(CardView card, float scaleMultiplier, Color tintColor)
-        {
-            if (card == null) return;
-            
-            var config = _animationData.WinnerHighlight;
-            var sequence = DOTween.Sequence();
-            
-            sequence.Append(card.transform.DOScale(scaleMultiplier, config.ScaleDuration * 0.5f)
-                .SetEase(Ease.OutBack));
-            sequence.Append(card.transform.DOScale(1f, config.ScaleDuration * 0.5f)
-                .SetEase(Ease.InBack));
-            
-            if (tintColor != Color.white)
-            {
-                sequence.Join(card.SetTint(tintColor, config.ScaleDuration));
-            }
-            
-            await sequence.AsyncWaitForCompletion().AsUniTask();
-        }
-        
-        public async UniTask ShowShuffleAnimation(Transform deckTransform)
-        {
-            if (deckTransform == null) return;
-            
-            var shuffleDuration = 0.8f;
-            var shuffleHeight = 0.5f;
-            var sequence = DOTween.Sequence();
-            
-            var originalPosition = deckTransform.position;
-            
-            sequence.Append(deckTransform.DOMove(originalPosition + Vector3.up * shuffleHeight, 
-                shuffleDuration * 0.25f).SetEase(Ease.OutQuad));
-            sequence.Append(deckTransform.DOMove(originalPosition, 
-                shuffleDuration * 0.25f).SetEase(Ease.InQuad));
-            
-            await sequence.AsyncWaitForCompletion().AsUniTask();
-        }
-        
-        #endregion
-        
-        #region Utility
-        
-        public void ResetCardTransform(CardView card)
-        {
-            if (card == null) return;
-            
-            card.transform.rotation = Quaternion.identity;
-            card.transform.localScale = Vector3.one;
-        }
-        
-        public void ResetMultipleCardTransforms(List<CardView> cards)
-        {
-            if (cards == null) return;
-            
-            foreach (var card in cards)
-            {
-                ResetCardTransform(card);
-            }
         }
         
         #endregion

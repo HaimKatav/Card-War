@@ -4,6 +4,8 @@ using CardWar.Common;
 using UnityEngine;
 using CardWar.Services;
 using CardWar.Animation.Data;
+using CardWar.Game.Helpers;
+using CardWar.Game.Logic;
 using Cysharp.Threading.Tasks;
 using UnityEngine.UI;
 
@@ -122,31 +124,16 @@ namespace CardWar.Game.UI
         
         public async UniTask DrawBattleCards(RoundData roundData)
         {
-            if (roundData == null)
-            {
-                Debug.LogError("[GameBoardController] Round data is null");
-                return;
-            }
+            if (!ValidateRoundData(roundData)) return;
             
             Debug.Log($"[GameBoardController] Drawing battle cards - Round {roundData.RoundNumber}");
             
             _stateManager.ClearBattleCards();
             
-            var playerCard = _poolManager.SpawnCard(
-                roundData.PlayerCard, 
-                _positionManager.PlayerDeckPosition
-            );
+            var playerCard = _poolManager.SpawnCard(roundData.PlayerCard, _positionManager.PlayerDeckPosition);
+            var opponentCard = _poolManager.SpawnCard(roundData.OpponentCard, _positionManager.OpponentDeckPosition);
             
-            var opponentCard = _poolManager.SpawnCard(
-                roundData.OpponentCard, 
-                _positionManager.OpponentDeckPosition
-            );
-            
-            if (playerCard == null || opponentCard == null)
-            {
-                Debug.LogError("[GameBoardController] Failed to spawn battle cards");
-                return;
-            }
+            if (!ValidateBattleCards(playerCard, opponentCard)) return;
             
             _stateManager.SetBattleCards(playerCard, opponentCard);
             
@@ -175,10 +162,8 @@ namespace CardWar.Game.UI
         {
             Debug.Log($"[GameBoardController] Collecting battle cards - Winner: {result}");
             
-            var targetPosition = _positionManager.GetCollectionTargetPosition(result);
             var cardsToCollect = _stateManager.GetCardsForCollection(false);
-            
-            await _animationHelper.CollectCardsToPosition(cardsToCollect, targetPosition);
+            await _animationHelper.CollectBattleCards(cardsToCollect, result);
             
             _stateManager.ReturnAllCardsToPool();
             OnRoundAnimationComplete?.Invoke();
@@ -190,99 +175,30 @@ namespace CardWar.Game.UI
         
         public async UniTask PlaceWarCards(RoundData warData)
         {
-            if (warData == null)
-            {
-                Debug.LogError("[GameBoardController] War data is null");
-                return;
-            }
+            if (!ValidateRoundData(warData)) return;
             
-            var actualWarCards = Math.Min(
-                warData.PlayerWarCards.Count, 
-                warData.OpponentWarCards.Count
-            );
+            var actualWarCards = CalculateActualWarCards(warData);
             
             Debug.Log($"[GameBoardController] Placing {actualWarCards} cards for war depth {warData.WarDepth}");
             
-            if (warData.WarDepth == 1 && !warData.HasChainedWar)
-            {
-                _stateManager.AddExistingBattleCardsToWar();
-            }
+            PrepareWarState(warData);
             
-            var playerWarCards = new List<CardView>();
-            var opponentWarCards = new List<CardView>();
-            var playerPositions = new List<Vector3>();
-            var opponentPositions = new List<Vector3>();
+            var (playerCards, opponentCards) = SpawnWarCards(warData, actualWarCards);
             
-            for (var i = 0; i < actualWarCards; i++)
-            {
-                var playerCard = _poolManager.SpawnCard(
-                    warData.PlayerWarCards[i],
-                    _positionManager.PlayerDeckPosition
-                );
-                
-                var opponentCard = _poolManager.SpawnCard(
-                    warData.OpponentWarCards[i],
-                    _positionManager.OpponentDeckPosition
-                );
-                
-                if (playerCard == null || opponentCard == null)
-                {
-                    Debug.LogError("[GameBoardController] Failed to spawn war cards");
-                    continue;
-                }
-                
-                var isFaceDown = i < actualWarCards - 1;
-                playerCard.SetFaceUp(!isFaceDown);
-                opponentCard.SetFaceUp(!isFaceDown);
-                
-                _stateManager.AddWarCards(playerCard, opponentCard);
-                playerWarCards.Add(playerCard);
-                opponentWarCards.Add(opponentCard);
-                
-                var stackOffset = _positionManager.CalculateWarStackOffset(
-                    warData.WarDepth, 
-                    i, 
-                    _animationDataBundle.War.CardSpacing
-                );
-                
-                playerPositions.Add(_positionManager.GetWarPosition(true, i, stackOffset));
-                opponentPositions.Add(_positionManager.GetWarPosition(false, i, stackOffset));
-                
-                if (i == actualWarCards - 1)
-                {
-                    _stateManager.UpdateBattleCards(playerCard, opponentCard);
-                }
-            }
-
-            await _animationHelper.AnimateWarCardPlacement(playerWarCards, opponentWarCards, warData.WarDepth);
+            await _animationHelper.AnimateWarCardPlacement(
+                playerCards, 
+                opponentCards,
+                warData.WarDepth,
+                _animationDataBundle.War.CardSpacing
+            );
         }
         
         public async UniTask RevealWarCards()
         {
             Debug.Log($"[GameBoardController] Revealing war cards");
             
-            var cardsToReveal = new List<CardView>();
-            
-            if (_stateManager.PlayerBattleCard != null && !_stateManager.PlayerBattleCard.IsFaceUp)
-            {
-                cardsToReveal.Add(_stateManager.PlayerBattleCard);
-            }
-            
-            if (_stateManager.OpponentBattleCard != null && !_stateManager.OpponentBattleCard.IsFaceUp)
-            {
-                cardsToReveal.Add(_stateManager.OpponentBattleCard);
-            }
-            
-            foreach (var card in _stateManager.WarCards)
-            {
-                if (card != null && !card.IsFaceUp)
-                {
-                    cardsToReveal.Add(card);
-                }
-            }
-            
-            await _animationHelper.FlipCards(cardsToReveal, true, 
-                _animationDataBundle.War.RevealAnimation.Duration, 0);
+            var cardsToReveal = GetCardsToReveal();
+            await _animationHelper.RevealWarCards(cardsToReveal);
         }
         
         public async UniTask RevealAllWarCards()
@@ -291,17 +207,14 @@ namespace CardWar.Game.UI
             
             var warCards = new List<CardView>(_stateManager.WarCards);
             await _animationHelper.RevealWarCardsSequentially(warCards);
-            await UniTask.Delay(500);
         }
         
         public async UniTask CollectWarCards(RoundResult result)
         {
             Debug.Log($"[GameBoardController] Collecting war cards - Winner: {result}");
             
-            var targetPosition = _positionManager.GetCollectionTargetPosition(result);
             var cardsToCollect = _stateManager.GetCardsForCollection(true);
-            
-            await _animationHelper.CollectCardsToPosition(cardsToCollect, targetPosition, true);
+            await _animationHelper.CollectWarCards(cardsToCollect, result);
             
             _stateManager.ReturnAllCardsToPool();
             OnRoundAnimationComplete?.Invoke();
@@ -320,7 +233,6 @@ namespace CardWar.Game.UI
             Debug.Log($"[GameBoardController] Returning war cards to both players");
             
             await ConcealAllCards();
-            await UniTask.Delay(300);
             
             var activeCards = _stateManager.GetAllActiveCards();
             await _animationHelper.ReturnWarCardsToBothDecks(activeCards);
@@ -384,6 +296,108 @@ namespace CardWar.Game.UI
             {
                 _drawButton.interactable = true;
             }
+        }
+        
+        #endregion
+        
+        #region Helper Methods
+        
+        private bool ValidateRoundData(RoundData roundData)
+        {
+            if (roundData == null)
+            {
+                Debug.LogError("[GameBoardController] Round data is null");
+                return false;
+            }
+            return true;
+        }
+        
+        private bool ValidateBattleCards(CardView playerCard, CardView opponentCard)
+        {
+            if (playerCard == null || opponentCard == null)
+            {
+                Debug.LogError("[GameBoardController] Failed to spawn battle cards");
+                return false;
+            }
+            return true;
+        }
+        
+        private int CalculateActualWarCards(RoundData warData)
+        {
+            return Math.Min(warData.PlayerWarCards.Count, warData.OpponentWarCards.Count);
+        }
+        
+        private void PrepareWarState(RoundData warData)
+        {
+            if (warData.WarDepth == 1 && !warData.HasChainedWar)
+            {
+                _stateManager.AddExistingBattleCardsToWar();
+            }
+        }
+        
+        private (List<CardView> playerCards, List<CardView> opponentCards) SpawnWarCards(RoundData warData, int actualWarCards)
+        {
+            var playerCards = new List<CardView>();
+            var opponentCards = new List<CardView>();
+            
+            for (var i = 0; i < actualWarCards; i++)
+            {
+                var playerCard = _poolManager.SpawnCard(
+                    warData.PlayerWarCards[i],
+                    _positionManager.PlayerDeckPosition
+                );
+                
+                var opponentCard = _poolManager.SpawnCard(
+                    warData.OpponentWarCards[i],
+                    _positionManager.OpponentDeckPosition
+                );
+                
+                if (playerCard == null || opponentCard == null)
+                {
+                    Debug.LogError("[GameBoardController] Failed to spawn war cards");
+                    continue;
+                }
+                
+                var isFaceDown = i < actualWarCards - 1;
+                playerCard.SetFaceUp(!isFaceDown);
+                opponentCard.SetFaceUp(!isFaceDown);
+                
+                _stateManager.AddWarCards(playerCard, opponentCard);
+                playerCards.Add(playerCard);
+                opponentCards.Add(opponentCard);
+                
+                if (i == actualWarCards - 1)
+                {
+                    _stateManager.UpdateBattleCards(playerCard, opponentCard);
+                }
+            }
+            
+            return (playerCards, opponentCards);
+        }
+        
+        private List<CardView> GetCardsToReveal()
+        {
+            var cardsToReveal = new List<CardView>();
+            
+            if (_stateManager.PlayerBattleCard != null && !_stateManager.PlayerBattleCard.IsFaceUp)
+            {
+                cardsToReveal.Add(_stateManager.PlayerBattleCard);
+            }
+            
+            if (_stateManager.OpponentBattleCard != null && !_stateManager.OpponentBattleCard.IsFaceUp)
+            {
+                cardsToReveal.Add(_stateManager.OpponentBattleCard);
+            }
+            
+            foreach (var card in _stateManager.WarCards)
+            {
+                if (card != null && !card.IsFaceUp)
+                {
+                    cardsToReveal.Add(card);
+                }
+            }
+            
+            return cardsToReveal;
         }
         
         #endregion
