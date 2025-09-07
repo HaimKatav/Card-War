@@ -14,10 +14,17 @@ namespace CardWar.Game.UI
         private readonly List<Transform> _playerWarPositions;
         private readonly List<Transform> _opponentWarPositions;
         
+        private readonly Dictionary<CardView, Vector3> _cardOriginalPositions = new();
+        
         public Vector3 PlayerDeckPosition => _playerDeckPosition.position;
         public Vector3 OpponentDeckPosition => _opponentDeckPosition.position;
         public Vector3 PlayerBattlePosition => _playerBattlePosition.position;
         public Vector3 OpponentBattlePosition => _opponentBattlePosition.position;
+        
+        public Transform PlayerDeckTransform => _playerDeckPosition;
+        public Transform OpponentDeckTransform => _opponentDeckPosition;
+        public Transform PlayerBattleTransform => _playerBattlePosition;
+        public Transform OpponentBattleTransform => _opponentBattlePosition;
         
         public CardPositionManager(
             Transform playerDeckPos,
@@ -31,27 +38,155 @@ namespace CardWar.Game.UI
             _opponentDeckPosition = opponentDeckPos;
             _playerBattlePosition = playerBattlePos;
             _opponentBattlePosition = opponentBattlePos;
-            _playerWarPositions = playerWarPos;
-            _opponentWarPositions = opponentWarPos;
+            _playerWarPositions = playerWarPos ?? new List<Transform>();
+            _opponentWarPositions = opponentWarPos ?? new List<Transform>();
+            
+            ValidatePositions();
         }
+        
+        #region Position Validation
+        
+        private void ValidatePositions()
+        {
+            if (_playerDeckPosition == null)
+                Debug.LogError("[CardPositionManager] Player deck position is null");
+            
+            if (_opponentDeckPosition == null)
+                Debug.LogError("[CardPositionManager] Opponent deck position is null");
+            
+            if (_playerBattlePosition == null)
+                Debug.LogError("[CardPositionManager] Player battle position is null");
+            
+            if (_opponentBattlePosition == null)
+                Debug.LogError("[CardPositionManager] Opponent battle position is null");
+            
+            if (_playerWarPositions.Count == 0)
+                Debug.LogWarning("[CardPositionManager] No player war positions set");
+            
+            if (_opponentWarPositions.Count == 0)
+                Debug.LogWarning("[CardPositionManager] No opponent war positions set");
+        }
+        
+        #endregion
+        
+        #region War Position Management
         
         public Vector3 GetWarPosition(bool isPlayer, int index, Vector3 offset = default)
         {
             var positions = isPlayer ? _playerWarPositions : _opponentWarPositions;
             
+            if (positions == null || positions.Count == 0)
+            {
+                Debug.LogError($"[CardPositionManager] No war positions available for {(isPlayer ? "player" : "opponent")}");
+                return isPlayer ? PlayerBattlePosition : OpponentBattlePosition;
+            }
+            
             if (index < 0 || index >= positions.Count)
             {
-                Debug.LogError($"[CardPositionManager] Invalid war position index: {index}");
+                Debug.LogError($"[CardPositionManager] Invalid war position index: {index} (max: {positions.Count - 1})");
                 return isPlayer ? PlayerBattlePosition : OpponentBattlePosition;
             }
             
             return positions[index].position + offset;
         }
         
-        public Vector3 GetTargetDeckPosition(RoundResult result)
+        public Transform GetWarTransform(bool isPlayer, int index)
         {
-            return result == RoundResult.PlayerWins ? PlayerDeckPosition : OpponentDeckPosition;
+            var positions = isPlayer ? _playerWarPositions : _opponentWarPositions;
+            
+            if (positions == null || positions.Count == 0 || index < 0 || index >= positions.Count)
+            {
+                return isPlayer ? _playerBattlePosition : _opponentBattlePosition;
+            }
+            
+            return positions[index];
         }
+        
+        public Vector3 CalculateWarStackOffset(int warDepth, int cardIndex, float cardSpacing)
+        {
+            if (warDepth <= 1 || !ShouldStackWarCards())
+            {
+                return Vector3.zero;
+            }
+            
+            var baseOffset = Vector3.up * cardSpacing * 0.5f;
+            var stackMultiplier = (warDepth - 1) * 2;
+            
+            return baseOffset * stackMultiplier;
+        }
+        
+        public bool ShouldStackWarCards()
+        {
+            return true;
+        }
+        
+        public int GetMaxWarPositions(bool isPlayer)
+        {
+            var positions = isPlayer ? _playerWarPositions : _opponentWarPositions;
+            return positions?.Count ?? 0;
+        }
+        
+        #endregion
+        
+        #region Collection Position Management
+        
+        public Vector3 GetCollectionTargetPosition(RoundResult result)
+        {
+            return result == RoundResult.PlayerWins 
+                ? PlayerDeckPosition 
+                : OpponentDeckPosition;
+        }
+        
+        public Vector3 GetCollectionTargetPosition(bool playerWon)
+        {
+            return playerWon ? PlayerDeckPosition : OpponentDeckPosition;
+        }
+        
+        public Transform GetCollectionTargetTransform(RoundResult result)
+        {
+            return result == RoundResult.PlayerWins 
+                ? _playerDeckPosition 
+                : _opponentDeckPosition;
+        }
+        
+        #endregion
+        
+        #region Card Origin Tracking
+        
+        public void TrackCardOrigin(CardView card, Vector3 origin)
+        {
+            if (card != null)
+            {
+                _cardOriginalPositions[card] = origin;
+            }
+        }
+        
+        public Vector3 GetCardOrigin(CardView card)
+        {
+            if (card != null && _cardOriginalPositions.TryGetValue(card, out var origin))
+            {
+                return origin;
+            }
+            
+            return Vector3.zero;
+        }
+        
+        public void ClearCardOrigin(CardView card)
+        {
+            if (card != null)
+            {
+                _cardOriginalPositions.Remove(card);
+            }
+        }
+        
+        public void ClearAllCardOrigins()
+        {
+            _cardOriginalPositions.Clear();
+        }
+        
+        #endregion
+        
+        #region Card Ownership Detection
         
         public bool IsPlayerCard(CardView card)
         {
@@ -59,69 +194,75 @@ namespace CardWar.Game.UI
             
             var cardPos = card.transform.position;
             
-            // Check if near player battle position
-            if (Vector3.Distance(cardPos, PlayerBattlePosition) < 0.5f)
-                return true;
-            
-            // Check if near any player war position
-            foreach (var pos in _playerWarPositions)
+            foreach (var warPos in _playerWarPositions)
             {
-                if (pos != null && Vector3.Distance(cardPos, pos.position) < 0.5f)
+                if (warPos != null && Vector3.Distance(cardPos, warPos.position) < 0.1f)
+                {
                     return true;
+                }
             }
             
-            // Check if near player deck
-            if (Vector3.Distance(cardPos, PlayerDeckPosition) < 0.5f)
+            if (_playerBattlePosition != null && 
+                Vector3.Distance(cardPos, _playerBattlePosition.position) < 0.1f)
+            {
                 return true;
+            }
+            
+            if (_cardOriginalPositions.TryGetValue(card, out var origin))
+            {
+                return Vector3.Distance(origin, PlayerDeckPosition) < 0.1f;
+            }
             
             return false;
         }
         
-        public List<Vector3> GetAllPlayerPositions()
+        public bool IsOpponentCard(CardView card)
         {
-            var positions = new List<Vector3> { PlayerDeckPosition, PlayerBattlePosition };
-            foreach (var pos in _playerWarPositions)
-            {
-                if (pos != null)
-                    positions.Add(pos.position);
-            }
-            return positions;
+            return !IsPlayerCard(card);
         }
         
-        public List<Vector3> GetAllOpponentPositions()
+        public Vector3 GetCardReturnPosition(CardView card)
         {
-            var positions = new List<Vector3> { OpponentDeckPosition, OpponentBattlePosition };
-            foreach (var pos in _opponentWarPositions)
-            {
-                if (pos != null)
-                    positions.Add(pos.position);
-            }
-            return positions;
+            return IsPlayerCard(card) ? PlayerDeckPosition : OpponentDeckPosition;
         }
         
-        public Vector3 CalculateWarStackOffset(int currentWarDepth, float cardSpacing)
+        #endregion
+        
+        #region Position Queries
+        
+        public float GetDistanceBetweenDecks()
         {
-            return Vector3.up * cardSpacing * 0.5f * (currentWarDepth - 1);
+            return Vector3.Distance(PlayerDeckPosition, OpponentDeckPosition);
         }
         
-        public void ValidatePositions()
+        public float GetDistanceBetweenBattlePositions()
         {
-            var errors = new List<string>();
-            
-            if (_playerDeckPosition == null) errors.Add("Player deck position");
-            if (_opponentDeckPosition == null) errors.Add("Opponent deck position");
-            if (_playerBattlePosition == null) errors.Add("Player battle position");
-            if (_opponentBattlePosition == null) errors.Add("Opponent battle position");
-            
-            if (_playerWarPositions == null || _playerWarPositions.Count == 0)
-                errors.Add("Player war positions");
-            if (_opponentWarPositions == null || _opponentWarPositions.Count == 0)
-                errors.Add("Opponent war positions");
-            
-            if (errors.Count > 0)
-            {
-                Debug.LogError($"[CardPositionManager] Missing positions: {string.Join(", ", errors)}");
-            }
+            return Vector3.Distance(PlayerBattlePosition, OpponentBattlePosition);
         }
+        
+        public Vector3 GetCenterPosition()
+        {
+            return (PlayerBattlePosition + OpponentBattlePosition) * 0.5f;
+        }
+        
+        public bool ArePositionsValid()
+        {
+            return _playerDeckPosition != null &&
+                   _opponentDeckPosition != null &&
+                   _playerBattlePosition != null &&
+                   _opponentBattlePosition != null;
+        }
+        
+        #endregion
+        
+        #region Cleanup
+        
+        public void Cleanup()
+        {
+            ClearAllCardOrigins();
+            Debug.Log("[CardPositionManager] Cleanup complete");
+        }
+        
+        #endregion
     }
 }

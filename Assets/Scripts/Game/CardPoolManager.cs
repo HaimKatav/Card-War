@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Core;
@@ -7,20 +6,26 @@ using CardWar.Game.Logic;
 using CardWar.Services;
 using Cysharp.Threading.Tasks;
 
-namespace CardWar.Game.Helpers
+namespace CardWar.Game.UI
 {
     public class CardPoolManager
     {
         private readonly Transform _poolContainer;
         private readonly IAssetService _assetService;
         private GenericPool<CardView> _cardPool;
-        private readonly List<CardView> _activeCards = new();
+        private readonly HashSet<CardView> _activeCards = new();
+        private readonly Dictionary<CardView, CardData> _cardDataMap = new();
+        
+        public int ActiveCardCount => _activeCards.Count;
+        public int PoolAvailableCount => _cardPool?.ItemsInPool ?? 0;
         
         public CardPoolManager(Transform poolContainer, IAssetService assetService)
         {
             _poolContainer = poolContainer;
             _assetService = assetService;
         }
+        
+        #region Pool Initialization
         
         public async UniTask InitializePool(int initialSize, int maxSize, bool prewarm)
         {
@@ -34,11 +39,10 @@ namespace CardWar.Game.Helpers
             
             if (prefab == null)
             {
-                Debug.LogWarning("[CardPoolManager] Failed to load card pool");
-
+                Debug.LogError("[CardPoolManager] Failed to load card prefab");
                 return;
             }
-                
+            
             _cardPool = new GenericPool<CardView>(
                 prefab,
                 _poolContainer,
@@ -50,10 +54,35 @@ namespace CardWar.Game.Helpers
                 PrewarmPool(initialSize);
             }
             
-            Debug.Log($"[CardPoolManager] Pool initialized - Size: {initialSize}/{maxSize}");
+            Debug.Log($"[CardPoolManager] Pool initialized - Initial: {initialSize}, Max: {maxSize}");
         }
         
-        public CardView SpawnCard(CardData cardData, Vector3 position, bool loadSprites = true)
+        private void PrewarmPool(int count)
+        {
+            var tempCards = new List<CardView>();
+            
+            for (var i = 0; i < count; i++)
+            {
+                var card = _cardPool.Get();
+                if (card != null)
+                {
+                    tempCards.Add(card);
+                }
+            }
+            
+            foreach (var card in tempCards)
+            {
+                _cardPool.Return(card);
+            }
+            
+            Debug.Log($"[CardPoolManager] Pool prewarmed with {count} cards");
+        }
+        
+        #endregion
+        
+        #region Card Spawning
+        
+        public CardView SpawnCard(CardData cardData, Vector3 position, bool loadSprite = true)
         {
             if (_cardPool == null)
             {
@@ -61,118 +90,205 @@ namespace CardWar.Game.Helpers
                 return null;
             }
             
-            var card = _cardPool.Get();
-            card.transform.position = position;
-            card.ResetCard();
-            
-            if (cardData != null)
+            if (cardData == null)
             {
-                card.SetCardData(cardData);
-                if (loadSprites)
-                {
-                    LoadCardSprites(card, cardData);
-                }
-            }
-            else
-            {
-                LoadBackSprite(card);
+                Debug.LogError("[CardPoolManager] CardData is null");
+                return null;
             }
             
-            card.SetFaceUp(false);
-            _activeCards.Add(card);
-            
-            return card;
-        }
-        
-        public void ReturnCard(CardView card)
-        {
-            if (card != null && _cardPool != null)
+            var cardView = _cardPool.Get();
+            if (cardView == null)
             {
-                _activeCards.Remove(card);
-                _cardPool.Return(card);
+                Debug.LogError("[CardPoolManager] Failed to get card from pool");
+                return null;
             }
-        }
-        
-        public void ReturnAllActiveCards()
-        {
-            foreach (var card in _activeCards)
+            
+            cardView.transform.position = position;
+            cardView.transform.rotation = Quaternion.identity;
+            cardView.transform.localScale = Vector3.one;
+            
+            _activeCards.Add(cardView);
+            _cardDataMap[cardView] = cardData;
+            
+            cardView.SetCardData(cardData);
+            
+            if (loadSprite)
             {
-                if (card != null && _cardPool != null)
-                {
-                    _cardPool.Return(card);
-                }
+                LoadCardSpriteAsync(cardView, cardData).Forget();
             }
-            _activeCards.Clear();
-        }
-        
-        public void Cleanup()
-        {
-            ReturnAllActiveCards();
-            _cardPool?.ReturnAll();
-        }
-        
-        private CardView CreateCardPrefab()
-        {
-            var cardGO = new GameObject("CardPrefab");
-            cardGO.transform.SetParent(_poolContainer);
             
-            var cardView = cardGO.AddComponent<CardView>();
-            
-            // Add required components
-            cardGO.AddComponent<UnityEngine.CanvasGroup>();
-            
-            // Create front image
-            var frontGO = new GameObject("Front");
-            frontGO.transform.SetParent(cardGO.transform);
-            frontGO.AddComponent<UnityEngine.UI.Image>();
-            
-            // Create back image
-            var backGO = new GameObject("Back");
-            backGO.transform.SetParent(cardGO.transform);
-            backGO.AddComponent<UnityEngine.UI.Image>();
-            
-            // Deactivate the prefab
-            cardGO.SetActive(false);
+            Debug.Log($"[CardPoolManager] Spawned card: {cardData.CardKey} at {position}");
             
             return cardView;
         }
         
-        private void PrewarmPool(int count)
+        public CardView SpawnCard(CardData cardData, Transform spawnPoint, bool loadSprite = true)
         {
-            var cards = new List<CardView>();
-            for (var i = 0; i < count; i++)
+            return spawnPoint != null 
+                ? SpawnCard(cardData, spawnPoint.position, loadSprite) 
+                : SpawnCard(cardData, Vector3.zero, loadSprite);
+        }
+        
+        public List<CardView> SpawnMultipleCards(List<CardData> cardsData, Vector3 basePosition, Vector3 offset, bool loadSprites = true)
+        {
+            var spawnedCards = new List<CardView>();
+            
+            for (var i = 0; i < cardsData.Count; i++)
             {
-                cards.Add(_cardPool.Get());
+                var position = basePosition + (offset * i);
+                var card = SpawnCard(cardsData[i], position, loadSprites);
+                
+                if (card != null)
+                {
+                    spawnedCards.Add(card);
+                }
             }
+            
+            return spawnedCards;
+        }
+        
+        #endregion
+        
+        #region Card Return
+        
+        public void ReturnCard(CardView cardView)
+        {
+            if (cardView == null) return;
+            
+            if (!_activeCards.Contains(cardView))
+            {
+                Debug.LogWarning($"[CardPoolManager] Attempting to return card that wasn't tracked as active");
+                return;
+            }
+            
+            _activeCards.Remove(cardView);
+            _cardDataMap.Remove(cardView);
+            
+            cardView.ResetCard();
+            _cardPool?.Return(cardView);
+            
+            Debug.Log($"[CardPoolManager] Returned card to pool. Active count: {_activeCards.Count}");
+        }
+        
+        public void ReturnMultipleCards(List<CardView> cards)
+        {
+            if (cards == null || cards.Count == 0) return;
             
             foreach (var card in cards)
             {
-                _cardPool.Return(card);
+                ReturnCard(card);
+            }
+            
+            Debug.Log($"[CardPoolManager] Returned {cards.Count} cards to pool");
+        }
+        
+        public void ReturnAllActiveCards()
+        {
+            var cardsToReturn = new List<CardView>(_activeCards);
+            
+            foreach (var card in cardsToReturn)
+            {
+                ReturnCard(card);
+            }
+            
+            Debug.Log($"[CardPoolManager] All active cards returned to pool");
+        }
+        
+        #endregion
+        
+        #region Sprite Loading
+        
+        private async UniTaskVoid LoadCardSpriteAsync(CardView cardView, CardData cardData)
+        {
+            if (cardView == null || cardData == null) return;
+            
+            var path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}/{cardData.CardKey}";
+            
+            var sprite = await _assetService.LoadAssetAsync<Sprite>(path);
+            
+            if (sprite != null && cardView != null && _activeCards.Contains(cardView))
+            {
+                cardView.SetCardSprite(sprite);
+                Debug.Log($"[CardPoolManager] Loaded sprite for card: {cardData.CardKey}");
+            }
+            else if (sprite == null)
+            {
+                Debug.LogWarning($"[CardPoolManager] Failed to load sprite: {path}");
             }
         }
         
-        private void LoadCardSprites(CardView card, CardData cardData)
+        public async UniTask LoadCardBackSprite(CardView cardView)
         {
-            if (_assetService == null || cardData == null) return;
+            if (cardView == null) return;
             
-            var frontSprite = _assetService.GetCardSprite(cardData.CardKey);
-            if (frontSprite != null)
+            var backSprite = await _assetService.LoadAssetAsync<Sprite>(GameSettings.CARD_BACK_SPRITE_ASSET_PATH);
+            
+            if (backSprite != null && cardView != null)
             {
-                card.SetCardSprite(frontSprite);
+                cardView.SetBackSprite(backSprite);
             }
-            
-            LoadBackSprite(card);
         }
         
-        private void LoadBackSprite(CardView card)
+        #endregion
+        
+        #region Pool State Queries
+        
+        public bool IsCardActive(CardView card)
         {
-            if (_assetService == null) return;
-            
-            var backSprite = _assetService.GetCardBackSprite();
-            if (backSprite != null)
+            return card != null && _activeCards.Contains(card);
+        }
+        
+        public CardData GetCardData(CardView card)
+        {
+            return card != null && _cardDataMap.TryGetValue(card, out var data) ? data : null;
+        }
+        
+        public List<CardView> GetAllActiveCards()
+        {
+            return new List<CardView>(_activeCards);
+        }
+        
+        public bool HasAvailableCards()
+        {
+            return _cardPool != null && _cardPool.ItemsInPool > 0;
+        }
+        
+        public void ValidatePoolHealth()
+        {
+            if (_cardPool == null)
             {
-                card.SetBackSprite(backSprite);
+                Debug.LogError("[CardPoolManager] Pool is null - needs initialization");
+                return;
+            }
+            
+            Debug.Log($"[CardPoolManager] Pool Health - Active: {_activeCards.Count}, Available: {_cardPool.ItemsInPool}");
+            
+            foreach (var card in _activeCards)
+            {
+                if (card == null)
+                {
+                    Debug.LogError("[CardPoolManager] Found null reference in active cards!");
+                }
             }
         }
+        
+        #endregion
+        
+        #region Cleanup
+        
+        public void Cleanup()
+        {
+            ReturnAllActiveCards();
+            
+            _activeCards.Clear();
+            _cardDataMap.Clear();
+            
+            _cardPool?.Dispose();
+            _cardPool = null;
+            
+            Debug.Log("[CardPoolManager] Cleanup complete");
+        }
+        
+        #endregion
     }
 }

@@ -1,14 +1,18 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace CardWar.Core
 {
     public class GenericPool<T> where T : Component
     {
-        private readonly T _prefab;
-        private readonly Transform _container;
-        private readonly Queue<T> _pool = new Queue<T>();
-        private readonly HashSet<T> _active = new HashSet<T>();
+        private T _prefab;
+        private Transform _container;
+        private Queue<T> _pool = new();
+        private HashSet<T> _active = new();
+        
+        public int ItemsInPool => _pool.Count;
         
         public GenericPool(T prefab, Transform container, int initialSize = 10)
         {
@@ -49,6 +53,24 @@ namespace CardWar.Core
             {
                 Return(item);
             }
+        }
+
+        public void Dispose()
+        {
+            _prefab = null;
+            _container = null;
+
+            if (_pool != null)
+            {
+                foreach (var component in _pool)
+                {
+                    Object.Destroy(component.gameObject);
+                }
+
+                _pool.Clear();
+            }
+            
+            _active.Clear();
         }
         
         private void CreatePooledItem()
