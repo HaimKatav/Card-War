@@ -52,11 +52,11 @@ MonoBehaviour:
     CollectionScale: 0.9
   _winnerHighlight:
     EnableHighlight: 1
-    ScaleMultiplier: 1.1
+    ScaleMultiplier: 1.3
     ScaleDuration: 0.3
-    ScaleEase: 27
-    TintColor: {r: 1, g: 1, b: 0.8, a: 1}
-    UseTint: 1
+    ScaleEase: 21
+    TintColor: {r: 1, g: 1, b: 1, a: 1}
+    UseTint: 0
   _transitions:
     FadeInDuration: 0.2
     FadeOutDuration: 0.3

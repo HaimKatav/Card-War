@@ -51,21 +51,26 @@ namespace CardWar.Game.UI
             
             if (prewarm)
             {
-                PrewarmPool(initialSize);
+                await PrewarmPool(initialSize);
             }
             
             Debug.Log($"[CardPoolManager] Pool initialized - Initial: {initialSize}, Max: {maxSize}");
         }
         
-        private void PrewarmPool(int count)
+        private async UniTask PrewarmPool(int count)
         {
             var tempCards = new List<CardView>();
+            var cardBackSprite = await _assetService.GetCardBackSpriteAsync();
             
             for (var i = 0; i < count; i++)
             {
                 var card = _cardPool.Get();
                 if (card != null)
                 {
+                    if (cardBackSprite != null)
+                    {
+                        card.SetBackSprite(cardBackSprite);
+                    }
                     tempCards.Add(card);
                 }
             }
@@ -114,7 +119,7 @@ namespace CardWar.Game.UI
             
             if (loadSprite)
             {
-                LoadCardSpriteAsync(cardView, cardData).Forget();
+                LoadCardSpritesAsync(cardView, cardData).Forget();
             }
             
             Debug.Log($"[CardPoolManager] Spawned card: {cardData.CardKey} at {position}");
@@ -198,81 +203,36 @@ namespace CardWar.Game.UI
         
         #region Sprite Loading
         
-        private async UniTaskVoid LoadCardSpriteAsync(CardView cardView, CardData cardData)
+        private async UniTaskVoid LoadCardSpritesAsync(CardView cardView, CardData cardData)
         {
             if (cardView == null || cardData == null) return;
             
-            var path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}/{cardData.CardKey}";
+            var frontSpriteTask = _assetService.GetCardSpriteAsync(cardData.CardKey);
+            var backSpriteTask = _assetService.GetCardBackSpriteAsync();
             
-            var sprite = await _assetService.LoadAssetAsync<Sprite>(path);
+            var sprites = await UniTask.WhenAll(frontSpriteTask, backSpriteTask);
             
-            if (sprite != null && cardView != null && _activeCards.Contains(cardView))
+            if (cardView != null && _activeCards.Contains(cardView))
             {
-                cardView.SetCardSprite(sprite);
-                Debug.Log($"[CardPoolManager] Loaded sprite for card: {cardData.CardKey}");
-            }
-            else if (sprite == null)
-            {
-                Debug.LogWarning($"[CardPoolManager] Failed to load sprite: {path}");
-            }
-        }
-        
-        public async UniTask LoadCardBackSprite(CardView cardView)
-        {
-            if (cardView == null) return;
-            
-            var backSprite = await _assetService.LoadAssetAsync<Sprite>(GameSettings.CARD_BACK_SPRITE_ASSET_PATH);
-            
-            if (backSprite != null && cardView != null)
-            {
-                cardView.SetBackSprite(backSprite);
-            }
-        }
-        
-        #endregion
-        
-        #region Pool State Queries
-        
-        public bool IsCardActive(CardView card)
-        {
-            return card != null && _activeCards.Contains(card);
-        }
-        
-        public CardData GetCardData(CardView card)
-        {
-            return card != null && _cardDataMap.TryGetValue(card, out var data) ? data : null;
-        }
-        
-        public List<CardView> GetAllActiveCards()
-        {
-            return new List<CardView>(_activeCards);
-        }
-        
-        public bool HasAvailableCards()
-        {
-            return _cardPool != null && _cardPool.ItemsInPool > 0;
-        }
-        
-        public void ValidatePoolHealth()
-        {
-            if (_cardPool == null)
-            {
-                Debug.LogError("[CardPoolManager] Pool is null - needs initialization");
-                return;
-            }
-            
-            Debug.Log($"[CardPoolManager] Pool Health - Active: {_activeCards.Count}, Available: {_cardPool.ItemsInPool}");
-            
-            foreach (var card in _activeCards)
-            {
-                if (card == null)
+                if (sprites.Item1 != null)
                 {
-                    Debug.LogError("[CardPoolManager] Found null reference in active cards!");
+                    cardView.SetCardSprite(sprites.Item1);
+                    Debug.Log($"[CardPoolManager] Loaded sprite for card: {cardData.CardKey}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[CardPoolManager] Failed to load front sprite for card: {cardData.CardKey}");
+                }
+                
+                if (sprites.Item2 != null)
+                {
+                    cardView.SetBackSprite(sprites.Item2);
                 }
             }
         }
         
-        #endregion
+        #endregion Sprite Loading
+        
         
         #region Cleanup
         

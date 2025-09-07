@@ -28,6 +28,15 @@ namespace CardWar.Services
             _services[type] = service;
         }
         
+        public void Unregister<T>(T service) where T : class
+        {
+            var type = typeof(T);
+            if (_services.ContainsKey(type))
+            {
+                _services.Remove(type);    
+            }
+        }
+        
         public T Get<T>() where T : class
         {
             var type = typeof(T);

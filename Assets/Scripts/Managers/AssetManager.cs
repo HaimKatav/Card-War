@@ -1,152 +1,205 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-using Cysharp.Threading.Tasks;
-using CardWar.Services;
 using CardWar.Core;
-using Unity.VisualScripting;
+using UnityEngine;
+using CardWar.Services;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Managers
 {
     public class AssetManager : MonoBehaviour, IAssetService
     {
-        private readonly Dictionary<string, UnityEngine.Object> _loadedAssets = new ();
-        private GameSettings _gameSettings;
-
-        #region Unity Lifecycle
-
+        private readonly Dictionary<string, UnityEngine.Object> _loadedAssets = new();
+        private readonly HashSet<string> _gameObjectPaths = new();
+        
+        #region Initialization
+        
         private void Awake()
         {
             Initialize();
         }
-
+        
         private void Initialize()
         {
-            _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
+            ServiceLocator.Instance.Register<IAssetService>(this);
             Debug.Log("[AssetManager] Initialized");
         }
-
-        #endregion
-
-        #region IAssetService Implementation
-
-        public GameSettings GameSettings => _gameSettings;
         
-        public async UniTask<T> LoadAssetAsync<T>(string path) where T : UnityEngine.Object
+        #endregion
+        
+        #region Asset Loading
+        
+        public async UniTask<T> LoadAssetAsync<T>(string assetPath) where T : UnityEngine.Object
         {
-            if (string.IsNullOrEmpty(path))
+            if (string.IsNullOrEmpty(assetPath))
             {
                 Debug.LogError("[AssetManager] Asset path is null or empty");
                 return null;
             }
-
-            if (_loadedAssets.TryGetValue(path, out var cachedAsset))
+            
+            if (_loadedAssets.ContainsKey(assetPath))
             {
-                return cachedAsset as T;
+                return _loadedAssets[assetPath] as T;
             }
-
-            var request = Resources.LoadAsync<T>(path);
-            await request;
-
-            if (request.asset != null)
+            
+            try
             {
-                _loadedAssets[path] = request.asset;
-                Debug.Log($"[AssetManager] Asset loaded: {path}");
-                return request.asset as T;
+                var request = Resources.LoadAsync<T>(assetPath);
+                await request.ToUniTask();
+                
+                if (request.asset != null)
+                {
+                    _loadedAssets[assetPath] = request.asset;
+                    
+                    if (request.asset is GameObject || request.asset is Component)
+                    {
+                        _gameObjectPaths.Add(assetPath);
+                    }
+                    
+                    Debug.Log($"[AssetManager] Asset loaded: {assetPath}");
+                    return request.asset as T;
+                }
+                
+                Debug.LogError($"[AssetManager] Failed to load asset: {assetPath}");
+                return null;
             }
-
-            Debug.LogWarning($"[AssetManager] Failed to load asset: {path}");
-            return null;
+            catch (Exception e)
+            {
+                Debug.LogError($"[AssetManager] Exception loading asset {assetPath}: {e.Message}");
+                return null;
+            }
         }
-
-        public T LoadAsset<T>(string path) where T : UnityEngine.Object
+        
+        public T LoadAsset<T>(string assetPath) where T : UnityEngine.Object
         {
-            if (string.IsNullOrEmpty(path))
+            if (string.IsNullOrEmpty(assetPath))
             {
                 Debug.LogError("[AssetManager] Asset path is null or empty");
                 return null;
             }
-
-            if (_loadedAssets.TryGetValue(path, out var cachedAsset))
+            
+            if (_loadedAssets.ContainsKey(assetPath))
             {
-                return cachedAsset as T;
+                return _loadedAssets[assetPath] as T;
             }
-
-            var asset = Resources.Load<T>(path);
-            if (asset != null)
+            
+            try
             {
-                _loadedAssets[path] = asset;
-                return asset;
+                var asset = Resources.Load<T>(assetPath);
+                
+                if (asset != null)
+                {
+                    _loadedAssets[assetPath] = asset;
+                    
+                    if (asset is GameObject || asset is Component)
+                    {
+                        _gameObjectPaths.Add(assetPath);
+                    }
+                    
+                    Debug.Log($"[AssetManager] Asset loaded: {assetPath}");
+                    return asset;
+                }
+                
+                Debug.LogError($"[AssetManager] Failed to load asset: {assetPath}");
+                return null;
             }
-
-            Debug.LogWarning($"[AssetManager] Failed to load asset: {path}");
-            return null;
-        }
-
-        public void UnloadAsset(string path)
-        {
-            if (_loadedAssets.TryGetValue(path, out var asset))
+            catch (Exception e)
             {
-                _loadedAssets.Remove(path);
-                Resources.UnloadAsset(asset);
+                Debug.LogError($"[AssetManager] Exception loading asset {assetPath}: {e.Message}");
+                return null;
             }
-        }
-
-        public UniTask PreloadCardAssets()
-        {
-            throw new NotImplementedException();
         }
         
-        public Sprite GetCardSprite(string cardKey)
-        {
-            var path = $"{GameSettings.CARD_SPRITE_ASSET_PATH}/{cardKey}";
-            return LoadAsset<Sprite>(path);
-        }
-
-        public Sprite GetCardBackSprite()
-        {
-            return LoadAsset<Sprite>(GameSettings.CARD_BACK_SPRITE_ASSET_PATH);
-        }
-
         #endregion
-
-        #region Private Methods
-
-        private bool CanBeUnloaded(UnityEngine.Object asset)
+        
+        #region Sprite Loading
+        
+        public async UniTask<Sprite> GetCardSpriteAsync(string cardKey)
         {
-            if (asset == null)
-                return false;
-            
-            var assetType = asset.GetType();
-            
-            return !typeof(GameObject).IsAssignableFrom(assetType) &&
-                   !typeof(Component).IsAssignableFrom(assetType) &&
-                   !typeof(AssetBundle).IsAssignableFrom(assetType);
+            if (string.IsNullOrEmpty(cardKey))
+            {
+                Debug.LogError("[AssetManager] Card key is null or empty");
+                return null;
+            }
+
+            var spritePath = $"{GameSettings.CARD_SPRITE_ASSET_PATH}/{cardKey}";
+            return await LoadAssetAsync<Sprite>(spritePath);
         }
-
-        #endregion
-
-        #region Cleanup
-
-        private void OnDestroy()
+        
+        public async UniTask<Sprite> GetCardBackSpriteAsync()
         {
+            return await LoadAssetAsync<Sprite>(GameSettings.CARD_BACK_SPRITE_ASSET_PATH);
+        }
+        
+        #endregion
+        
+        #region Asset Unloading
+        
+        public void UnloadAsset(string assetPath)
+        {
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                return;
+            }
+            
+            if (_loadedAssets.TryGetValue(assetPath, out var asset))
+            {
+                if (asset != null && !_gameObjectPaths.Contains(assetPath))
+                {
+                    if (asset is Sprite || asset is Texture2D || asset is AudioClip || asset is ScriptableObject)
+                    {
+                        Resources.UnloadAsset(asset);
+                        Debug.Log($"[AssetManager] Asset unloaded: {assetPath}");
+                    }
+                }
+                
+                _loadedAssets.Remove(assetPath);
+                _gameObjectPaths.Remove(assetPath);
+            }
+        }
+        
+        public void UnloadAllAssets()
+        {
+            var assetsToUnload = new List<UnityEngine.Object>();
+            
             foreach (var kvp in _loadedAssets)
             {
-                if (CanBeUnloaded(kvp.Value))
+                if (kvp.Value != null && !_gameObjectPaths.Contains(kvp.Key))
                 {
-                    try
+                    if (kvp.Value is Sprite || kvp.Value is Texture2D || 
+                        kvp.Value is AudioClip || kvp.Value is ScriptableObject)
                     {
-                        Resources.UnloadAsset(kvp.Value);
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogWarning($"[AssetManager] Failed to unload {kvp.Key}: {e.Message}");
+                        assetsToUnload.Add(kvp.Value);
                     }
                 }
             }
+            
+            foreach (var asset in assetsToUnload)
+            {
+                if (asset != null)
+                {
+                    Resources.UnloadAsset(asset);
+                }
+            }
+            
             _loadedAssets.Clear();
+            _gameObjectPaths.Clear();
+            
+            Resources.UnloadUnusedAssets();
+            
+            Debug.Log("[AssetManager] All assets unloaded");
         }
-
+        
+        #endregion
+        
+        #region Cleanup
+        
+        private void OnDestroy()
+        {
+            UnloadAllAssets();
+            ServiceLocator.Instance.Unregister<IAssetService>(this);
+        }
+        
         #endregion
     }
 }

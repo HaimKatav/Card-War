@@ -150,12 +150,7 @@ namespace CardWar.Game.UI
             
             _stateManager.SetBattleCards(playerCard, opponentCard);
             
-            await _animationHelper.AnimateBattleCardDraw(
-                playerCard, 
-                opponentCard,
-                _positionManager.PlayerBattlePosition,
-                _positionManager.OpponentBattlePosition
-            );
+            await _animationHelper.AnimateBattleCardDraw(playerCard, opponentCard);
         }
         
         public async UniTask FlipBattleCards()
@@ -258,13 +253,8 @@ namespace CardWar.Game.UI
                     _stateManager.UpdateBattleCards(playerCard, opponentCard);
                 }
             }
-            
-            await _animationHelper.AnimateWarCardPlacement(
-                playerWarCards, 
-                opponentWarCards,
-                playerPositions, 
-                opponentPositions
-            );
+
+            await _animationHelper.AnimateWarCardPlacement(playerWarCards, opponentWarCards, warData.WarDepth);
         }
         
         public async UniTask RevealWarCards()
@@ -333,7 +323,7 @@ namespace CardWar.Game.UI
             await UniTask.Delay(300);
             
             var activeCards = _stateManager.GetAllActiveCards();
-            await _animationHelper.ReturnCardsToDecks(activeCards, _positionManager);
+            await _animationHelper.ReturnWarCardsToBothDecks(activeCards);
             
             await ShowDeckShuffleAnimation();
             

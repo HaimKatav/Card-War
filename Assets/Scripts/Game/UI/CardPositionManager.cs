@@ -40,34 +40,7 @@ namespace CardWar.Game.UI
             _opponentBattlePosition = opponentBattlePos;
             _playerWarPositions = playerWarPos ?? new List<Transform>();
             _opponentWarPositions = opponentWarPos ?? new List<Transform>();
-            
-            ValidatePositions();
         }
-        
-        #region Position Validation
-        
-        private void ValidatePositions()
-        {
-            if (_playerDeckPosition == null)
-                Debug.LogError("[CardPositionManager] Player deck position is null");
-            
-            if (_opponentDeckPosition == null)
-                Debug.LogError("[CardPositionManager] Opponent deck position is null");
-            
-            if (_playerBattlePosition == null)
-                Debug.LogError("[CardPositionManager] Player battle position is null");
-            
-            if (_opponentBattlePosition == null)
-                Debug.LogError("[CardPositionManager] Opponent battle position is null");
-            
-            if (_playerWarPositions.Count == 0)
-                Debug.LogWarning("[CardPositionManager] No player war positions set");
-            
-            if (_opponentWarPositions.Count == 0)
-                Debug.LogWarning("[CardPositionManager] No opponent war positions set");
-        }
-        
-        #endregion
         
         #region War Position Management
         
