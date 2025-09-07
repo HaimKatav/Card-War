@@ -263,7 +263,10 @@ namespace CardWar.Game.UI
             
             Debug.Log($"[GameBoardController] Placing {faceDownCardsPerPlayer} face-down cards per player");
             
-            ClearWarCards();
+            if (!warData.HasChainedWar) // Only clear war cards if this is NOT a consecutive war
+            {
+                ClearWarCards();
+            }
             
             var sequence = DOTween.Sequence();
             var delay = 0f;
@@ -384,8 +387,9 @@ namespace CardWar.Game.UI
             var sequence = DOTween.Sequence();
             var delay = 0f;
             
-            foreach (var card in _warCards)
+            for (var i = _warCards.Count - 1; i >= 0; i--)
             {
+                var card = _warCards[i];
                 if (card != null)
                 {
                     sequence.Insert(delay, card.transform.DOMove(targetPosition, collectionDuration).SetEase(collectionEase));
@@ -420,8 +424,10 @@ namespace CardWar.Game.UI
             var playerCardIndex = 0;
             var opponentCardIndex = 0;
             
-            foreach (var card in _warCards)
+            // Return war cards in reverse order (last war first)
+            for (var i = _warCards.Count - 1; i >= 0; i--)
             {
+                var card = _warCards[i];
                 if (card != null)
                 {
                     var isPlayerCard = false;
@@ -444,9 +450,40 @@ namespace CardWar.Game.UI
                 }
             }
             
+            if (_playerBattleCard != null)
+            {
+                sequence.Insert(playerCardIndex * 0.1f, _playerBattleCard.transform.DOMove(_playerDeckPosition.position, returnDuration).SetEase(returnEase));
+            }
+            
+            if (_opponentBattleCard != null)
+            {
+                sequence.Insert(opponentCardIndex * 0.1f, _opponentBattleCard.transform.DOMove(_opponentDeckPosition.position, returnDuration).SetEase(returnEase));
+            }
+            
             await sequence.AsyncWaitForCompletion();
             
+            // Add visual shuffle animation
+            await ShowDeckShuffleAnimation();
+            
             ClearAllCards();
+        }
+        
+        private async UniTask ShowDeckShuffleAnimation()
+        {
+            Debug.Log($"[GameBoardController] Showing deck shuffle animation");
+            
+            var shuffleDuration = 0.8f;
+            var shuffleHeight = 0.5f;
+            
+            var sequence = DOTween.Sequence();
+            
+            // Animate deck positions up and down to show shuffling
+            sequence.Append(_playerDeckPosition.DOMove(_playerDeckPosition.position + Vector3.up * shuffleHeight, shuffleDuration * 0.25f).SetEase(Ease.OutQuad));
+            sequence.Append(_playerDeckPosition.DOMove(_playerDeckPosition.position, shuffleDuration * 0.25f).SetEase(Ease.InQuad));
+            sequence.Join(_opponentDeckPosition.DOMove(_opponentDeckPosition.position + Vector3.up * shuffleHeight, shuffleDuration * 0.25f).SetEase(Ease.OutQuad));
+            sequence.Append(_opponentDeckPosition.DOMove(_opponentDeckPosition.position, shuffleDuration * 0.25f).SetEase(Ease.InQuad));
+            
+            await sequence.AsyncWaitForCompletion();
         }
 
         #endregion War Animation Methods

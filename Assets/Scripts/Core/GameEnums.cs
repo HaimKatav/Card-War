@@ -39,7 +39,8 @@ namespace CardWar.Common
     {
         PlayerWins,
         OpponentWins,
-        War
+        War,
+        Draw
     }
     
     public enum GameStatus

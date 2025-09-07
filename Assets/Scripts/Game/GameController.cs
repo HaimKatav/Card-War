@@ -86,7 +86,7 @@ namespace CardWar.Game
         
         private void SetupServerHandler()
         {
-            _serverHandler = gameObject.AddComponent<GameServerHandler>();
+            _serverHandler = new GameServerHandler();
             _serverHandler.Initialize(_gameSettings);
             
             _serverHandler.OnServerInitialized += HandleServerInitialized;
@@ -242,25 +242,35 @@ namespace CardWar.Game
         private async UniTask ProcessWarRound(RoundData warData)
         {
             RoundStartedEvent?.Invoke(warData);
-            
+    
+            // Handle insufficient cards scenario
+            if (warData.WarEndedInDraw)
+            {
+                Debug.Log("[GameController] War ended in draw - insufficient cards");
+                await ProcessWarDraw(warData);
+                return;
+            }
+    
             await PlayWarAnimations(warData);
-            
+    
             if (warData.HasChainedWar)
             {
                 WarStartedEvent?.Invoke(2);
                 Debug.Log("[GameController] Chained WAR - will auto-continue");
-                
-                // FIXED: Reset processing flag before chained war continuation  
+        
+                // Reset processing flag before chained war continuation  
                 _isProcessingRound = false;
-                
+        
                 await UniTask.Delay(1000);
                 if (_isInWar && !_isPaused)
                 {
                     await DrawNextCards();
                 }
+                // Don't call round completion events for chained wars - only when war fully ends
             }
             else
             {
+                // War is completely finished (no more chained wars)
                 _isInWar = false;
                 WarCompletedEvent?.Invoke();
                 RoundCompletedEvent?.Invoke(warData.Result);
@@ -269,7 +279,21 @@ namespace CardWar.Game
             }
         }
         
-        #endregion
+        private async UniTask ProcessWarDraw(RoundData warData)
+        {
+            Debug.Log("[GameController] Processing war draw scenario");
+            
+            await _boardController.ReturnWarCardsToBothPlayers();
+            
+            _isInWar = false;
+            WarCompletedEvent?.Invoke();
+            RoundCompletedEvent?.Invoke(RoundResult.Draw);
+            _isProcessingRound = false;
+            
+            Debug.Log("[GameController] War draw complete - cards returned and decks shuffled");
+        }
+        
+        #endregion Game Flow
         
         #region Animation Control
         

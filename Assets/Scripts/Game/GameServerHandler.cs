@@ -8,7 +8,7 @@ using CardWar.Common;
 
 namespace CardWar.Game
 {
-    public class GameServerHandler : MonoBehaviour
+    public class GameServerHandler 
     {
         public event Action<bool> OnServerInitialized;
         public event Action<RoundData> OnCardsDrawn;

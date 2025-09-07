@@ -136,15 +136,15 @@ namespace CardWar.Game.Logic
                 Debug.LogWarning("[FakeWarServer] Game not in progress");
                 return null;
             }
-            
+
             await SimulateNetworkDelay();
-            
+
             if (ShouldSimulateFailure())
             {
                 Debug.LogWarning("[FakeWarServer] Simulated network failure during ResolveWar");
                 return null;
             }
-            
+
             var roundData = new RoundData
             {
                 RoundNumber = _roundNumber,
@@ -152,38 +152,44 @@ namespace CardWar.Game.Logic
                 PlayerWarCards = new List<CardData>(),
                 OpponentWarCards = new List<CardData>()
             };
-            
-            var playerWarCardCount = Math.Min(4, _playerDeck.Count);
-            var opponentWarCardCount = Math.Min(4, _opponentDeck.Count);
-            
-            if (playerWarCardCount == 0 || opponentWarCardCount == 0)
+
+            // If either player has no cards, game is over
+            if (_playerDeck.Count == 0 || _opponentDeck.Count == 0)
             {
                 DetermineWinner();
                 return CreateGameOverRound();
             }
-            
-            for (var i = 0; i < playerWarCardCount; i++)
+
+            // Determine war size based on player with fewer cards (minimum of both players' cards, max 4)
+            var warCardsPerPlayer = Math.Min(Math.Min(_playerDeck.Count, _opponentDeck.Count), 4);
+
+            Debug.Log(
+                $"[FakeWarServer] War with {warCardsPerPlayer} cards per player (Player: {_playerDeck.Count}, Opponent: {_opponentDeck.Count})");
+
+            // Draw war cards for player
+            for (var i = 0; i < warCardsPerPlayer; i++)
             {
                 var card = _playerDeck[0];
                 _playerDeck.RemoveAt(0);
                 roundData.PlayerWarCards.Add(card);
                 _warPot.Add(card);
             }
-            
-            for (var i = 0; i < opponentWarCardCount; i++)
+
+            // Draw war cards for opponent
+            for (var i = 0; i < warCardsPerPlayer; i++)
             {
                 var card = _opponentDeck[0];
                 _opponentDeck.RemoveAt(0);
                 roundData.OpponentWarCards.Add(card);
                 _warPot.Add(card);
             }
-            
+
             var playerBattleCard = roundData.PlayerWarCards.Last();
             var opponentBattleCard = roundData.OpponentWarCards.Last();
-            
+
             roundData.PlayerCard = playerBattleCard;
             roundData.OpponentCard = opponentBattleCard;
-            
+
             if (playerBattleCard.Rank == opponentBattleCard.Rank)
             {
                 roundData.Result = RoundResult.War;
@@ -202,16 +208,18 @@ namespace CardWar.Game.Logic
             {
                 roundData.Result = RoundResult.OpponentWins;
                 CollectWarPot(_opponentDeck);
-                Debug.Log($"[FakeWarServer] Opponent wins war: {opponentBattleCard.Rank} beats {playerBattleCard.Rank}");
+                Debug.Log(
+                    $"[FakeWarServer] Opponent wins war: {opponentBattleCard.Rank} beats {playerBattleCard.Rank}");
                 Debug.Log($"[FakeWarServer] Opponent collected {_warPot.Count} cards from war");
                 _warPot.Clear();
             }
-            
+
             roundData.PlayerCardsRemaining = _playerDeck.Count;
             roundData.OpponentCardsRemaining = _opponentDeck.Count;
-            
+            roundData.TotalCardsInPot = _warPot.Count;
+
             CheckGameOver();
-            
+
             return roundData;
         }
 
@@ -236,7 +244,7 @@ namespace CardWar.Game.Logic
         }
 
         #region Private Methods
-
+        
         private bool ShouldSimulateFailure()
         {
             if (_gameSettings == null || _gameSettings.FakeNetworkErrorRate <= 0)
@@ -336,7 +344,8 @@ namespace CardWar.Game.Logic
             return new RoundData
             {
                 RoundNumber = _roundNumber,
-                Result = _gameStatus == GameStatus.PlayerWon ? RoundResult.PlayerWins : RoundResult.OpponentWins,
+                Result = _gameStatus == GameStatus.PlayerWon ? 
+                    RoundResult.PlayerWins : RoundResult.OpponentWins,
                 PlayerCardsRemaining = _playerDeck.Count,
                 OpponentCardsRemaining = _opponentDeck.Count
             };
@@ -348,6 +357,54 @@ namespace CardWar.Game.Logic
             {
                 await UniTask.Delay((int)(_gameSettings.FakeNetworkDelay * 1000));
             }
+        }
+
+        private RoundData CreateWarDrawRound()
+        {
+            Debug.Log("[FakeWarServer] Creating war draw scenario - insufficient cards for consecutive war");
+            
+            var drawRound = new RoundData
+            {
+                RoundNumber = _roundNumber,
+                IsWar = true,
+                Result = RoundResult.Draw,
+                WarEndedInDraw = true,
+                PlayerCardsRemaining = _playerDeck.Count,
+                OpponentCardsRemaining = _opponentDeck.Count,
+                PlayerWarCards = new List<CardData>(),
+                OpponentWarCards = new List<CardData>(),
+                TotalCardsInPot = _warPot.Count
+            };
+            
+            ReturnWarPotToBothPlayers();
+            
+            return drawRound;
+        }
+        
+        private void ReturnWarPotToBothPlayers()
+        {
+            Debug.Log($"[FakeWarServer] Returning {_warPot.Count} cards from war pot to both players");
+            
+            var playerCards = new List<CardData>();
+            var opponentCards = new List<CardData>();
+            
+            for (var i = 0; i < _warPot.Count; i++)
+            {
+                if (i % 2 == 0)
+                    playerCards.Add(_warPot[i]);
+                else
+                    opponentCards.Add(_warPot[i]);
+            }
+            
+            _playerDeck.AddRange(playerCards);
+            _opponentDeck.AddRange(opponentCards);
+            
+            ShuffleDeck(_playerDeck);
+            ShuffleDeck(_opponentDeck);
+            
+            _warPot.Clear();
+            
+            Debug.Log($"[FakeWarServer] Cards returned - Player: {_playerDeck.Count}, Opponent: {_opponentDeck.Count}");
         }
 
         #endregion
