@@ -1,10 +1,7 @@
 using System;
-using CardWar.Animation.Data;
-using UnityEngine;
-using Cysharp.Threading.Tasks;
-using CardWar.Game.Logic;
 using CardWar.Common;
-using DG.Tweening;
+using CardWar.Animation.Data;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Game.UI
 {
@@ -17,7 +14,6 @@ namespace CardWar.Game.UI
         void SetupCardPool(int initialSize, int maxSize, bool prewarm);
         
         UniTask ShowInitialDeckSetup();
-        
         UniTask DrawBattleCards(RoundData roundData);
         UniTask FlipBattleCards();
         UniTask HighlightWinner(RoundResult result);
@@ -27,6 +23,7 @@ namespace CardWar.Game.UI
         UniTask RevealWarCards();
         UniTask RevealAllWarCards();
         UniTask CollectWarCards(RoundResult result);
+        UniTask ConcealAllCards();
         UniTask ReturnWarCardsToBothPlayers();
         
         void PauseAnimationsWithTransition();

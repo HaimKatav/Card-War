@@ -22,6 +22,9 @@ namespace CardWar.Game.Logic
         private int _roundNumber;
         private GameStatus _gameStatus;
         private System.Random _random;
+        private int _currentWarDepth;
+        private bool _isInWar;
+        private MatchData _currentMatch;
 
         public FakeWarServer(GameSettings gameSettings)
         {
@@ -42,17 +45,28 @@ namespace CardWar.Game.Logic
                 return false;
             }
             
+            CleanupMatch();
+            
+            _currentMatch = new MatchData
+            {
+                MatchId = Guid.NewGuid().ToString(),
+                StartTime = DateTime.Now,
+                Status = GameStatus.InProgress
+            };
+            
             _playerDeck = new List<CardData>();
             _opponentDeck = new List<CardData>();
             _warPot = new List<CardData>();
             _roundNumber = 0;
             _gameStatus = GameStatus.InProgress;
+            _currentWarDepth = 0;
+            _isInWar = false;
             
             var fullDeck = GenerateFullDeck();
             ShuffleDeck(fullDeck);
             DealCards(fullDeck);
             
-            Debug.Log($"[FakeWarServer] Game initialized - Player: {_playerDeck.Count}, Opponent: {_opponentDeck.Count}");
+            Debug.Log($"[FakeWarServer] Match {_currentMatch.MatchId} initialized - Player: {_playerDeck.Count}, Opponent: {_opponentDeck.Count}");
             return true;
         }
 
@@ -79,6 +93,8 @@ namespace CardWar.Game.Logic
             }
             
             _roundNumber++;
+            _currentWarDepth = 0;
+            _isInWar = false;
             
             var playerCard = _playerDeck[0];
             var opponentCard = _opponentDeck[0];
@@ -93,7 +109,8 @@ namespace CardWar.Game.Logic
                 OpponentCard = opponentCard,
                 PlayerCardsRemaining = _playerDeck.Count,
                 OpponentCardsRemaining = _opponentDeck.Count,
-                IsWar = false
+                IsWar = false,
+                WarDepth = 0
             };
             
             if (playerCard.Rank == opponentCard.Rank)
@@ -102,7 +119,10 @@ namespace CardWar.Game.Logic
                 roundData.Result = RoundResult.War;
                 _warPot.Add(playerCard);
                 _warPot.Add(opponentCard);
-                Debug.Log($"[FakeWarServer] WAR! Both played {playerCard.Rank}");
+                _isInWar = true;
+                _currentWarDepth = 1;
+                roundData.WarDepth = _currentWarDepth;
+                Debug.Log($"[FakeWarServer] WAR! Both played {playerCard.Rank} - War depth: {_currentWarDepth}");
             }
             else if (playerCard.Rank > opponentCard.Rank)
             {
@@ -150,23 +170,35 @@ namespace CardWar.Game.Logic
                 RoundNumber = _roundNumber,
                 IsWar = true,
                 PlayerWarCards = new List<CardData>(),
-                OpponentWarCards = new List<CardData>()
+                OpponentWarCards = new List<CardData>(),
+                WarDepth = _currentWarDepth
             };
 
-            // If either player has no cards, game is over
             if (_playerDeck.Count == 0 || _opponentDeck.Count == 0)
             {
                 DetermineWinner();
                 return CreateGameOverRound();
             }
 
-            // Determine war size based on player with fewer cards (minimum of both players' cards, max 4)
-            var warCardsPerPlayer = Math.Min(Math.Min(_playerDeck.Count, _opponentDeck.Count), 4);
+            var playerAvailableCards = _playerDeck.Count;
+            var opponentAvailableCards = _opponentDeck.Count;
+            var minAvailableCards = Math.Min(playerAvailableCards, opponentAvailableCards);
 
-            Debug.Log(
-                $"[FakeWarServer] War with {warCardsPerPlayer} cards per player (Player: {_playerDeck.Count}, Opponent: {_opponentDeck.Count})");
+            if (minAvailableCards == 0)
+            {
+                return CreateWarDrawRound();
+            }
 
-            // Draw war cards for player
+            var warCardsPerPlayer = Math.Min(minAvailableCards, 4);
+
+            if (minAvailableCards < 4)
+            {
+                Debug.Log(
+                    $"[FakeWarServer] Limited war cards - Player has {playerAvailableCards}, Opponent has {opponentAvailableCards}, using {warCardsPerPlayer} cards each");
+            }
+
+            Debug.Log($"[FakeWarServer] War #{_currentWarDepth} with {warCardsPerPlayer} cards per player");
+
             for (var i = 0; i < warCardsPerPlayer; i++)
             {
                 var card = _playerDeck[0];
@@ -175,7 +207,6 @@ namespace CardWar.Game.Logic
                 _warPot.Add(card);
             }
 
-            // Draw war cards for opponent
             for (var i = 0; i < warCardsPerPlayer; i++)
             {
                 var card = _opponentDeck[0];
@@ -194,24 +225,32 @@ namespace CardWar.Game.Logic
             {
                 roundData.Result = RoundResult.War;
                 roundData.HasChainedWar = true;
-                Debug.Log($"[FakeWarServer] CHAINED WAR! Both played {playerBattleCard.Rank}");
+                _currentWarDepth++;
+                roundData.WarDepth = _currentWarDepth;
+                Debug.Log(
+                    $"[FakeWarServer] CHAINED WAR! Both played {playerBattleCard.Rank} - War depth now: {_currentWarDepth}");
             }
             else if (playerBattleCard.Rank > opponentBattleCard.Rank)
             {
                 roundData.Result = RoundResult.PlayerWins;
+                var collectedCards = _warPot.Count;
                 CollectWarPot(_playerDeck);
-                Debug.Log($"[FakeWarServer] Player wins war: {playerBattleCard.Rank} beats {opponentBattleCard.Rank}");
-                Debug.Log($"[FakeWarServer] Player collected {_warPot.Count} cards from war");
-                _warPot.Clear();
+                Debug.Log(
+                    $"[FakeWarServer] Player wins war #{_currentWarDepth}: {playerBattleCard.Rank} beats {opponentBattleCard.Rank}");
+                Debug.Log($"[FakeWarServer] Player collected {collectedCards} cards from war");
+                _currentWarDepth = 0;
+                _isInWar = false;
             }
             else
             {
                 roundData.Result = RoundResult.OpponentWins;
+                var collectedCards = _warPot.Count;
                 CollectWarPot(_opponentDeck);
                 Debug.Log(
-                    $"[FakeWarServer] Opponent wins war: {opponentBattleCard.Rank} beats {playerBattleCard.Rank}");
-                Debug.Log($"[FakeWarServer] Opponent collected {_warPot.Count} cards from war");
-                _warPot.Clear();
+                    $"[FakeWarServer] Opponent wins war #{_currentWarDepth}: {opponentBattleCard.Rank} beats {playerBattleCard.Rank}");
+                Debug.Log($"[FakeWarServer] Opponent collected {collectedCards} cards from war");
+                _currentWarDepth = 0;
+                _isInWar = false;
             }
 
             roundData.PlayerCardsRemaining = _playerDeck.Count;
@@ -239,7 +278,8 @@ namespace CardWar.Game.Logic
                 OpponentCardCount = _opponentDeck.Count,
                 RoundNumber = _roundNumber,
                 Status = _gameStatus,
-                WarPotCount = _warPot.Count
+                WarPotCount = _warPot.Count,
+                CurrentWarDepth = _currentWarDepth
             };
         }
 
@@ -280,9 +320,7 @@ namespace CardWar.Game.Logic
             for (var i = deck.Count - 1; i > 0; i--)
             {
                 var j = _random.Next(i + 1);
-                var temp = deck[i];
-                deck[i] = deck[j];
-                deck[j] = temp;
+                (deck[i], deck[j]) = (deck[j], deck[i]);
             }
         }
 
@@ -316,16 +354,10 @@ namespace CardWar.Game.Logic
             if (_playerDeck.Count == 0)
             {
                 _gameStatus = GameStatus.OpponentWon;
-                Debug.Log("[FakeWarServer] Game Over - Opponent wins!");
             }
             else if (_opponentDeck.Count == 0)
             {
                 _gameStatus = GameStatus.PlayerWon;
-                Debug.Log("[FakeWarServer] Game Over - Player wins!");
-            }
-            else if (_playerDeck.Count + _opponentDeck.Count + _warPot.Count != 52)
-            {
-                Debug.LogError($"[FakeWarServer] Card count error! Total: {_playerDeck.Count + _opponentDeck.Count + _warPot.Count}");
             }
         }
 
@@ -337,6 +369,14 @@ namespace CardWar.Game.Logic
                 _gameStatus = GameStatus.OpponentWon;
             else
                 _gameStatus = GameStatus.Draw;
+
+            if (_currentMatch != null)
+            {
+                _currentMatch.Status = _gameStatus;
+                _currentMatch.EndTime = DateTime.Now;
+                _currentMatch.TotalRounds = _roundNumber;
+                Debug.Log($"[FakeWarServer] Match {_currentMatch.MatchId} ended - Status: {_gameStatus}, Rounds: {_roundNumber}");
+            }
         }
 
         private RoundData CreateGameOverRound()
@@ -344,7 +384,8 @@ namespace CardWar.Game.Logic
             return new RoundData
             {
                 RoundNumber = _roundNumber,
-                Result = _gameStatus == GameStatus.PlayerWon ? 
+                IsGameOver = true,
+                Result = _playerDeck.Count > _opponentDeck.Count ? 
                     RoundResult.PlayerWins : RoundResult.OpponentWins,
                 PlayerCardsRemaining = _playerDeck.Count,
                 OpponentCardsRemaining = _opponentDeck.Count
@@ -373,10 +414,14 @@ namespace CardWar.Game.Logic
                 OpponentCardsRemaining = _opponentDeck.Count,
                 PlayerWarCards = new List<CardData>(),
                 OpponentWarCards = new List<CardData>(),
-                TotalCardsInPot = _warPot.Count
+                TotalCardsInPot = _warPot.Count,
+                WarDepth = _currentWarDepth
             };
             
             ReturnWarPotToBothPlayers();
+            
+            _currentWarDepth = 0;
+            _isInWar = false;
             
             return drawRound;
         }
@@ -407,6 +452,15 @@ namespace CardWar.Game.Logic
             Debug.Log($"[FakeWarServer] Cards returned - Player: {_playerDeck.Count}, Opponent: {_opponentDeck.Count}");
         }
 
+        private void CleanupMatch()
+        {
+            if (_currentMatch != null)
+            {
+                Debug.Log($"[FakeWarServer] Cleaning up match {_currentMatch.MatchId}");
+                _currentMatch = null;
+            }
+        }
+
         #endregion
     }
 
@@ -417,5 +471,15 @@ namespace CardWar.Game.Logic
         public int RoundNumber { get; set; }
         public GameStatus Status { get; set; }
         public int WarPotCount { get; set; }
+        public int CurrentWarDepth { get; set; }
+    }
+
+    public class MatchData
+    {
+        public string MatchId { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime? EndTime { get; set; }
+        public GameStatus Status { get; set; }
+        public int TotalRounds { get; set; }
     }
 }

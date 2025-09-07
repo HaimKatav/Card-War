@@ -22,6 +22,9 @@ namespace CardWar.Game.UI
         private Color _originalFrontColor = Color.white;
         private Color _originalBackColor = Color.white;
         
+        public CardData CardData => _cardData;
+        public bool IsFaceUp => _isFaceUp;
+        
         #region Unity Lifecycle
         
         private void Awake()
@@ -67,7 +70,13 @@ namespace CardWar.Game.UI
                 _cardBack.sprite = backSprite;
         }
         
-        public void FlipCard(bool faceUp, float duration = 0.3f)
+        public void SetFaceUp(bool faceUp)
+        {
+            _isFaceUp = faceUp;
+            ShowCardSide(_isFaceUp);
+        }
+        
+        public async UniTask FlipCard(bool faceUp, float duration = 0.3f)
         {
             _isFaceUp = faceUp;
             
@@ -77,12 +86,13 @@ namespace CardWar.Game.UI
                 return;
             }
             
-            transform.DORotateQuaternion(Quaternion.Euler(0, 90, 0), duration * 0.5f)
-                .OnComplete(() =>
-                {
-                    ShowCardSide(_isFaceUp);
-                    transform.DORotateQuaternion(Quaternion.identity, duration * 0.5f);
-                });
+            await transform.DORotateQuaternion(Quaternion.Euler(0, 90, 0), duration * 0.5f)
+                .AsyncWaitForCompletion().AsUniTask();
+            
+            ShowCardSide(_isFaceUp);
+            
+            await transform.DORotateQuaternion(Quaternion.identity, duration * 0.5f)
+                .AsyncWaitForCompletion().AsUniTask();
         }
         
         public async UniTask FlipCardAsync(bool faceUp, float duration, Ease ease)
@@ -97,13 +107,13 @@ namespace CardWar.Game.UI
             
             await transform.DORotateQuaternion(Quaternion.Euler(0, 90, 0), duration * 0.5f)
                 .SetEase(ease)
-                .AsyncWaitForCompletion();
+                .AsyncWaitForCompletion().AsUniTask();
             
             ShowCardSide(_isFaceUp);
             
             await transform.DORotateQuaternion(Quaternion.identity, duration * 0.5f)
                 .SetEase(ease)
-                .AsyncWaitForCompletion();
+                .AsyncWaitForCompletion().AsUniTask();
         }
         
         public void ResetCard()
@@ -119,11 +129,6 @@ namespace CardWar.Game.UI
         public CardData GetCardData()
         {
             return _cardData;
-        }
-        
-        public bool IsFaceUp
-        {
-            get => _isFaceUp;
         }
         
         #endregion
@@ -162,7 +167,7 @@ namespace CardWar.Game.UI
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 0f;
-                await _canvasGroup.DOFade(1f, duration).AsyncWaitForCompletion();
+                await _canvasGroup.DOFade(1f, duration).AsyncWaitForCompletion().AsUniTask();
             }
         }
         
@@ -170,7 +175,7 @@ namespace CardWar.Game.UI
         {
             if (_canvasGroup != null)
             {
-                await _canvasGroup.DOFade(0f, duration).AsyncWaitForCompletion();
+                await _canvasGroup.DOFade(0f, duration).AsyncWaitForCompletion().AsUniTask();
             }
         }
         
@@ -194,11 +199,11 @@ namespace CardWar.Game.UI
         {
             if (_isFaceUp && _cardFront != null)
             {
-                await _cardFront.DOColor(color, duration).AsyncWaitForCompletion();
+                await _cardFront.DOColor(color, duration).AsyncWaitForCompletion().AsUniTask();
             }
             else if (!_isFaceUp && _cardBack != null)
             {
-                await _cardBack.DOColor(color, duration).AsyncWaitForCompletion();
+                await _cardBack.DOColor(color, duration).AsyncWaitForCompletion().AsUniTask();
             }
         }
         
@@ -217,7 +222,7 @@ namespace CardWar.Game.UI
         
         public async UniTask ScaleCardAsync(float targetScale, float duration, Ease ease = Ease.OutBack)
         {
-            await transform.DOScale(targetScale, duration).SetEase(ease).AsyncWaitForCompletion();
+            await transform.DOScale(targetScale, duration).SetEase(ease).AsyncWaitForCompletion().AsUniTask();
         }
         
         #endregion
