@@ -179,9 +179,14 @@ namespace CardWar.Game.Helpers
                     var targetPos = _positionManager.GetWarPosition(true, i, stackOffset);
                     var delay = i * warConfig.CardPlacementStagger;
                     
+                    playerCards[i].transform.SetParent(_positionManager.GetWarTransform(true, i));
+                    
                     sequence.Insert(delay, playerCards[i].transform
                         .DOMove(targetPos, warConfig.PlaceCardsAnimation.Duration)
                         .SetEase(warConfig.PlaceCardsAnimation.EasingCurve));
+
+                    sequence.Join(playerCards[i].transform
+                        .DOLocalRotate(Vector3.zero, warConfig.PlaceCardsAnimation.Duration));
                 }
             }
             
@@ -193,9 +198,14 @@ namespace CardWar.Game.Helpers
                     var targetPos = _positionManager.GetWarPosition(false, i, stackOffset);
                     var delay = i * warConfig.CardPlacementStagger;
                     
+                    opponentCards[i].transform.SetParent(_positionManager.GetWarTransform(false, i));
+                    
                     sequence.Insert(delay, opponentCards[i].transform
                         .DOMove(targetPos, warConfig.PlaceCardsAnimation.Duration)
                         .SetEase(warConfig.PlaceCardsAnimation.EasingCurve));
+                    
+                    sequence.Join(opponentCards[i].transform
+                        .DOLocalRotate(Vector3.zero, warConfig.PlaceCardsAnimation.Duration));
                 }
             }
             
@@ -401,7 +411,7 @@ namespace CardWar.Game.Helpers
             sequence.Append(card.transform
                 .DOMove(targetPosition, config.Duration)
                 .SetEase(config.EasingCurve));
-            
+                
             if (config.UseScaling)
             {
                 sequence.Join(card.transform.DOScale(config.ScaleMultiplier, config.Duration * 0.5f));

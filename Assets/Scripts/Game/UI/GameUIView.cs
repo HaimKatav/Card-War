@@ -47,7 +47,8 @@ namespace CardWar.Game.UI
             
             SetupButtons();
             RegisterEvents();
-            
+            RegisterGameControllerEvents();
+
             ResetDisplay();
             
             Debug.Log("[GameUIView] Initialized");
@@ -62,11 +63,11 @@ namespace CardWar.Game.UI
         {
             switch (obj)
             {
-                case GameState.Playing:
+                case GameState.LoadingGame:
                     RegisterGameControllerEvents();
                     break;
                 case GameState.MainMenu:
-                    UnregisterBoardEvents();
+                    UnregisterGameControllerEvents();
                     break;
             }
         }
@@ -75,6 +76,7 @@ namespace CardWar.Game.UI
         {
             _gameControllerService.RoundStartedEvent += HandleRoundStarted;
             _gameControllerService.WarStartedEvent += HandleWarStarted;
+            _gameControllerService.CardsDrawnEvent += HandleCardsDrawn;
             _gameControllerService.WarCompletedEvent += HandleWarCompleted;
         }
 
@@ -157,14 +159,14 @@ namespace CardWar.Game.UI
 
         private void HandleRoundStarted(RoundData roundData)
         {
-            UpdateCardCounts(roundData.PlayerCardsRemaining, roundData.OpponentCardsRemaining);
             UpdateRoundNumber(roundData.RoundNumber);
-            if (roundData.IsWar)
-            {
-                ShowWarIndicator(true);
-            }
         }
 
+        private void HandleCardsDrawn(RoundData roundData)
+        {
+            UpdateCardCounts(roundData.PlayerCardsRemaining, roundData.OpponentCardsRemaining);
+        }
+        
         private void HandleWarStarted(int warDepth)
         {
             ShowWarIndicator(true);
@@ -175,9 +177,10 @@ namespace CardWar.Game.UI
             }
         }
 
-        private void HandleWarCompleted()
+        private void HandleWarCompleted(RoundData roundData)
         {
             ShowWarIndicator(false);
+            UpdateCardCounts(roundData.PlayerCardsRemaining, roundData.OpponentCardsRemaining);
         }
 
         #endregion Event Handlers
@@ -185,13 +188,14 @@ namespace CardWar.Game.UI
         
         #region Cleanup
         
-        private void UnregisterBoardEvents()
+        private void UnregisterGameControllerEvents()
         {
             if (_gameControllerService != null)
             {
-                _gameControllerService.RoundStartedEvent += HandleRoundStarted;
-                _gameControllerService.WarStartedEvent += HandleWarStarted;
-                _gameControllerService.WarCompletedEvent += HandleWarCompleted;   
+                _gameControllerService.RoundStartedEvent -= HandleRoundStarted;
+                _gameControllerService.CardsDrawnEvent -= HandleCardsDrawn;
+                _gameControllerService.WarStartedEvent -= HandleWarStarted;
+                _gameControllerService.WarCompletedEvent -= HandleWarCompleted;   
             }
         }
 
@@ -204,7 +208,7 @@ namespace CardWar.Game.UI
 
             _pauseButton = null;
             
-            UnregisterBoardEvents();
+            UnregisterGameControllerEvents();
         }
 
         #endregion Cleanup

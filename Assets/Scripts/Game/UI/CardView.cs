@@ -86,8 +86,11 @@ namespace CardWar.Game.UI
                 return;
             }
             
-            await transform.DORotateQuaternion(Quaternion.Euler(0, 90, 0), duration * 0.5f)
+            var endValue = transform.localRotation.eulerAngles + new Vector3(0, 90, 0);
+            
+            await transform.DOLocalRotate(endValue, duration * 0.5f)
                 .AsyncWaitForCompletion().AsUniTask();
+
             
             ShowCardSide(_isFaceUp);
             

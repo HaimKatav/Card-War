@@ -15,10 +15,10 @@ namespace CardWar.Game
         #region Events
 
         public event Action<RoundData> RoundStartedEvent;
-        public event Action CardsDrawnEvent;
+        public event Action<RoundData> CardsDrawnEvent;
         public event Action<RoundResult> RoundCompletedEvent;
         public event Action<int> WarStartedEvent;
-        public event Action WarCompletedEvent;
+        public event Action<RoundData> WarCompletedEvent;
         public event Action GamePausedEvent;
         public event Action GameResumedEvent;
         public event Action<GameStatus> GameOverEvent;
@@ -46,6 +46,9 @@ namespace CardWar.Game
         private bool _isProcessingRound;
         private bool _isInWar;
         private bool _isInitialized;
+        
+        public RoundData RoundData => _currentRoundData;
+        private RoundData _currentRoundData;
 
         #endregion
 
@@ -209,7 +212,7 @@ namespace CardWar.Game
 
         private async UniTask ProcessNormalRound(RoundData roundData)
         {
-            CardsDrawnEvent?.Invoke();
+            _currentRoundData = roundData;
             RoundStartedEvent?.Invoke(roundData);
 
             await PlayBattleAnimations(roundData);
@@ -238,6 +241,7 @@ namespace CardWar.Game
 
         private async UniTask ProcessWarRound(RoundData warData)
         {
+            _currentRoundData = warData;
             RoundStartedEvent?.Invoke(warData);
 
             if (warData.WarEndedInDraw)
@@ -265,7 +269,7 @@ namespace CardWar.Game
             else
             {
                 _isInWar = false;
-                WarCompletedEvent?.Invoke();
+                WarCompletedEvent?.Invoke(warData);
                 RoundCompletedEvent?.Invoke(warData.Result);
                 _isProcessingRound = false;
                 Debug.Log($"[GameController] War complete - winner: {warData.Result}");
@@ -281,7 +285,7 @@ namespace CardWar.Game
             await _boardController.ReturnWarCardsToBothPlayers();
 
             _isInWar = false;
-            WarCompletedEvent?.Invoke();
+            WarCompletedEvent?.Invoke(warData);
             RoundCompletedEvent?.Invoke(RoundResult.Draw);
             _isProcessingRound = false;
 
@@ -303,6 +307,8 @@ namespace CardWar.Game
         {
             await _boardController.DrawBattleCards(roundData);
             await _boardController.FlipBattleCards();
+            
+            CardsDrawnEvent?.Invoke(roundData);
             
             if (!roundData.IsWar)
             {
@@ -328,6 +334,7 @@ namespace CardWar.Game
         {
             await _boardController.PlaceWarCards(warData);
             await _boardController.RevealWarCards();
+            await _boardController.HighlightWinner(warData.Result);
             
             if (!warData.HasChainedWar)
             {
@@ -376,13 +383,14 @@ namespace CardWar.Game
             var stats = await _serverHandler.GetGameStats();
             if (stats != null)
             {
-                var initialRound = new RoundData
+                _currentRoundData = new RoundData
                 {
                     RoundNumber = stats.RoundNumber,
                     PlayerCardsRemaining = stats.PlayerCardCount,
                     OpponentCardsRemaining = stats.OpponentCardCount
                 };
-                RoundStartedEvent?.Invoke(initialRound);
+                
+                RoundStartedEvent?.Invoke(_currentRoundData);
             }
         }
 
@@ -429,12 +437,12 @@ namespace CardWar.Game
 
         private void HandleCardsDrawn(RoundData roundData)
         {
-            // Server event - can be used for additional processing if needed
+            _currentRoundData = roundData;
         }
 
         private void HandleWarResolved(RoundData warData)
         {
-            // Server event - can be used for additional processing if needed
+            _currentRoundData = warData;
         }
 
         private void HandleGameStatusChanged(GameStatus status)
