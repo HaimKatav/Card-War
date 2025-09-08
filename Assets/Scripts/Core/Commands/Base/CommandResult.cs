@@ -3,6 +3,7 @@ using UnityEngine;
 using CardWar.Core.Context;
 using CardWar.Services;
 using Cysharp.Threading.Tasks;
+using CardWar.Common;
 
 namespace CardWar.Core.Commands.Base
 {
@@ -21,8 +22,7 @@ namespace CardWar.Core.Commands.Base
             return new CommandResult
             {
                 IsSuccess = true,
-                IsCancelled = false,
-                Context = context ?? throw new ArgumentNullException(nameof(context))
+                Context = context
             };
         }
 
@@ -31,9 +31,8 @@ namespace CardWar.Core.Commands.Base
             return new CommandResult
             {
                 IsSuccess = false,
-                IsCancelled = false,
-                Context = context ?? throw new ArgumentNullException(nameof(context)),
-                ErrorMessage = errorMessage ?? "Unknown error",
+                Context = context,
+                ErrorMessage = errorMessage,
                 Exception = exception
             };
         }
@@ -42,10 +41,8 @@ namespace CardWar.Core.Commands.Base
         {
             return new CommandResult
             {
-                IsSuccess = false,
                 IsCancelled = true,
-                Context = context ?? throw new ArgumentNullException(nameof(context)),
-                ErrorMessage = "Operation was cancelled"
+                Context = context
             };
         }
     }

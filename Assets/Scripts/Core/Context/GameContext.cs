@@ -1,8 +1,5 @@
 using System;
 using UnityEngine;
-using CardWar.Core.Context;
-using CardWar.Services;
-using Cysharp.Threading.Tasks;
 using System.Threading;
 using CardWar.Common;
 using CardWar.Game.Logic;

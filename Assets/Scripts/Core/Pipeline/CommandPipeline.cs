@@ -1,44 +1,71 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Core.Commands.Base;
 using CardWar.Core.Context;
 using CardWar.Services;
 using Cysharp.Threading.Tasks;
+using CardWar.Common;
 
 namespace CardWar.Core.Pipeline
 {
     public sealed class CommandPipeline : ICommandPipeline
     {
+        readonly List<Type> middlewareTypes;
+        bool disposed;
+
+        public CommandPipeline()
+        {
+            middlewareTypes = new List<Type>();
+        }
+
         public async UniTask<CommandResult> ExecuteAsync(IGameCommand command, GameContext context)
         {
-            if (command == null) throw new ArgumentNullException(nameof(command));
-            if (context == null) throw new ArgumentNullException(nameof(context));
+            if (disposed)
+                throw new ObjectDisposedException(nameof(CommandPipeline));
 
-            var commandName = command.GetType().Name;
-            Debug.Log($"[CommandPipeline] Executing {commandName}");
+            if (command == null)
+                throw new ArgumentNullException(nameof(command));
 
-            if (context.CancellationToken.IsCancellationRequested)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            Debug.Log($"[CommandPipeline] Executing command: {command.GetType().Name}");
+
+            return await command.ExecuteAsync(context);
+        }
+
+        public void RegisterMiddleware<TMiddleware>() where TMiddleware : class
+        {
+            if (disposed)
+                throw new ObjectDisposedException(nameof(CommandPipeline));
+
+            var middlewareType = typeof(TMiddleware);
+
+            if (!middlewareTypes.Contains(middlewareType))
             {
-                Debug.LogWarning("[CommandPipeline] Command cancelled before execution");
-                return CommandResult.Cancelled(context);
+                middlewareTypes.Add(middlewareType);
+                Debug.Log($"[CommandPipeline] Registered middleware: {middlewareType.Name}");
             }
+        }
 
-            var result = await command.ExecuteAsync(context);
+        public void ClearMiddleware()
+        {
+            if (disposed)
+                throw new ObjectDisposedException(nameof(CommandPipeline));
 
-            if (result.IsCancelled)
-            {
-                Debug.LogWarning($"[CommandPipeline] Command cancelled: {commandName}");
-                return result;
-            }
+            middlewareTypes.Clear();
+            Debug.Log("[CommandPipeline] Cleared all middleware");
+        }
 
-            if (!result.IsSuccess)
-            {
-                Debug.LogError($"[CommandPipeline] Command failed: {commandName}");
-                return result;
-            }
+        public void Dispose()
+        {
+            if (disposed)
+                return;
 
-            Debug.Log($"[CommandPipeline] Command succeeded: {commandName}");
-            return result;
+            ClearMiddleware();
+            disposed = true;
+            Debug.Log("[CommandPipeline] Disposed");
         }
     }
 }
