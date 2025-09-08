@@ -10,7 +10,7 @@ using Cysharp.Threading.Tasks;
 
 namespace CardWar.Game
 {
-    public class GameController : MonoBehaviour, IGameControllerService
+    public class GameController : BaseService, IGameControllerService
     {
         public event Action<RoundData> RoundStartedEvent;
         public event Action CardsDrawnEvent;
@@ -38,18 +38,18 @@ namespace CardWar.Game
 
         #region Unity Lifecycle
 
-        private void Awake()
+        protected override async void Awake()
         {
-            Initialize();
+            base.Awake();
+            await Initialize();
         }
 
-        private void Initialize()
+        private async UniTask Initialize()
         {
-            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
-            _assetService = ServiceLocator.Instance.Get<IAssetService>();
-            _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
-            
-            var uiService = ServiceLocator.Instance.Get<IUIService>();
+            _gameStateService = await ServiceLocator.Get<IGameStateService>();
+            _assetService = await ServiceLocator.Get<IAssetService>();
+            _gameSettings = await ServiceLocator.Get<GameSettings>();
+            var uiService = await ServiceLocator.Get<IUIService>();
             _playAreaParent = uiService.GetGameAreaParent();
             
             _warServer = new FakeWarServer(_gameSettings);
@@ -59,9 +59,12 @@ namespace CardWar.Game
 
         #region Game Creation
 
-        public async UniTask<bool> CreateNewGame()
+        public async UniTask<bool> CreateNewGame(Action<float, string> onProgress = null)
         {
             Debug.Log("[GameController] Creating new game");
+
+            // Report initial progress
+            onProgress?.Invoke(0.1f, "Starting");
 
             var playAreaPrefab =
                 await _assetService.LoadAssetAsync<GameBoardController>(GameSettings.PLAY_AREA_ASSET_PATH);
@@ -71,37 +74,47 @@ namespace CardWar.Game
                 Debug.LogError("[GameController] Failed to load play area asset");
                 return false;
             }
-            
+
+            onProgress?.Invoke(0.3f, "Board Asset Loaded");
+
             _boardController = Instantiate(playAreaPrefab, _playAreaParent.transform);
-           
+
+            onProgress?.Invoke(0.4f, "Board Assets Created");
+
             var success = await ExecuteWithRetry(
                 async () => await _warServer.InitializeNewGame(),
                 "InitializeNewGame"
             );
-            
+
             if (!success)
             {
                 Debug.LogError("[GameController] Failed to initialize FakeWarServer after retries");
                 return false;
             }
-            
+
+            onProgress?.Invoke(0.6f, "Server Initialized Successfully");
+
             if (_boardController == null)
             {
                 Debug.LogError("[GameController] Failed to load play area asset - Try again later.");
                 return false;
             }
-            
-            _boardController.Initialize();
-            
+
+            await _boardController.Initialize();
+
+            onProgress?.Invoke(0.7f, "Game Initialized");
+
             _isGameActive = true;
             _isPaused = true;
             _isProcessingRound = false;
             _isInWar = false;
-            
+
             RegisterDrawButton();
             RegisterGameEvents();
             RegisterBoardEvents();
-            
+
+            onProgress?.Invoke(0.85f, "Initialized Events");
+
             var initialStats = await _warServer.GetGameStats();
             if (initialStats != null)
             {
@@ -113,7 +126,9 @@ namespace CardWar.Game
                 };
                 RoundStartedEvent?.Invoke(initialRound);
             }
-            
+
+            onProgress?.Invoke(1.0f, "Loading Completed");
+
             return true;
         }
 
@@ -466,8 +481,9 @@ namespace CardWar.Game
                 _gameStateService.GameStateChanged -= HandleGameStateChanged;
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             UnregisterDrawButton();
             
             RoundStartedEvent = null;

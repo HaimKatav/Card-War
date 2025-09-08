@@ -4,7 +4,7 @@ using CardWar.Game.Logic;
 
 namespace CardWar.Services
 {
-    public interface IGameControllerService
+    public interface IGameControllerService : IBaseServiceProvider
     {
         event Action<RoundData> RoundStartedEvent;
         event Action CardsDrawnEvent;

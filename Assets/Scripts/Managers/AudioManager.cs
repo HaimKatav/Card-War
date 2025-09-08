@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Services;
 using CardWar.Core;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Managers
 {
-    public class AudioManager : MonoBehaviour, IAudioService
+    public class AudioManager : BaseService, IAudioService
     {
         private AudioSource _musicSource;
         private AudioSource _sfxSource;
@@ -30,14 +31,15 @@ namespace CardWar.Managers
 
         #region Unity Lifecycle
 
-        private void Awake()
+        protected override async void Awake()
         {
-            Initialize();
+            base.Awake();
+            await Initialize();
         }
 
-        private void Initialize()
+        private async UniTask Initialize()
         {
-            _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
+            _gameSettings = await ServiceLocator.Get<GameSettings>();
             _audioClips = new Dictionary<string, AudioClip>();
             
             SetupAudioSources();
@@ -188,8 +190,9 @@ namespace CardWar.Managers
 
         #region Cleanup
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             StopMusic();
             _audioClips?.Clear();
         }

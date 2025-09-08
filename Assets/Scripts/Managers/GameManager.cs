@@ -8,32 +8,8 @@ using Cysharp.Threading.Tasks;
 
 namespace CardWar.Managers
 {
-    // Developer notes:
-    // This Code Was made By Haim Katav for Beach Bum as a home assignment.
-    
-    // I would like to state that i really tried "attacking" this job from multiple angles to
-    // show capabilities in a few areas. I know it made the architecture a bit large for a home assignment, sorry about that.
-    // Some of the code here were used in other projects of mine and were integrated into this project like:
-    // Asset Manager,Game State Machine and Generic pool - They were all designed and made by me.
-    // - Service Locator - I made for this project, since DI was overkill here.
-    // - The rest of the classes were made by me with the occasional Rider suggestions and Context Actions fixes.
-    // Please view the AI generated Overview PDF I've created for better introduction for this project.
-    
-    // Things I would do differently:
-    // 1) Migrate state related code into classes instead of using enums and all the code in game manager.
-    // 2) Instead of Creating this huge UIManager class, use more subtle solutions and create a functional structure to do the UI instead of putting all the code in one place - This was one of the things I decided to no invest my time in for this project.
-    // 3) GameSetting - would make room for a proper DataService that gets the data from the server on client startup.
-    // 4) GameUIView should be renamed to GameUIController in order to justify the communication to GameController Service and take on the role of the game's board UI controlling entity.
-    // 5) GameBoardController - Dismantle this class into smaller classes that govern our capabilities on the board.   
-    // 6) Creating an IServerService interface in order to be able to change the server code easily and quickly. 
-    
-    // There are probably more things i could improve on to make this project better but this is from the top of my head hor now.
-    // I Hope you'll enjoy checking this project.
-    
-    public class GameManager : MonoBehaviour, IGameStateService
+    public class GameManager : BaseService, IGameStateService
     {
-        [SerializeField] private GameSettings _gameSettings;
-        
         private GameStateMachine _stateMachine;
         private AssetManager _assetManager;
         private AudioManager _audioManager;
@@ -41,7 +17,7 @@ namespace CardWar.Managers
         private GameController _gameController;
 
         public event Action<GameState> GameStateChanged;
-        public event Action<float> OnLoadingProgress;
+        public event Action<float, string> OnLoadingProgress;
         public GameStatus MatchStatus { get; private set; } = GameStatus.NotStarted;
 
         private GameState CurrentState => _stateMachine?.CurrentStateType ?? GameState.FirstLoad;
@@ -51,8 +27,10 @@ namespace CardWar.Managers
 
         #region Initialization
 
-        private void Awake()
+        protected override void Awake()
         {
+            ServiceLocator.Instance.Dispose();
+            base.Awake();
             DontDestroyOnLoad(gameObject);
             InitializeGame().Forget();
         }
@@ -60,10 +38,6 @@ namespace CardWar.Managers
         private async UniTaskVoid InitializeGame()
         {
             Debug.Log($"[GameManager] Starting initialization");
-            
-            ServiceLocator.Instance.Dispose();
-            ServiceLocator.Instance.Register<IGameStateService>(this);
-            ServiceLocator.Instance.Register(_gameSettings);
             
             await CreateServices();
             
@@ -82,16 +56,10 @@ namespace CardWar.Managers
             _assetManager = CreateService<AssetManager>("AssetManager");
             _audioManager = CreateService<AudioManager>("AudioManager");
             
-            ServiceLocator.Instance.Register<IAssetService>(_assetManager);
-            ServiceLocator.Instance.Register<IAudioService>(_audioManager);
-            
             var uiPrefab = await _assetManager.LoadAssetAsync<UIManager>(GameSettings.UI_MANAGER_ASSET_PATH);
             _uiManager = Instantiate(uiPrefab);
-            ServiceLocator.Instance.Register<IUIService>(_uiManager);
             
             _gameController = CreateService<GameController>("GameController", false);
-        
-            ServiceLocator.Instance.Register<IGameControllerService>(_gameController);
         }
 
         private T CreateService<T>(string serviceName, bool dontDestroy = true) where T : Component
@@ -140,28 +108,19 @@ namespace CardWar.Managers
         private async UniTask LoadGame()
         {
             Debug.Log("[GameManager] Entering LoadingGame state");
-            SimulateLoading().Forget();
-            var result = await _gameController.CreateNewGame();
-            
+    
+            var result = await _gameController.CreateNewGame(UpdateLoadingProgress);
+    
             if (!result)
             {
                 Debug.Log("[GameManager] Failed to create new game - Returning to Main Menu");
                 ChangeState(GameState.MainMenu);
                 return;
             }
-            
+    
+            await UniTask.Delay(200);
+    
             ChangeState(GameState.Playing);
-        }
-        
-        private async UniTaskVoid SimulateLoading()
-        {
-            _loadingProgress = 0f;
-            for (var i = 0; i <= 10; i++)
-            {
-                _loadingProgress = i / 10f;
-                UpdateLoadingProgress(_loadingProgress);
-                await UniTask.Delay(200);
-            }
         }
         
         #endregion State Handling
@@ -202,10 +161,10 @@ namespace CardWar.Managers
             GameStateChanged?.Invoke(CurrentState);
         }
 
-        private void UpdateLoadingProgress(float progress)
+        private void UpdateLoadingProgress(float progress, string loadingMessage)
         {
             progress = Mathf.Clamp01(progress);
-            OnLoadingProgress?.Invoke(progress);
+            OnLoadingProgress?.Invoke(progress, loadingMessage);
             
             if (progress >= 1f && CurrentState == GameState.LoadingGame)
             {
@@ -268,8 +227,10 @@ namespace CardWar.Managers
             }
         }
         
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
+            
             _stateMachine?.Clear();
 
             UnregisterEvents();

@@ -1,9 +1,10 @@
+using CardWar.Services;
 using UnityEngine;
 
 namespace CardWar.Core
 {
     [CreateAssetMenu(fileName = "GameSettings", menuName = "CardWar/GameSettings")]
-    public class GameSettings : ScriptableObject
+    public class GameSettings : BaseServiceSO, IBaseServiceProvider
     {
         // ASSET PATHS
         public static readonly string UI_MANAGER_ASSET_PATH = "Prefabs/GameCanvas";

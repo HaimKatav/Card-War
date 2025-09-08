@@ -5,6 +5,7 @@ using CardWar.Services;
 using CardWar.Core;
 using CardWar.Common;
 using CardWar.Game.Logic;
+using Cysharp.Threading.Tasks;
 using TMPro;
 
 namespace CardWar.Game.UI
@@ -35,15 +36,15 @@ namespace CardWar.Game.UI
         private IGameControllerService _gameControllerService;
         private IGameStateService _gameStateService;
         
-        private void Start()
+        private async void Start()
         {
-            Initialize();
+           await Initialize();
         }
 
-        private void Initialize()
+        private async UniTask Initialize()
         {
-            _gameControllerService = ServiceLocator.Instance.Get<IGameControllerService>();
-            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
+            _gameControllerService = await ServiceLocator.Get<IGameControllerService>();
+            _gameStateService = await ServiceLocator.Get<IGameStateService>();
             
             SetupButtons();
             RegisterEvents();

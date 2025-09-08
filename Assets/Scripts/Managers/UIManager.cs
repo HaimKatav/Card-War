@@ -4,11 +4,12 @@ using UnityEngine.UI;
 using CardWar.Services;
 using CardWar.Common;
 using CardWar.Game.UI;
+using Cysharp.Threading.Tasks;
 using TMPro;
 
 namespace CardWar.Managers
 {
-    public class UIManager : MonoBehaviour, IUIService
+    public class UIManager : BaseService, IUIService
     {
         [Header("UI Layers")]
         [SerializeField] private GameObject _loadingLayer;
@@ -45,23 +46,24 @@ namespace CardWar.Managers
 
         #region Unity Lifecycle
 
-        private void Awake()
+        protected override async void Awake()
         {
-            Initialize();
+            base.Awake();
+           await Initialize();
         }
 
-        private void Initialize()
+        private async UniTask Initialize()
         {
             SetupUIElements();
             HideAllLayers();
-            SubscribeToEvents();
+            await SubscribeToEvents();
 
             Debug.Log("[UIManager] Initialized");
         }
         
-        private void SubscribeToEvents()
+        private async UniTask SubscribeToEvents()
         {
-            _gameStateService = ServiceLocator.Instance.Get<IGameStateService>();
+            _gameStateService = await ServiceLocator.Get<IGameStateService>();
             
             if (_gameStateService != null)
             {
@@ -260,13 +262,13 @@ namespace CardWar.Managers
             }
         }
 
-        private void HandleLoadingProgress(float progress)
+        private void HandleLoadingProgress(float progress, string message)
         {
             if (_loadingSlider != null)
                 _loadingSlider.value = progress;
                 
             if (_loadingText != null)
-                _loadingText.text = $"Loading... {Mathf.RoundToInt(progress * 100)}%";
+                _loadingText.text = $"{message} --> [{Mathf.RoundToInt(progress * 100)}]%";
         }
         
         #endregion
@@ -274,8 +276,9 @@ namespace CardWar.Managers
         
         #region Cleanup
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             if (_startButton != null)
                 _startButton.onClick.RemoveAllListeners();
                 

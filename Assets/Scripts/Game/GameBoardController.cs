@@ -11,7 +11,7 @@ using UnityEngine.UI;
 
 namespace CardWar.Game.UI
 {
-    public class GameBoardController : MonoBehaviour
+    public class GameBoardController : BaseService
     {
         [Header("Pool Container")]
         [SerializeField] private Transform _poolContainer;
@@ -51,10 +51,15 @@ namespace CardWar.Game.UI
         
         #region Initialization
 
-        public void Initialize()
+        protected override async void Awake()
         {
-            _gameController = ServiceLocator.Instance.Get<IGameControllerService>();
-            _assetService = ServiceLocator.Instance.Get<IAssetService>();
+            base.Awake();
+        }
+
+        public async UniTask Initialize()
+        {
+            _gameController = await ServiceLocator.Get<IGameControllerService>();
+            _assetService = await ServiceLocator.Get<IAssetService>();
             
             SetupCardPool().Forget();
             SubscribeToEvents();
@@ -421,8 +426,9 @@ namespace CardWar.Game.UI
             }
         }
         
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             UnsubscribeFromEvents();
             
             OnDrawButtonPressed = null;

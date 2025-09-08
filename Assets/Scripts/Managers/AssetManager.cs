@@ -7,21 +7,23 @@ using CardWar.Core;
 
 namespace CardWar.Managers
 {
-    public class AssetManager : MonoBehaviour, IAssetService
+    public class AssetManager : BaseService, IAssetService
     {
         private readonly Dictionary<string, UnityEngine.Object> _loadedAssets = new ();
         private GameSettings _gameSettings;
 
         #region Unity Lifecycle
 
-        private void Awake()
+        protected override async void Awake()
         {
+            base.Awake();
             Initialize();
         }
 
         private void Initialize()
         {
-            _gameSettings = ServiceLocator.Instance.Get<GameSettings>();
+            _gameSettings = ScriptableObject.CreateInstance<GameSettings>();
+            _gameSettings.Initialize();
             Debug.Log("[AssetManager] Initialized");
         }
 
@@ -125,8 +127,9 @@ namespace CardWar.Managers
 
         #region Cleanup
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             foreach (var kvp in _loadedAssets)
             {
                 if (CanBeUnloaded(kvp.Value))
