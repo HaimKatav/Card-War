@@ -6,12 +6,12 @@ using Cysharp.Threading.Tasks;
 
 namespace CardWar.Core.Mediator
 {
-    public interface IGameMediator
+    public interface IGameMediator : IDisposable
     {
-        UniTask PublishAsync<T>(T notification) where T : IGameNotification;
-        void Subscribe<T>(Action<T> handler) where T : IGameNotification;
-        void Unsubscribe<T>(Action<T> handler) where T : IGameNotification;
+        void Subscribe<T>(Action<T> handler) where T : class;
+        void Unsubscribe<T>(Action<T> handler) where T : class;
+        void Publish<T>(T notification) where T : class;
+        void Clear();
     }
-
-    public interface IGameNotification { }
 }
+

@@ -1,13 +1,15 @@
-using CardWar.Core.Commands.Base;
+using System;
+using UnityEngine;
 using CardWar.Core.Context;
+using CardWar.Services;
 using Cysharp.Threading.Tasks;
+using CardWar.Core.Commands.Base;
 
 namespace CardWar.Core.Pipeline
 {
     public interface ICommandPipeline
     {
-        void AddCommand(IGameCommand command);
-        void ClearCommands();
-        UniTask<CommandResult> ExecuteAsync(GameContext context);
+        UniTask<CommandResult> ExecuteAsync(IGameCommand command, GameContext context);
     }
 }
+

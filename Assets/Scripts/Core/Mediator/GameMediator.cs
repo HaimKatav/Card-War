@@ -7,20 +7,46 @@ using Cysharp.Threading.Tasks;
 
 namespace CardWar.Core.Mediator
 {
-    public class GameMediator : IGameMediator
+    public sealed class GameMediator : IGameMediator
     {
         readonly Dictionary<Type, List<Delegate>> handlers = new();
 
-        public async UniTask PublishAsync<T>(T notification) where T : IGameNotification
+        public void Subscribe<T>(Action<T> handler) where T : class
         {
             var type = typeof(T);
+            if (!handlers.ContainsKey(type))
+            {
+                handlers[type] = new List<Delegate>();
+            }
 
-            if (!handlers.TryGetValue(type, out var typeHandlers))
+            handlers[type].Add(handler);
+            Debug.Log($"[GameMediator] Subscribed to {type.Name}");
+        }
+
+        public void Unsubscribe<T>(Action<T> handler) where T : class
+        {
+            var type = typeof(T);
+            if (handlers.TryGetValue(type, out var list))
+            {
+                list.Remove(handler);
+                if (list.Count == 0)
+                {
+                    handlers.Remove(type);
+                }
+
+                Debug.Log($"[GameMediator] Unsubscribed from {type.Name}");
+            }
+        }
+
+        public void Publish<T>(T notification) where T : class
+        {
+            var type = typeof(T);
+            if (!handlers.TryGetValue(type, out var list))
             {
                 return;
             }
 
-            foreach (var handler in typeHandlers.ToArray())
+            foreach (var handler in list.ToArray())
             {
                 try
                 {
@@ -31,35 +57,21 @@ namespace CardWar.Core.Mediator
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[GameMediator] Error handling notification {type.Name}: {ex.Message}");
+                    Debug.LogError($"[GameMediator] Error handling {type.Name}: {ex.Message}");
                 }
             }
-
-            await UniTask.Yield();
         }
 
-        public void Subscribe<T>(Action<T> handler) where T : IGameNotification
+        public void Clear()
         {
-            var type = typeof(T);
-
-            if (!handlers.ContainsKey(type))
-            {
-                handlers[type] = new List<Delegate>();
-            }
-
-            handlers[type].Add(handler);
-            Debug.Log($"[GameMediator] Subscribed to {type.Name}");
+            handlers.Clear();
+            Debug.Log("[GameMediator] Cleared all handlers");
         }
 
-        public void Unsubscribe<T>(Action<T> handler) where T : IGameNotification
+        public void Dispose()
         {
-            var type = typeof(T);
-
-            if (handlers.TryGetValue(type, out var typeHandlers))
-            {
-                typeHandlers.Remove(handler);
-                Debug.Log($"[GameMediator] Unsubscribed from {type.Name}");
-            }
+            handlers.Clear();
         }
     }
 }
+
