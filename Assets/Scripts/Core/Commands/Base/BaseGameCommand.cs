@@ -1,7 +1,8 @@
 using System;
-using CardWar.Core.Context;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
+using CardWar.Core.Context;
+using CardWar.Services;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Core.Commands.Base
 {
@@ -9,8 +10,8 @@ namespace CardWar.Core.Commands.Base
     {
         public async UniTask<CommandResult> ExecuteAsync(GameContext context)
         {
-            var name = GetType().Name;
-            Debug.Log($"[{name}] Executing command");
+            var commandName = GetType().Name;
+            Debug.Log($"[{commandName}] Executing command");
 
             try
             {
@@ -21,7 +22,7 @@ namespace CardWar.Core.Commands.Base
 
                 if (context.CancellationToken.IsCancellationRequested)
                 {
-                    Debug.Log($"[{name}] Command cancelled before execution");
+                    Debug.Log($"[{commandName}] Command cancelled before execution");
                     return CommandResult.Cancelled(context);
                 }
 
@@ -29,18 +30,18 @@ namespace CardWar.Core.Commands.Base
 
                 if (result.IsSuccess)
                 {
-                    Debug.Log($"[{name}] Command completed successfully");
+                    Debug.Log($"[{commandName}] Command completed successfully");
                 }
                 else
                 {
-                    Debug.LogWarning($"[{name}] Command failed: {result.ErrorMessage}");
+                    Debug.LogWarning($"[{commandName}] Command failed: {result.ErrorMessage}");
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[{name}] Error: {ex.Message}");
+                Debug.LogError($"[{commandName}] Error: {ex.Message}");
                 return CommandResult.Failure(context, ex.Message, ex);
             }
         }
