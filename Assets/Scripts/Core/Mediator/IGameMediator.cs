@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace CardWar.Core.Mediator
 {
@@ -11,4 +10,3 @@ namespace CardWar.Core.Mediator
         void Clear();
     }
 }
-

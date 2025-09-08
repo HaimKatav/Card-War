@@ -3,25 +3,23 @@ using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Core.Commands.Base;
 using CardWar.Core.Context;
-using CardWar.Services;
 using Cysharp.Threading.Tasks;
-using CardWar.Common;
 
 namespace CardWar.Core.Pipeline
 {
     public sealed class CommandPipeline : ICommandPipeline
     {
-        readonly List<Type> middlewareTypes;
-        bool disposed;
+        private readonly List<Type> _middlewareTypes;
+        private bool _disposed;
 
         public CommandPipeline()
         {
-            middlewareTypes = new List<Type>();
+            _middlewareTypes = new List<Type>();
         }
 
         public async UniTask<CommandResult> ExecuteAsync(IGameCommand command, GameContext context)
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(CommandPipeline));
 
             if (command == null)
@@ -37,36 +35,35 @@ namespace CardWar.Core.Pipeline
 
         public void RegisterMiddleware<TMiddleware>() where TMiddleware : class
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(CommandPipeline));
 
             var middlewareType = typeof(TMiddleware);
 
-            if (!middlewareTypes.Contains(middlewareType))
+            if (!_middlewareTypes.Contains(middlewareType))
             {
-                middlewareTypes.Add(middlewareType);
+                _middlewareTypes.Add(middlewareType);
                 Debug.Log($"[CommandPipeline] Registered middleware: {middlewareType.Name}");
             }
         }
 
         public void ClearMiddleware()
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(CommandPipeline));
 
-            middlewareTypes.Clear();
+            _middlewareTypes.Clear();
             Debug.Log("[CommandPipeline] Cleared all middleware");
         }
 
         public void Dispose()
         {
-            if (disposed)
+            if (_disposed)
                 return;
 
             ClearMiddleware();
-            disposed = true;
+            _disposed = true;
             Debug.Log("[CommandPipeline] Disposed");
         }
     }
 }
-

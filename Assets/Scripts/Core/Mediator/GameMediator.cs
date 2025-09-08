@@ -6,17 +6,17 @@ namespace CardWar.Core.Mediator
 {
     public sealed class GameMediator : IGameMediator
     {
-        readonly Dictionary<Type, List<Delegate>> handlers;
-        bool disposed;
+        private readonly Dictionary<Type, List<Delegate>> _handlers;
+        private bool _disposed;
 
         public GameMediator()
         {
-            handlers = new Dictionary<Type, List<Delegate>>();
+            _handlers = new Dictionary<Type, List<Delegate>>();
         }
 
         public void Subscribe<T>(Action<T> handler) where T : class
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(GameMediator));
 
             if (handler == null)
@@ -24,16 +24,16 @@ namespace CardWar.Core.Mediator
 
             var type = typeof(T);
 
-            if (!handlers.ContainsKey(type))
-                handlers[type] = new List<Delegate>();
+            if (!_handlers.ContainsKey(type))
+                _handlers[type] = new List<Delegate>();
 
-            handlers[type].Add(handler);
+            _handlers[type].Add(handler);
             Debug.Log($"[GameMediator] Subscribed handler for {type.Name}");
         }
 
         public void Unsubscribe<T>(Action<T> handler) where T : class
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(GameMediator));
 
             if (handler == null)
@@ -41,12 +41,12 @@ namespace CardWar.Core.Mediator
 
             var type = typeof(T);
 
-            if (handlers.ContainsKey(type))
+            if (_handlers.ContainsKey(type))
             {
-                handlers[type].Remove(handler);
+                _handlers[type].Remove(handler);
 
-                if (handlers[type].Count == 0)
-                    handlers.Remove(type);
+                if (_handlers[type].Count == 0)
+                    _handlers.Remove(type);
 
                 Debug.Log($"[GameMediator] Unsubscribed handler for {type.Name}");
             }
@@ -54,7 +54,7 @@ namespace CardWar.Core.Mediator
 
         public void Publish<T>(T notification) where T : class
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(GameMediator));
 
             if (notification == null)
@@ -62,11 +62,11 @@ namespace CardWar.Core.Mediator
 
             var type = typeof(T);
 
-            if (handlers.ContainsKey(type))
+            if (_handlers.ContainsKey(type))
             {
-                var list = new List<Delegate>(handlers[type]);
+                var handlers = new List<Delegate>(_handlers[type]);
 
-                foreach (var handler in list)
+                foreach (var handler in handlers)
                 {
                     try
                     {
@@ -78,7 +78,7 @@ namespace CardWar.Core.Mediator
                     }
                 }
 
-                Debug.Log($"[GameMediator] Published {type.Name} to {list.Count} handlers");
+                Debug.Log($"[GameMediator] Published {type.Name} to {handlers.Count} handlers");
             }
             else
             {
@@ -88,22 +88,21 @@ namespace CardWar.Core.Mediator
 
         public void Clear()
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(GameMediator));
 
-            handlers.Clear();
+            _handlers.Clear();
             Debug.Log("[GameMediator] Cleared all handlers");
         }
 
         public void Dispose()
         {
-            if (disposed)
+            if (_disposed)
                 return;
 
             Clear();
-            disposed = true;
+            _disposed = true;
             Debug.Log("[GameMediator] Disposed");
         }
     }
 }
-
