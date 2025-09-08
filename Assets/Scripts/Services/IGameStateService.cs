@@ -1,12 +1,10 @@
-using System;
 using CardWar.Common;
 
 namespace CardWar.Services
 {
-    public interface IGameStateService : IBaseServiceProvider
+    public interface IGameStateService
     {
-        GameStatus MatchStatus { get; }
-        event Action<GameState> GameStateChanged;
-        event Action<float, string> OnLoadingProgress;
+        GameState CurrentGameState { get; }
+        void ChangeState(GameState newState);
     }
 }
