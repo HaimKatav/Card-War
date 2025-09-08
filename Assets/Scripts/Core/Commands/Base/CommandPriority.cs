@@ -1,4 +1,4 @@
-namespace CardWar.Core.Commands
+namespace CardWar.Core.Commands.Base
 {
     public enum CommandPriority
     {
