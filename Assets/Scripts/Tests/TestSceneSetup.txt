@@ -1,0 +1,20 @@
+TEST SCENE SETUP INSTRUCTIONS FOR PHASE 2.1
+
+1. Create new scene named "TestPhase2_1"
+2. Create GameObject named "ServiceHost"
+3. Add ServiceBootstrap component to ServiceHost
+4. Create GameObject named "TestRunner"
+5. Add TestCommandPipeline component to TestRunner
+6. Save scene
+7. Run scene
+
+EXPECTED CONSOLE OUTPUT:
+- [ServiceBootstrap] State services registered
+- [AppStateManager] State changed: Initializing -> InGame
+- [GameStateManager] State changed: WaitingToStart -> PlayerTurn
+- [TestCommandPipeline] Starting Command Pipeline Tests...
+- [TestCommandPipeline] Service registration test PASSED
+- [TestCommandPipeline] PauseGameCommand PASSED
+- [TestCommandPipeline] ResumeGameCommand PASSED
+- [TestCommandPipeline] Bridge compatibility test PASSED
+- [TestCommandPipeline] ALL TESTS PASSED - Ready for Phase 2.2

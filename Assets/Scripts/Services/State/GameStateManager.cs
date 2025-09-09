@@ -97,5 +97,12 @@ namespace CardWar.Services.State
         {
             return true;
         }
+
+        protected override void OnDestroy()
+        {
+            OnGameStateChanged = null;
+            _transitionRules?.Clear();
+            base.OnDestroy();
+        }
     }
 }

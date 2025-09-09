@@ -68,6 +68,13 @@ namespace CardWar.Services.State
             };
         }
 
+        protected override void OnDestroy()
+        {
+            OnAppStateChanged = null;
+            _transitionRules?.Clear();
+            base.OnDestroy();
+        }
+
         private bool Allow(GameContext context)
         {
             return true;

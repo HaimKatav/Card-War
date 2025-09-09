@@ -18,9 +18,25 @@ namespace CardWar.Services.State
 
         private async void Start()
         {
-            _gameStateManager = await ServiceLocator.Get<IGameStateManager>();
-            _appStateManager = await ServiceLocator.Get<IAppStateManager>();
-            _gameStateManager.OnGameStateChanged += HandleStateChange;
+            try
+            {
+                _gameStateManager = await ServiceLocator.Get<IGameStateManager>();
+                _appStateManager = await ServiceLocator.Get<IAppStateManager>();
+
+                if (_gameStateManager != null)
+                {
+                    _gameStateManager.OnGameStateChanged += HandleStateChange;
+                    Debug.Log($"[{GetType().Name}] Successfully subscribed to state changes");
+                }
+                else
+                {
+                    Debug.LogError($"[{GetType().Name}] Failed to get IGameStateManager");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[{GetType().Name}] Failed to initialize: {ex.Message}");
+            }
         }
 
         private void HandleStateChange(StateTransition<GameState> transition)
