@@ -1,6 +1,4 @@
-using System;
-
-namespace CardWar.Core.States
+namespace CardWar.Common.States
 {
     public enum AppState
     {

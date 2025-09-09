@@ -1,5 +1,5 @@
 using System.Threading;
-using CardWar.Core.States;
+using CardWar.Common.States;
 using CardWar.Game.Logic;
 
 namespace CardWar.Core.Context
@@ -15,15 +15,15 @@ namespace CardWar.Core.Context
         public bool IsWaitingForNetwork { get; }
         public CancellationToken CancellationToken { get; }
 
-        public GameContext(
+        private GameContext(
             AppState appState,
             GameState gameState,
-            RoundData currentRound = null,
-            float progress = 0f,
-            string progressMessage = null,
-            bool isAnimating = false,
-            bool isWaitingForNetwork = false,
-            CancellationToken cancellationToken = default)
+            RoundData currentRound,
+            float progress,
+            string progressMessage,
+            bool isAnimating,
+            bool isWaitingForNetwork,
+            CancellationToken cancellationToken)
         {
             AppState = appState;
             GameState = gameState;
@@ -33,6 +33,11 @@ namespace CardWar.Core.Context
             IsAnimating = isAnimating;
             IsWaitingForNetwork = isWaitingForNetwork;
             CancellationToken = cancellationToken;
+        }
+
+        public static GameContext Create(AppState appState, GameState gameState)
+        {
+            return new GameContext(appState, gameState, null, 0f, null, false, false, default);
         }
 
         public GameContext WithAppState(AppState appState)

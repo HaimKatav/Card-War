@@ -4,7 +4,7 @@ using CardWar.Core.Pipeline;
 using CardWar.Core.Mediator;
 using CardWar.Core.Context;
 using CardWar.Core.Commands.System;
-using CardWar.Common;
+using CardWar.Common.States;
 public class TestCommandPipeline : MonoBehaviour
 {
     private ICommandPipeline _pipeline;
@@ -15,7 +15,7 @@ public class TestCommandPipeline : MonoBehaviour
         _pipeline = new CommandPipeline();
         _mediator = new GameMediator();
         
-        var context = new GameContext(GameState.Playing);
+        var context = GameContext.Create(AppState.InGame, GameState.PlayerTurn);
         
         Debug.Log("Testing PauseGameCommand...");
         var pauseCommand = new PauseGameCommand();

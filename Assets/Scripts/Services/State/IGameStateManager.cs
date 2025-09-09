@@ -1,7 +1,8 @@
 using System;
 using CardWar.Core.Context;
-using CardWar.Core.States;
+using CardWar.Common.States;
 using CardWar.Services;
+using CardWar.Services.State;
 
 namespace CardWar.Services.State
 {

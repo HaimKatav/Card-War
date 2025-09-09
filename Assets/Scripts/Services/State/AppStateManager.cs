@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Core.Context;
-using CardWar.Core.States;
+using CardWar.Common.States;
+using CardWar.Services;
+using CardWar.Services.State;
 
 namespace CardWar.Services.State
 {
@@ -13,6 +15,7 @@ namespace CardWar.Services.State
 
         public AppStateManager()
         {
+            ServiceLocator.Instance.Register(typeof(IAppStateManager), this);
             _currentState = AppState.Initializing;
             _transitionRules = InitializeTransitionRules();
         }

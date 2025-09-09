@@ -1,5 +1,5 @@
 using CardWar.Core.Commands.State;
-using CardWar.Common;
+using CardWar.Common.States;
 
 namespace CardWar.Core.Commands.System
 {

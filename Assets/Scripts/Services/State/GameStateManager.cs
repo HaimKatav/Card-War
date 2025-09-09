@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using CardWar.Core.Context;
-using CardWar.Core.States;
+using CardWar.Common.States;
 using CardWar.Services;
+using CardWar.Services.State;
 
 namespace CardWar.Services.State
 {
@@ -11,11 +12,12 @@ namespace CardWar.Services.State
     {
         private GameState _currentState;
         private readonly Dictionary<(GameState, GameState), Func<GameContext, bool>> _transitionRules;
-        private readonly IAppStateManager _appStateManager;
+        private IAppStateManager _appStateManager;
+        private IAppStateManager AppStateManager => _appStateManager ??= ServiceLocator.Get<IAppStateManager>();
 
         public GameStateManager()
         {
-            _appStateManager = ServiceLocator.Get<IAppStateManager>();
+            ServiceLocator.Instance.Register(typeof(IGameStateManager), this);
             _currentState = GameState.WaitingToStart;
             _transitionRules = InitializeTransitionRules();
         }
@@ -39,7 +41,7 @@ namespace CardWar.Services.State
                 return false;
             if (context.IsAnimating)
                 return false;
-            if (_appStateManager.GetCurrentAppState() != AppState.InGame)
+            if (AppStateManager?.GetCurrentAppState() != AppState.InGame)
                 return false;
             var key = (from, to);
             if (!_transitionRules.ContainsKey(key))
@@ -53,7 +55,7 @@ namespace CardWar.Services.State
                 return "Context is null";
             if (context.IsAnimating)
                 return "Animation in progress";
-            if (_appStateManager.GetCurrentAppState() != AppState.InGame)
+            if (AppStateManager?.GetCurrentAppState() != AppState.InGame)
                 return "App state not in game";
             if (!_transitionRules.ContainsKey((from, to)))
                 return $"No transition defined from {from} to {to}";
