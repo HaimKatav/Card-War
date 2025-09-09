@@ -10,13 +10,17 @@ namespace CardWar.Services.State
     public class AppStateManager : BaseService, IAppStateManager
     {
         private AppState _currentState;
-        private Dictionary<(AppState, AppState), Func<GameContext, bool>> _transitionRules;
+        private readonly Dictionary<(AppState, AppState), Func<GameContext, bool>> _transitionRules;
+
+        public AppStateManager()
+        {
+            _transitionRules = InitializeTransitionRules();
+        }
 
         protected override void Awake()
         {
             base.Awake();
             _currentState = AppState.Initializing;
-            _transitionRules = InitializeTransitionRules();
         }
 
         public AppState GetCurrentAppState()
