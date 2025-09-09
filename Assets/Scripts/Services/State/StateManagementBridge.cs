@@ -12,47 +12,45 @@ namespace CardWar.Services.State
         private IAppStateManager _appStateManager;
         private IGameStateManager _gameStateManager;
 
-        private async UniTask<IAppStateManager> GetAppStateManager()
-        {
-            if (_appStateManager == null)
-                _appStateManager = await ServiceLocator.Get<IAppStateManager>();
-            return _appStateManager;
-        }
-
-        private async UniTask<IGameStateManager> GetGameStateManager()
-        {
-            if (_gameStateManager == null)
-                _gameStateManager = await ServiceLocator.Get<IGameStateManager>();
-            return _gameStateManager;
-        }
-
-        public GameState CurrentState => GetGameStateManager().GetAwaiter().GetResult().GetCurrentGameState();
+        public GameState CurrentState => _gameStateManager?.GetCurrentGameState() ?? GameState.WaitingToStart;
 
         public event Action<GameState> GameStateChanged;
 
-        protected override async void Awake()
+        private async void Start()
         {
-            base.Awake();
-            var manager = await GetGameStateManager();
-            manager.OnGameStateChanged += t => GameStateChanged?.Invoke(t.To);
+            _gameStateManager = await ServiceLocator.Get<IGameStateManager>();
+            _appStateManager = await ServiceLocator.Get<IAppStateManager>();
+            _gameStateManager.OnGameStateChanged += HandleStateChange;
         }
 
-        public async void ChangeState(GameState newState)
+        private void HandleStateChange(StateTransition<GameState> transition)
         {
-            var gameStateManager = await GetGameStateManager();
-            var appStateManager = await GetAppStateManager();
-            var from = gameStateManager.GetCurrentGameState();
-            var context = GameContext.Create(appStateManager.GetCurrentAppState(), from);
-            if (gameStateManager.CanTransition(from, newState, context))
+            GameStateChanged?.Invoke(transition.To);
+        }
+
+        public void ChangeState(GameState newState)
+        {
+            if (_gameStateManager == null || _appStateManager == null)
+                return;
+            var from = _gameStateManager.GetCurrentGameState();
+            var context = GameContext.Create(_appStateManager.GetCurrentAppState(), from);
+            if (_gameStateManager.CanTransition(from, newState, context))
             {
                 var newContext = context.WithGameState(newState);
-                gameStateManager.SetCurrentGameState(newState, newContext);
+                _gameStateManager.SetCurrentGameState(newState, newContext);
             }
             else
             {
-                var reason = gameStateManager.GetInvalidTransitionReason(from, newState, context);
-                Debug.LogWarning($"[StateManagementBridge] {reason}");
+                var reason = _gameStateManager.GetInvalidTransitionReason(from, newState, context);
+                Debug.LogWarning($"[{GetType().Name}] {reason}");
             }
+        }
+
+        protected override void OnDestroy()
+        {
+            if (_gameStateManager != null)
+                _gameStateManager.OnGameStateChanged -= HandleStateChange;
+            base.OnDestroy();
         }
     }
 }

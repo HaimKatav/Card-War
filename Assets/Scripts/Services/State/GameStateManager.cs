@@ -22,11 +22,9 @@ namespace CardWar.Services.State
             _transitionRules = InitializeTransitionRules();
         }
 
-        private async UniTask<IAppStateManager> GetAppStateManager()
+        private async void Start()
         {
-            if (_appStateManager == null)
-                _appStateManager = await ServiceLocator.Get<IAppStateManager>();
-            return _appStateManager;
+            _appStateManager = await ServiceLocator.Get<IAppStateManager>();
         }
 
         public GameState GetCurrentGameState()
@@ -39,7 +37,7 @@ namespace CardWar.Services.State
             var oldState = _currentState;
             _currentState = state;
             OnGameStateChanged?.Invoke(new StateTransition<GameState>(oldState, state, context));
-            Debug.Log($"[GameStateManager] State changed: {oldState} -> {state}");
+            Debug.Log($"[{GetType().Name}] State changed: {oldState} -> {state}");
         }
 
         public bool CanTransition(GameState from, GameState to, GameContext context)
@@ -48,7 +46,7 @@ namespace CardWar.Services.State
                 return false;
             if (context.IsAnimating)
                 return false;
-            if (GetAppStateManager().GetAwaiter().GetResult().GetCurrentAppState() != AppState.InGame)
+            if (_appStateManager?.GetCurrentAppState() != AppState.InGame)
                 return false;
             var key = (from, to);
             if (!_transitionRules.ContainsKey(key))
@@ -62,7 +60,7 @@ namespace CardWar.Services.State
                 return "Context is null";
             if (context.IsAnimating)
                 return "Animation in progress";
-            if (GetAppStateManager().GetAwaiter().GetResult().GetCurrentAppState() != AppState.InGame)
+            if (_appStateManager?.GetCurrentAppState() != AppState.InGame)
                 return "App state not in game";
             if (!_transitionRules.ContainsKey((from, to)))
                 return $"No transition defined from {from} to {to}";
@@ -75,24 +73,29 @@ namespace CardWar.Services.State
         {
             return new Dictionary<(GameState, GameState), Func<GameContext, bool>>
             {
-                { (GameState.WaitingToStart, GameState.PlayerTurn), ctx => true },
-                { (GameState.PlayerTurn, GameState.OpponentTurn), ctx => true },
-                { (GameState.OpponentTurn, GameState.ResolvingBattle), ctx => true },
-                { (GameState.ResolvingBattle, GameState.CollectingCards), ctx => true },
-                { (GameState.ResolvingBattle, GameState.War), ctx => true },
-                { (GameState.War, GameState.ResolvingBattle), ctx => true },
-                { (GameState.CollectingCards, GameState.CheckingVictory), ctx => true },
-                { (GameState.CheckingVictory, GameState.PlayerTurn), ctx => true },
-                { (GameState.CheckingVictory, GameState.OpponentTurn), ctx => true },
-                { (GameState.PlayerTurn, GameState.Paused), ctx => true },
-                { (GameState.OpponentTurn, GameState.Paused), ctx => true },
-                { (GameState.ResolvingBattle, GameState.Paused), ctx => true },
-                { (GameState.Paused, GameState.PlayerTurn), ctx => true },
-                { (GameState.Paused, GameState.OpponentTurn), ctx => true },
-                { (GameState.Paused, GameState.ResolvingBattle), ctx => true },
-                { (GameState.CheckingVictory, GameState.Error), ctx => true },
-                { (GameState.Error, GameState.WaitingToStart), ctx => true }
+                { (GameState.WaitingToStart, GameState.PlayerTurn), Allow },
+                { (GameState.PlayerTurn, GameState.OpponentTurn), Allow },
+                { (GameState.OpponentTurn, GameState.ResolvingBattle), Allow },
+                { (GameState.ResolvingBattle, GameState.CollectingCards), Allow },
+                { (GameState.ResolvingBattle, GameState.War), Allow },
+                { (GameState.War, GameState.ResolvingBattle), Allow },
+                { (GameState.CollectingCards, GameState.CheckingVictory), Allow },
+                { (GameState.CheckingVictory, GameState.PlayerTurn), Allow },
+                { (GameState.CheckingVictory, GameState.OpponentTurn), Allow },
+                { (GameState.PlayerTurn, GameState.Paused), Allow },
+                { (GameState.OpponentTurn, GameState.Paused), Allow },
+                { (GameState.ResolvingBattle, GameState.Paused), Allow },
+                { (GameState.Paused, GameState.PlayerTurn), Allow },
+                { (GameState.Paused, GameState.OpponentTurn), Allow },
+                { (GameState.Paused, GameState.ResolvingBattle), Allow },
+                { (GameState.CheckingVictory, GameState.Error), Allow },
+                { (GameState.Error, GameState.WaitingToStart), Allow }
             };
+        }
+
+        private bool Allow(GameContext context)
+        {
+            return true;
         }
     }
 }

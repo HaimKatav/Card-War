@@ -13,6 +13,8 @@ namespace CardWar.Services.State
 
         public StateTransition(TState from, TState to, GameContext context)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
             From = from;
             To = to;
             Context = context;

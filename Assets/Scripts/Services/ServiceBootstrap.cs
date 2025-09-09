@@ -10,8 +10,8 @@ namespace CardWar.Services
             var appStateManager = gameObject.AddComponent<AppStateManager>();
             var gameStateManager = gameObject.AddComponent<GameStateManager>();
             var bridge = gameObject.AddComponent<StateManagementBridge>();
-            
-            Debug.Log("[ServiceBootstrap] State services registered");
+
+            Debug.Log($"[{GetType().Name}] State services registered");
         }
     }
 }

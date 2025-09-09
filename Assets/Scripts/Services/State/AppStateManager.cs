@@ -29,7 +29,7 @@ namespace CardWar.Services.State
             var oldState = _currentState;
             _currentState = state;
             OnAppStateChanged?.Invoke(new StateTransition<AppState>(oldState, state, context));
-            Debug.Log($"[AppStateManager] State changed: {oldState} -> {state}");
+            Debug.Log($"[{GetType().Name}] State changed: {oldState} -> {state}");
         }
 
         public bool CanTransition(AppState from, AppState to, GameContext context)
@@ -61,11 +61,16 @@ namespace CardWar.Services.State
         {
             return new Dictionary<(AppState, AppState), Func<GameContext, bool>>
             {
-                { (AppState.Initializing, AppState.MainMenu), ctx => true },
-                { (AppState.MainMenu, AppState.LoadingGame), ctx => true },
-                { (AppState.LoadingGame, AppState.InGame), ctx => true },
-                { (AppState.InGame, AppState.GameOver), ctx => true }
+                { (AppState.Initializing, AppState.MainMenu), Allow },
+                { (AppState.MainMenu, AppState.LoadingGame), Allow },
+                { (AppState.LoadingGame, AppState.InGame), Allow },
+                { (AppState.InGame, AppState.GameOver), Allow }
             };
+        }
+
+        private bool Allow(GameContext context)
+        {
+            return true;
         }
     }
 }
