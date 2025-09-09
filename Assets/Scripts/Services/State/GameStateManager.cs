@@ -11,8 +11,8 @@ namespace CardWar.Services.State
 {
     public class GameStateManager : BaseService, IGameStateManager
     {
-        private GameState _currentState;
         private readonly Dictionary<(GameState, GameState), Func<GameContext, bool>> _transitionRules;
+        private GameState _currentState;
         private IAppStateManager _appStateManager;
 
         public GameStateManager()

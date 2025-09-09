@@ -9,8 +9,8 @@ namespace CardWar.Services.State
 {
     public class AppStateManager : BaseService, IAppStateManager
     {
-        private AppState _currentState;
         private readonly Dictionary<(AppState, AppState), Func<GameContext, bool>> _transitionRules;
+        private AppState _currentState;
 
         public AppStateManager()
         {
