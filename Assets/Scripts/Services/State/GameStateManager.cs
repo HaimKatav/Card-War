@@ -5,21 +5,28 @@ using CardWar.Core.Context;
 using CardWar.Common.States;
 using CardWar.Services;
 using CardWar.Services.State;
+using Cysharp.Threading.Tasks;
 
 namespace CardWar.Services.State
 {
-    public class GameStateManager : IGameStateManager
+    public class GameStateManager : BaseService, IGameStateManager
     {
         private GameState _currentState;
-        private readonly Dictionary<(GameState, GameState), Func<GameContext, bool>> _transitionRules;
+        private Dictionary<(GameState, GameState), Func<GameContext, bool>> _transitionRules;
         private IAppStateManager _appStateManager;
-        private IAppStateManager AppStateManager => _appStateManager ??= ServiceLocator.Get<IAppStateManager>();
 
-        public GameStateManager()
+        protected override void Awake()
         {
-            ServiceLocator.Instance.Register(typeof(IGameStateManager), this);
+            base.Awake();
             _currentState = GameState.WaitingToStart;
             _transitionRules = InitializeTransitionRules();
+        }
+
+        private async UniTask<IAppStateManager> GetAppStateManager()
+        {
+            if (_appStateManager == null)
+                _appStateManager = await ServiceLocator.Get<IAppStateManager>();
+            return _appStateManager;
         }
 
         public GameState GetCurrentGameState()
@@ -41,7 +48,7 @@ namespace CardWar.Services.State
                 return false;
             if (context.IsAnimating)
                 return false;
-            if (AppStateManager?.GetCurrentAppState() != AppState.InGame)
+            if (GetAppStateManager().GetAwaiter().GetResult().GetCurrentAppState() != AppState.InGame)
                 return false;
             var key = (from, to);
             if (!_transitionRules.ContainsKey(key))
@@ -55,7 +62,7 @@ namespace CardWar.Services.State
                 return "Context is null";
             if (context.IsAnimating)
                 return "Animation in progress";
-            if (AppStateManager?.GetCurrentAppState() != AppState.InGame)
+            if (GetAppStateManager().GetAwaiter().GetResult().GetCurrentAppState() != AppState.InGame)
                 return "App state not in game";
             if (!_transitionRules.ContainsKey((from, to)))
                 return $"No transition defined from {from} to {to}";

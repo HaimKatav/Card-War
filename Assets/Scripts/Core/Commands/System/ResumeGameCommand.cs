@@ -5,7 +5,8 @@ namespace CardWar.Core.Commands.System
 {
     public class ResumeGameCommand : StateTransitionCommand
     {
-        protected override GameState TargetState => GameState.PlayerTurn;
+        protected override AppState? TargetAppState => null;
+        protected override GameState? TargetGameState => GameState.PlayerTurn;
         protected override string TransitionReason => "User resumed game";
     }
 }

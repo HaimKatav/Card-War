@@ -4,18 +4,17 @@ using UnityEngine;
 using CardWar.Core.Context;
 using CardWar.Common.States;
 using CardWar.Services;
-using CardWar.Services.State;
 
 namespace CardWar.Services.State
 {
-    public class AppStateManager : IAppStateManager
+    public class AppStateManager : BaseService, IAppStateManager
     {
         private AppState _currentState;
-        private readonly Dictionary<(AppState, AppState), Func<GameContext, bool>> _transitionRules;
+        private Dictionary<(AppState, AppState), Func<GameContext, bool>> _transitionRules;
 
-        public AppStateManager()
+        protected override void Awake()
         {
-            ServiceLocator.Instance.Register(typeof(IAppStateManager), this);
+            base.Awake();
             _currentState = AppState.Initializing;
             _transitionRules = InitializeTransitionRules();
         }

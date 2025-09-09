@@ -1,4 +1,5 @@
 using System;
+using CardWar.Common.States;
 using CardWar.Core.Context;
 
 namespace CardWar.Services.State
