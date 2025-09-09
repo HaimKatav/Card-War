@@ -1,84 +1,53 @@
 using System;
-using UnityEngine;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 using CardWar.Core.Commands.Base;
 using CardWar.Core.Context;
-using CardWar.Core.StateManagement;
-using CardWar.Common;
+using CardWar.Common.States;
+using CardWar.Services.State;
 using CardWar.Services;
 
 namespace CardWar.Core.Commands.State
 {
     public abstract class StateTransitionCommand : BaseGameCommand
     {
-        protected abstract GameState TargetState { get; }
+        protected abstract AppState? TargetAppState { get; }
+        protected abstract GameState? TargetGameState { get; }
         protected abstract string TransitionReason { get; }
         
         protected override async UniTask<CommandResult> ExecuteAsyncCore(GameContext context)
         {
-            var stateManager = await ServiceLocator.Get<ICommandStateManager>();
-            
-            if (!stateManager.CanTransitionTo(TargetState))
+            if (TargetAppState.HasValue)
             {
-                return CommandResult.Failure(
-                    context, 
-                    $"Cannot transition from {stateManager.CurrentState} to {TargetState}"
-                );
+                var appStateManager = await ServiceLocator.Get<IAppStateManager>();
+                if (!appStateManager.CanTransition(context.AppState, TargetAppState.Value, context))
+                {
+                    var reason = appStateManager.GetInvalidTransitionReason(context.AppState, TargetAppState.Value, context);
+                    return CommandResult.Failure(context, reason);
+                }
+                
+                var newContext = context.WithAppState(TargetAppState.Value);
+                appStateManager.SetCurrentAppState(TargetAppState.Value, newContext);
+                Debug.Log($"[{GetType().Name}] App state transitioned: {context.AppState} -> {TargetAppState.Value}");
+                return CommandResult.Success(newContext);
             }
             
-            var validationResult = await ValidateTransition(context, stateManager);
-            if (!validationResult.IsValid)
+            if (TargetGameState.HasValue)
             {
-                return CommandResult.Failure(context, validationResult.Reason);
+                var gameStateManager = await ServiceLocator.Get<IGameStateManager>();
+                if (!gameStateManager.CanTransition(context.GameState, TargetGameState.Value, context))
+                {
+                    var reason = gameStateManager.GetInvalidTransitionReason(context.GameState, TargetGameState.Value, context);
+                    return CommandResult.Failure(context, reason);
+                }
+                
+                var newContext = context.WithGameState(TargetGameState.Value);
+                gameStateManager.SetCurrentGameState(TargetGameState.Value, newContext);
+                Debug.Log($"[{GetType().Name}] Game state transitioned: {context.GameState} -> {TargetGameState.Value}");
+                return CommandResult.Success(newContext);
             }
             
-            var newContext = await PrepareContext(context, stateManager);
-            
-            stateManager.TransitionTo(TargetState, newContext);
-            
-            await OnTransitionComplete(newContext, stateManager);
-            
-            Debug.Log($"[{GetType().Name}] Transitioned to {TargetState}: {TransitionReason}");
-            
-            return CommandResult.Success(newContext);
-        }
-        
-        protected virtual async UniTask<ValidationResult> ValidateTransition(
-            GameContext context, 
-            ICommandStateManager stateManager)
-        {
-            await UniTask.Yield();
-            return ValidationResult.Valid();
-        }
-        
-        protected virtual async UniTask<GameContext> PrepareContext(
-            GameContext context, 
-            ICommandStateManager stateManager)
-        {
-            await UniTask.Yield();
-            return context.WithState(TargetState);
-        }
-        
-        protected virtual async UniTask OnTransitionComplete(
-            GameContext context, 
-            ICommandStateManager stateManager)
-        {
-            await UniTask.Yield();
-        }
-        
-        protected struct ValidationResult
-        {
-            public bool IsValid { get; }
-            public string Reason { get; }
-            
-            private ValidationResult(bool isValid, string reason)
-            {
-                IsValid = isValid;
-                Reason = reason;
-            }
-            
-            public static ValidationResult Valid() => new ValidationResult(true, null);
-            public static ValidationResult Invalid(string reason) => new ValidationResult(false, reason);
+            return CommandResult.Failure(context, "No target state specified");
         }
     }
 }
