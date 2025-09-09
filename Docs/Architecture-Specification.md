@@ -1,469 +1,460 @@
-# Unity CardWar Command-Pipeline-Mediator Architecture Specification
+# Architecture Migration Plan
 
 ## Executive Summary
-Professional Unity implementation of Command-Pipeline-Mediator pattern for CardWar game, replacing event-driven architecture with structured async command execution while maintaining Unity performance standards.
+Migration from Event-Driven Architecture to Command-Pipeline-Mediator Pattern with Command-Driven State Management.
 
-## Core Architecture Patterns
+### Key Changes
+- **Event System** → **Command Pipeline** (actions as commands)
+- **State Machine with Behavior** → **State-as-Data with Commands** (state transitions as commands)
+- **Direct Service Calls** → **Mediated Communication** (decoupled components)
+- **Scattered Logic** → **Centralized Command Validation** (business rules in one place)
 
-### 1. Command Pattern Implementation
+## Current Architecture Analysis
 
-#### Interface Design
+### Existing Components (To Preserve)
+- ServiceLocator pattern (working, don't modify)
+- Unity MonoBehaviour initialization pattern
+- Asset management system
+- UI binding system
+- Game flow structure
+
+### Problem Areas (To Replace)
+- Event-driven state machine with behavioral states
+- Tight coupling between game components
+- Scattered state transition logic
+- Difficult to test state transitions
+- No clear audit trail for game actions
+
+## New Architecture Design
+
+### Core Components
+
+#### 1. Command System
 ```csharp
-namespace CardWar.Core.Commands
-{
-    /// <summary>
-    /// Core command interface for all game operations
-    /// Supports async execution with Unity-safe patterns
-    /// </summary>
-    public interface IGameCommand
-    {
-        /// <summary>Command identifier for logging and debugging</summary>
-        string CommandName { get; }
-        
-        /// <summary>Execute command with given context</summary>
-        UniTask<CommandResult> ExecuteAsync(GameContext context);
-        
-        /// <summary>Pre-execution validation</summary>
-        bool CanExecute(GameContext context);
-        
-        /// <summary>Error handling callback</summary>
-        void OnError(GameException error);
-        
-        /// <summary>Command priority for pipeline ordering</summary>
-        CommandPriority Priority { get; }
-    }
-    
-    public enum CommandPriority
-    {
-        System = 0,     // Boot, shutdown commands
-        Critical = 1,   // Game state transitions
-        Normal = 2,     // Regular game operations
-        Background = 3  // Non-essential operations
-    }
-}
+// All game actions are commands
+IGameCommand
+├── BaseGameCommand (abstract base)
+├── StateTransitionCommand (state changes)
+├── GameActionCommand (gameplay actions)
+└── SystemCommand (pause, resume, etc.)
 ```
 
-#### Base Implementation
+#### 2. State Management
 ```csharp
-public abstract class BaseGameCommand : IGameCommand
-{
-    private readonly ILogger _logger;
-    private readonly string _commandId;
-    
-    public abstract string CommandName { get; }
-    public virtual CommandPriority Priority => CommandPriority.Normal;
-    
-    protected BaseGameCommand(ILogger logger)
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _commandId = Guid.NewGuid().ToString("N")[..8]; // Short ID for tracking
-    }
-    
-    public async UniTask<CommandResult> ExecuteAsync(GameContext context)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        
-        try
-        {
-            // Pre-execution logging
-            _logger.Log($"[{CommandName}:{_commandId}] Starting execution");
-            
-            // Validation
-            if (!CanExecute(context))
-            {
-                var error = $"Command {CommandName} validation failed";
-                _logger.LogWarning($"[{CommandName}:{_commandId}] {error}");
-                return CommandResult.ValidationFailed(error);
-            }
-            
-            // Execute core logic
-            var result = await ExecuteCore(context);
-            
-            // Performance tracking
-            stopwatch.Stop();
-            if (stopwatch.ElapsedMilliseconds > 100) // Warn on slow commands
-            {
-                _logger.LogWarning($"[{CommandName}:{_commandId}] Slow execution: {stopwatch.ElapsedMilliseconds}ms");
-            }
-            
-            _logger.Log($"[{CommandName}:{_commandId}] Completed in {stopwatch.ElapsedMilliseconds}ms");
-            return result;
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.Log($"[{CommandName}:{_commandId}] Cancelled");
-            return CommandResult.Cancelled();
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            var gameException = new GameException($"{CommandName} execution failed", ex);
-            OnError(gameException);
-            _logger.LogError($"[{CommandName}:{_commandId}] Failed after {stopwatch.ElapsedMilliseconds}ms: {ex.Message}");
-            return CommandResult.Error(gameException);
-        }
-    }
-    
-    protected abstract UniTask<CommandResult> ExecuteCore(GameContext context);
-    public abstract bool CanExecute(GameContext context);
-    public virtual void OnError(GameException error) { }
-}
+// State-as-Data approach
+GameState (enum) - Pure data, no behavior
+GameContext - Immutable game state snapshot
+ICommandStateManager - Validates transitions
+StateTransitionCommand - Executes transitions
 ```
 
-### 2. Pipeline Architecture
-
-#### Pipeline Interface
+#### 3. Pipeline & Mediation
 ```csharp
-namespace CardWar.Core.Pipeline
-{
-    public interface ICommandPipeline : IDisposable
-    {
-        /// <summary>Execute command through pipeline with middleware</summary>
-        UniTask<CommandResult> ExecuteAsync<T>(T command, GameContext context) where T : IGameCommand;
-        
-        /// <summary>Execute multiple commands in sequence</summary>
-        UniTask<CommandResult[]> ExecuteBatchAsync(IGameCommand[] commands, GameContext context);
-        
-        /// <summary>Add middleware to pipeline</summary>
-        ICommandPipeline UseMiddleware<T>() where T : IMiddleware;
-        
-        /// <summary>Pipeline health status</summary>
-        PipelineHealth Health { get; }
-        
-        /// <summary>Cancel all pending operations</summary>
-        void CancelAll();
-    }
-    
-    public struct PipelineHealth
-    {
-        public bool IsHealthy { get; init; }
-        public int PendingCommands { get; init; }
-        public TimeSpan AverageExecutionTime { get; init; }
-        public int FailedCommands { get; init; }
-    }
-}
+ICommandPipeline - Processes commands
+IGameMediator - Broadcasts events
+CommandResult - Execution results
 ```
 
-#### Middleware System
-```csharp
-public interface IMiddleware
-{
-    /// <summary>Execute before command</summary>
-    UniTask<MiddlewareResult> BeforeExecute<T>(T command, GameContext context) where T : IGameCommand;
-    
-    /// <summary>Execute after command</summary>
-    UniTask AfterExecute<T>(T command, GameContext context, CommandResult result) where T : IGameCommand;
-}
+## Migration Phases
 
-public struct MiddlewareResult
-{
-    public bool ShouldContinue { get; init; }
-    public CommandResult Result { get; init; }
-    
-    public static MiddlewareResult Continue() => new() { ShouldContinue = true };
-    public static MiddlewareResult Stop(CommandResult result) => new() { ShouldContinue = false, Result = result };
-}
+### Phase 1: Core Infrastructure ✅ COMPLETED
+**Status**: Implementation complete, testing blocked by dependencies
 
-// Built-in middleware implementations
-public class ValidationMiddleware : IMiddleware
-{
-    public async UniTask<MiddlewareResult> BeforeExecute<T>(T command, GameContext context) where T : IGameCommand
-    {
-        if (!command.CanExecute(context))
-        {
-            return MiddlewareResult.Stop(CommandResult.ValidationFailed($"{command.CommandName} validation failed"));
-        }
-        return MiddlewareResult.Continue();
-    }
-    
-    public async UniTask AfterExecute<T>(T command, GameContext context, CommandResult result) where T : IGameCommand
-    {
-        // Post-execution validation if needed
-    }
-}
+#### 1.1 Command Foundation ✅
+- [x] IGameCommand interface
+- [x] BaseGameCommand abstract class
+- [x] CommandResult structure
+- [x] GameContext immutable class
 
-public class PerformanceMiddleware : IMiddleware
-{
-    private readonly Dictionary<string, PerformanceMetrics> _metrics = new();
-    
-    public async UniTask<MiddlewareResult> BeforeExecute<T>(T command, GameContext context) where T : IGameCommand
-    {
-        // Start performance tracking
-        return MiddlewareResult.Continue();
-    }
-    
-    public async UniTask AfterExecute<T>(T command, GameContext context, CommandResult result) where T : IGameCommand
-    {
-        // Record performance metrics
-    }
-}
-```
+#### 1.2 Pipeline Implementation ✅
+- [x] ICommandPipeline interface
+- [x] CommandPipeline implementation
+- [x] Pipeline middleware support
 
-### 3. Orchestrator Architecture
+#### 1.3 Mediator Pattern ✅
+- [x] IGameMediator interface
+- [x] GameMediator implementation
+- [x] Event subscription model
 
-#### Base Orchestrator Design
-```csharp
-namespace CardWar.Core.Orchestrators
-{
-    public abstract class BaseOrchestrator : IDisposable
-    {
-        protected IGameMediator Mediator { get; }
-        protected ICommandPipeline Pipeline { get; }
-        protected ILogger Logger { get; }
-        private readonly CancellationTokenSource _cancellationTokenSource = new();
-        
-        protected CancellationToken CancellationToken => _cancellationTokenSource.Token;
-        
-        protected BaseOrchestrator(IGameMediator mediator, ICommandPipeline pipeline, ILogger logger)
-        {
-            Mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
-            Pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
-            Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
-        
-        /// <summary>Main orchestration logic</summary>
-        public abstract UniTask<OrchestratorResult> ExecuteAsync(GameContext context);
-        
-        /// <summary>Execute command with error handling</summary>
-        protected async UniTask<CommandResult> ExecuteCommand<T>(T command, GameContext context) where T : IGameCommand
-        {
-            CancellationToken.ThrowIfCancellationRequested();
-            return await Pipeline.ExecuteAsync(command, context);
-        }
-        
-        /// <summary>Execute multiple commands in parallel</summary>
-        protected async UniTask<CommandResult[]> ExecuteParallel(IGameCommand[] commands, GameContext context)
-        {
-            var tasks = commands.Select(cmd => Pipeline.ExecuteAsync(cmd, context)).ToArray();
-            return await UniTask.WhenAll(tasks);
-        }
-        
-        /// <summary>Notify orchestration progress</summary>
-        protected void NotifyProgress(string step, float progress = 0f)
-        {
-            var notification = new ProgressNotification(step, progress);
-            Mediator.Publish(notification);
-            Logger.Log($"[{GetType().Name}] Progress: {step} ({progress:P})");
-        }
-        
-        /// <summary>Notify step completion</summary>
-        protected void NotifyStepComplete(string step, object data = null)
-        {
-            var notification = new StepCompleteNotification(step, data);
-            Mediator.Publish(notification);
-        }
-        
-        public virtual void Dispose()
-        {
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource?.Dispose();
-        }
-    }
-    
-    public struct OrchestratorResult
-    {
-        public bool IsSuccess { get; init; }
-        public string Message { get; init; }
-        public object Data { get; init; }
-        public TimeSpan Duration { get; init; }
-        
-        public static OrchestratorResult Success(object data = null, TimeSpan duration = default) =>
-            new() { IsSuccess = true, Data = data, Duration = duration };
-            
-        public static OrchestratorResult Failure(string message, TimeSpan duration = default) =>
-            new() { IsSuccess = false, Message = message, Duration = duration };
-    }
-}
-```
+#### 1.4 Basic Commands ✅
+- [x] PauseGameCommand
+- [x] ResumeGameCommand
 
-### 4. Game Context Architecture
+### Phase 2: State Management System (CURRENT)
+**Target**: Replace behavioral state machine with command-driven states
 
-#### Context Design
-```csharp
-namespace CardWar.Core.Context
-{
-    /// <summary>
-    /// Immutable game context carrying state through command pipeline
-    /// </summary>
-    public class GameContext : ICloneable
-    {
-        // Core state
-        public GameState CurrentState { get; init; }
-        public GameState PreviousState { get; init; }
-        public DateTime StateChangedAt { get; init; }
-        
-        // Game data
-        public Player[] Players { get; init; }
-        public GameBoard Board { get; init; }
-        public RoundData CurrentRound { get; init; }
-        public WarData CurrentWar { get; init; }
-        
-        // System data
-        public GameSettings Settings { get; init; }
-        public IReadOnlyDictionary<string, object> Properties { get; init; }
-        
-        // Validation
-        public bool IsValid =>
-            CurrentState != GameState.Invalid &&
-            Players?.Length > 0 &&
-            Board != null &&
-            Settings != null;
-        
-        /// <summary>Create new context with updated state</summary>
-        public GameContext WithState(GameState newState) =>
-            this with 
-            { 
-                PreviousState = CurrentState,
-                CurrentState = newState,
-                StateChangedAt = DateTime.UtcNow
-            };
-        
-        /// <summary>Create new context with updated property</summary>
-        public GameContext WithProperty(string key, object value)
-        {
-            var newProps = new Dictionary<string, object>(Properties) { [key] = value };
-            return this with { Properties = newProps };
-        }
-        
-        /// <summary>Create new context with updated round</summary>
-        public GameContext WithRound(RoundData round) =>
-            this with { CurrentRound = round };
-        
-        /// <summary>Create new context with updated war</summary>
-        public GameContext WithWar(WarData war) =>
-            this with { CurrentWar = war };
-        
-        public object Clone() => this with { };
-        
-        // Factory methods
-        public static GameContext Create(GameSettings settings, Player[] players, GameBoard board) =>
-            new()
-            {
-                CurrentState = GameState.Initializing,
-                StateChangedAt = DateTime.UtcNow,
-                Players = players ?? throw new ArgumentNullException(nameof(players)),
-                Board = board ?? throw new ArgumentNullException(nameof(board)),
-                Settings = settings ?? throw new ArgumentNullException(nameof(settings)),
-                Properties = new Dictionary<string, object>()
-            };
-    }
-    
-    public class RoundData
-    {
-        public int RoundNumber { get; init; }
-        public Card[] PlayerCards { get; init; }
-        public Card[] OpponentCards { get; init; }
-        public Player Winner { get; init; }
-        public bool IsComplete { get; init; }
-        public bool IsWar { get; init; }
-        public DateTime StartedAt { get; init; }
-        public DateTime? CompletedAt { get; init; }
-    }
-    
-    public class WarData
-    {
-        public int WarNumber { get; init; }
-        public Card[] PlayerWarCards { get; init; }
-        public Card[] OpponentWarCards { get; init; }
-        public bool IsResolved { get; init; }
-        public Player Winner { get; init; }
-    }
-}
-```
+#### 2.1 State Infrastructure
+- [ ] ICommandStateManager interface
+- [ ] CommandStateManager implementation
+- [ ] StateTransition structure
+- [ ] Transition validation rules
 
-### 5. Mediator Architecture
+#### 2.2 State Transition Commands
+- [ ] StateTransitionCommand base class
+- [ ] TransitionToMainMenuCommand
+- [ ] TransitionToInitializingCommand
+- [ ] TransitionToPlayingCommand
+- [ ] TransitionToGameOverCommand
 
-#### Mediator Interface
-```csharp
-namespace CardWar.Core.Mediator
-{
-    public interface IGameMediator : IDisposable
-    {
-        /// <summary>Send request and await response</summary>
-        UniTask<TResponse> SendAsync<TResponse>(IRequest<TResponse> request);
-        
-        /// <summary>Publish notification (fire-and-forget)</summary>
-        void Publish<T>(T notification) where T : INotification;
-        
-        /// <summary>Subscribe to notifications</summary>
-        IDisposable Subscribe<T>(Func<T, UniTask> handler) where T : INotification;
-        
-        /// <summary>Register request handler</summary>
-        void RegisterHandler<TRequest, TResponse>(IRequestHandler<TRequest, TResponse> handler)
-            where TRequest : IRequest<TResponse>;
-    }
-    
-    public interface IRequest<TResponse>
-    {
-        Guid RequestId { get; }
-        DateTime Timestamp { get; }
-    }
-    
-    public interface INotification
-    {
-        string EventType { get; }
-        DateTime Timestamp { get; }
-        object Payload { get; }
-    }
-    
-    public interface IRequestHandler<TRequest, TResponse> 
-        where TRequest : IRequest<TResponse>
-    {
-        UniTask<TResponse> HandleAsync(TRequest request);
-    }
-}
-```
+#### 2.3 Bridge Service
+- [ ] StateManagementBridge (IGameStateService)
+- [ ] Event compatibility layer
+- [ ] Legacy state machine wrapper
+- [ ] Gradual migration support
 
-## Unity-Specific Considerations
+#### 2.4 Testing & Validation
+- [ ] State transition tests
+- [ ] Bridge compatibility tests
+- [ ] Performance benchmarks
 
-### Performance Optimization
-1. **Command Pooling**: Reuse command instances for frequent operations
-2. **Context Pooling**: Pool context objects to reduce GC pressure
-3. **Async Scheduling**: Use UniTask.Yield() to spread work across frames
-4. **Memory Management**: Implement IDisposable consistently
+### Phase 3: Game Command Migration
+**Target**: Convert all game actions to commands
 
-### Integration Patterns
-1. **MonoBehaviour Lifecycle**: Initialize during Start(), cleanup in OnDestroy()
-2. **ScriptableObject Configuration**: Use for game settings and data
-3. **Asset Management**: Wrap asset loading in commands
-4. **Animation Integration**: Create animation commands for UI feedback
+#### 3.1 Card Commands
+- [ ] DealCardsCommand
+- [ ] DrawCardCommand
+- [ ] PlayCardCommand
+- [ ] CompareCardsCommand
 
-### Error Handling Strategy
-1. **Graceful Degradation**: Fall back to simpler operations on failure
-2. **User Feedback**: Show meaningful error messages through UI
-3. **Recovery Mechanisms**: Automatic retry for transient failures
-4. **Debug Information**: Comprehensive logging for development builds
+#### 3.2 War Commands
+- [ ] InitiateWarCommand
+- [ ] ResolveWarCommand
+- [ ] CollectWarCardsCommand
 
-### Testing Architecture
-1. **Unit Tests**: Test individual commands in isolation
-2. **Integration Tests**: Test orchestrator workflows
-3. **Performance Tests**: Validate frame rate impact
-4. **UI Tests**: Automated UI interaction testing
-
-## Migration Strategy
-
-### Phase 1: Foundation
-- Implement core interfaces and base classes
-- Create basic pipeline with minimal middleware
-- Set up dependency injection container
-- Add comprehensive logging
-
-### Phase 2: Command Implementation
-- Convert existing game operations to commands
-- Implement validation and error handling
-- Add performance monitoring
-- Create unit tests for each command
-
-### Phase 3: Orchestrator Development
-- Build orchestrators for complex workflows
-- Integrate with existing managers
-- Add progress reporting and cancellation
-- Implement integration tests
+#### 3.3 Game Flow Commands
+- [ ] StartGameCommand
+- [ ] EndGameCommand
+- [ ] CheckVictoryCommand
+- [ ] ResetGameCommand
 
 ### Phase 4: UI Integration
-- Connect UI to mediator notifications
-- Replace direct event handling
-- Add loading indicators and feedback
-- Validate complete user workflows
+**Target**: Connect UI to command pipeline
 
-This specification provides the technical foundation for implementing a professional Unity Command-Pipeline-Mediator architecture.
+#### 4.1 UI Command Dispatchers
+- [ ] ButtonCommandDispatcher
+- [ ] InputCommandDispatcher
+- [ ] AnimationCommandTrigger
+
+#### 4.2 UI State Observers
+- [ ] StateChangeListener
+- [ ] CommandResultHandler
+- [ ] UIUpdateMediator
+
+### Phase 5: Service Layer Refactoring
+**Target**: Align services with command pattern
+
+#### 5.1 Service Interfaces
+- [ ] Align with command expectations
+- [ ] Remove direct state manipulation
+- [ ] Add command-friendly methods
+
+#### 5.2 Service Registration
+- [ ] Update ServiceLocator usage
+- [ ] Command-aware service lifecycle
+- [ ] Lazy initialization support
+
+### Phase 6: Cleanup & Optimization
+**Target**: Remove old architecture, optimize new system
+
+#### 6.1 Legacy Removal
+- [ ] Remove old state machine
+- [ ] Remove event system
+- [ ] Remove bridge service
+- [ ] Clean up unused interfaces
+
+#### 6.2 Performance Optimization
+- [ ] Command pooling
+- [ ] Context caching
+- [ ] Pipeline optimization
+- [ ] Memory profiling
+
+## Implementation Strategy
+
+### Gradual Migration Approach
+1. **Parallel Systems**: New commands work alongside old events
+2. **Bridge Pattern**: Old code continues working during migration
+3. **Incremental Conversion**: One subsystem at a time
+4. **Testing at Each Step**: Ensure nothing breaks
+5. **Feature Flag Control**: Toggle between old/new systems
+
+### Code Example: Migration Pattern
+```csharp
+// Old System (preserved during migration)
+public class GameManager : MonoBehaviour
+{
+    private IGameStateService _stateService; // Works through bridge
+    
+    void Start()
+    {
+        _stateService = ServiceLocator.Get<IGameStateService>();
+        _stateService.OnStateChanged += HandleStateChanged;
+    }
+}
+
+// Bridge Implementation
+public class StateManagementBridge : IGameStateService
+{
+    private readonly ICommandPipeline _pipeline;
+    private readonly IGameMediator _mediator;
+    
+    public event Action<GameState, GameState> OnStateChanged;
+    
+    public void ChangeState(GameState newState)
+    {
+        // Convert old API call to new command
+        var command = CreateTransitionCommand(newState);
+        _pipeline.ExecuteAsync(command).ContinueWith(result =>
+        {
+            if (result.IsSuccess)
+            {
+                // Trigger old event for compatibility
+                OnStateChanged?.Invoke(_lastState, newState);
+            }
+        });
+    }
+}
+
+// New System (gradually taking over)
+public class NewGameFlow
+{
+    private readonly ICommandPipeline _pipeline;
+    
+    public async UniTask StartGame()
+    {
+        var command = new TransitionToPlayingCommand();
+        var result = await _pipeline.ExecuteAsync(command);
+        // Direct command usage, no events
+    }
+}
+```
+
+## State Transition Mapping
+
+### Old State Machine States
+```csharp
+// BEFORE: Single state system with behavior
+public class PlayingState : BaseState
+{
+    public override void Enter() { /* setup logic */ }
+    public override void Update() { /* game loop */ }
+    public override void Exit() { /* cleanup */ }
+}
+
+// Old states to REMOVE:
+- BaseState (abstract class with behavior)
+- UninitializedState
+- MainMenuState
+- InitializingState
+- PlayingState
+- PausedState
+- GameOverState
+```
+
+### New Dual State System
+```csharp
+// AFTER: Dual state enums, no behavior
+public enum AppState
+{
+    Initializing,
+    MainMenu,
+    LoadingGame,
+    InGame,
+    GameOver
+}
+
+public enum GameState
+{
+    WaitingToStart,
+    PlayerTurn,
+    OpponentTurn,
+    ResolvingBattle,
+    War,
+    CollectingCards,
+    CheckingVictory,
+    Paused,
+    Error
+}
+
+// App state transitions as commands
+public class TransitionToInGameCommand : AppStateTransitionCommand
+{
+    protected override AppState TargetState => AppState.InGame;
+    
+    protected override async UniTask<ValidationResult> ValidateTransition(
+        GameContext context, 
+        IAppStateManager stateManager)
+    {
+        // Validation that was in CanTransition
+        return ValidationResult.Valid();
+    }
+    
+    protected override async UniTask<GameContext> ApplyStateChange(GameContext context)
+    {
+        // Logic that was in Enter()
+        return context
+            .WithAppState(AppState.InGame)
+            .WithGameState(GameState.WaitingToStart);
+    }
+}
+
+// Game state transitions as commands
+public class TransitionToWarCommand : GameStateTransitionCommand
+{
+    protected override GameState TargetState => GameState.War;
+    
+    protected override async UniTask<ValidationResult> ValidateTransition(
+        GameContext context,
+        IGameStateManager stateManager)
+    {
+        if (context.AppState != AppState.InGame)
+            return ValidationResult.Invalid("Must be in game");
+            
+        if (context.GameState != GameState.ResolvingBattle)
+            return ValidationResult.Invalid("War only after battle resolution");
+            
+        if (!context.IsTie)
+            return ValidationResult.Invalid("War only on tie");
+            
+        return ValidationResult.Valid();
+    }
+}
+```
+
+### Migration Mapping
+| Old State | New AppState | New GameState | Notes |
+|-----------|--------------|---------------|-------|
+| UninitializedState | Initializing | N/A | App loading |
+| MainMenuState | MainMenu | N/A | Menu screen |
+| InitializingState | LoadingGame | N/A | Game assets loading |
+| PlayingState | InGame | PlayerTurn/OpponentTurn | Active gameplay |
+| PausedState | InGame | Paused | Game paused |
+| GameOverState | GameOver | N/A | Results screen |
+
+## Risk Mitigation
+
+### Identified Risks
+1. **ServiceLocator Conflicts**: New implementation conflicts with existing
+   - **Mitigation**: Use existing ServiceLocator, don't replace
+   
+2. **Breaking Existing Functionality**: Old code stops working
+   - **Mitigation**: Bridge pattern maintains compatibility
+   
+3. **Performance Degradation**: Commands slower than direct calls
+   - **Mitigation**: Command pooling, optimization phase
+   
+4. **Complex Migration**: Too many moving parts
+   - **Mitigation**: Incremental phases, testing at each step
+
+### Rollback Strategy
+- Feature flags for each phase
+- Parallel systems during migration
+- Complete test coverage before switching
+- Ability to revert to old system quickly
+
+## Success Metrics
+
+### Technical Metrics
+- **Test Coverage**: >80% for all commands
+- **Performance**: <5ms command execution time
+- **Memory**: <10% increase in memory usage
+- **Bugs**: <5 critical bugs during migration
+
+### Architecture Metrics
+- **Decoupling**: No direct dependencies between game systems
+- **Testability**: All commands unit testable
+- **Maintainability**: Single responsibility for each command
+- **Extensibility**: New features as new commands
+
+## Timeline Estimates
+
+### Phase Durations
+- **Phase 1**: ✅ Completed
+- **Phase 2**: 2-3 days (State Management)
+- **Phase 3**: 3-4 days (Game Commands)
+- **Phase 4**: 2 days (UI Integration)
+- **Phase 5**: 2 days (Service Refactoring)
+- **Phase 6**: 1-2 days (Cleanup)
+
+**Total Estimate**: 10-14 days
+
+## Current Status & Next Steps
+
+### Completed ✅
+- Phase 1.1: Core command infrastructure
+- Basic command implementations
+- Pipeline and mediator setup
+
+### In Progress 🔄
+- Phase 2.1: State management infrastructure
+- Documentation updates
+- Service dependency resolution
+
+### Blocked ⚠️
+- Testing of Phase 1 (service dependencies)
+- Full integration (needs state management)
+
+### Immediate Actions
+1. Fix ServiceLocator usage in commands
+2. Implement ICommandStateManager
+3. Create StateManagementBridge
+4. Test Phase 1 components
+5. Begin Phase 2.2 implementation
+
+## Command Catalog
+
+### System Commands
+```csharp
+PauseGameCommand - Pauses game
+ResumeGameCommand - Resumes from pause
+SaveGameCommand - Saves game state
+LoadGameCommand - Loads saved state
+```
+
+### State Commands
+```csharp
+TransitionToMainMenuCommand - Go to main menu
+TransitionToInitializingCommand - Start initialization
+TransitionToPlayingCommand - Begin gameplay
+TransitionToGameOverCommand - End game
+```
+
+### Game Commands
+```csharp
+DealCardsCommand - Initial deal
+DrawCardCommand - Draw from deck
+PlayCardCommand - Play to table
+CompareCardsCommand - Compare values
+InitiateWarCommand - Start war sequence
+ResolveWarCommand - Resolve war
+CollectCardsCommand - Collect won cards
+CheckVictoryCommand - Check win condition
+```
+
+## Notes for Developers
+
+### When Creating New Commands
+1. Extend appropriate base class
+2. Implement validation logic
+3. Keep execution logic simple
+4. Use ServiceLocator for dependencies
+5. Return meaningful CommandResult
+6. Log important steps
+7. Write unit tests
+
+### When Migrating Old Code
+1. Identify the action/behavior
+2. Create corresponding command
+3. Move validation to ValidateAsync
+4. Move execution to ExecuteAsyncCore
+5. Use bridge for compatibility
+6. Test both old and new paths
+7. Remove old code when stable
+
+### Best Practices
+- Commands are immutable
+- Context is immutable (use WithXXX methods)
+- Validation before execution
+- Meaningful error messages
+- Comprehensive logging
+- Pool frequently used commands
+- Test in isolation
